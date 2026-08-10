@@ -1,0 +1,140 @@
+/* ==========================================================================
+   theme1.css — Gold & Dark (Great Vibes)
+   Purpose: Colors, fonts, and theme1-specific component styling
+   ========================================================================== */
+:root {
+    /* Core Theme Tokens */
+    --mw-primary-color: #d4af37;
+    --mw-secondary-color: #b5952f;
+    --mw-accent-color: #f13c20;
+    --mw-background-color: #16161a;
+    --mw-card-background: #1f1f25;
+    --mw-heading-color: #ffffff;
+    --mw-text-color: #a0a0b0;
+
+    --mw-border-radius: 12px;
+    --mw-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+    --mw-font-heading: 'Great Vibes', cursive;
+    --mw-font-body: 'Inter', sans-serif;
+
+    /* Offer Card Theme Tokens */
+    --mw-offer-badge-bg: #d4af37;
+    --mw-offer-badge-color: #111;
+    --mw-offer-card-shadow: 0 8px 30px rgba(212, 175, 55, 0.1);
+    --mw-offer-cta-bg: #d4af37;
+
+    /* Component Tokens */
+    --mw-btn-on-primary: #111;
+    --mw-nav-bg: rgba(31, 31, 37, 0.95);
+    --mw-nav-border: rgba(255, 255, 255, 0.1);
+    --mw-nav-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+    --mw-card-border: rgba(255, 255, 255, 0.05);
+    --mw-input-bg: var(--mw-background-color);
+    --mw-input-border: rgba(255, 255, 255, 0.1);
+    --mw-cat-active-bg: var(--mw-card-background);
+    --mw-cat-img-bg: #fff;
+    --mw-cat-img-border: transparent;
+}
+
+body {
+    background-color: var(--mw-background-color);
+    color: var(--mw-text-color);
+    font-family: var(--mw-font-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, .font-heading {
+    font-family: var(--mw-font-heading);
+    color: var(--mw-heading-color);
+}
+
+/* =========================================
+   Theme1 Component Styling
+   ========================================= */
+
+/* Section title — centered with underline dash */
+.mw-section-title {
+    font-size: 2rem;
+}
+
+.mw-section-title::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 2px;
+    background-color: var(--mw-primary-color);
+    margin: 8px auto 0;
+}
+
+/* Cards */
+.mw-card {
+    border: 1px solid var(--mw-card-border);
+}
+
+/* Category sidebar */
+.mw-cat-item.active {
+    background-color: var(--mw-cat-active-bg);
+}
+
+.mw-cat-img-box {
+    background: var(--mw-cat-img-bg);
+    border: 1px solid var(--mw-cat-img-border);
+}
+
+/* Buttons */
+.mw-btn-add:hover {
+    background: var(--mw-primary-color);
+    color: var(--mw-background-color);
+}
+
+.mw-btn-add-overlay {
+    color: var(--mw-btn-on-primary);
+}
+
+.mw-btn-add-overlay:hover {
+    background: var(--mw-secondary-color);
+    color: var(--mw-btn-on-primary);
+}
+
+.mw-btn-add-shop {
+    color: var(--mw-btn-on-primary);
+}
+
+.mw-btn-add-shop:hover {
+    background: var(--mw-secondary-color);
+    border-color: var(--mw-secondary-color);
+    color: var(--mw-btn-on-primary);
+}
+
+/* Forms */
+.mw-input {
+    background-color: var(--mw-input-bg);
+    border: 1px solid var(--mw-input-border);
+}
+
+.mw-input:focus {
+    border-color: var(--mw-primary-color);
+}
+
+/* Share buttons */
+.mw-qr-share .mw-share-btn {
+    background-color: var(--mw-primary-color);
+    color: var(--mw-btn-on-primary);
+}
+
+.mw-qr-share .mw-share-btn:hover {
+    background-color: var(--mw-secondary-color);
+}
+
+/* Navigation */
+.mw-sticky-nav {
+    background-color: var(--mw-nav-bg);
+    border-top: 1px solid var(--mw-nav-border);
+    box-shadow: var(--mw-nav-shadow);
+}
+
+.mw-nav-item:hover,
+.mw-nav-item.active {
+    transform: scale(1.1);
+}

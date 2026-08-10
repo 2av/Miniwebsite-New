@@ -1,0 +1,160 @@
+@import 'tailwindcss';
+
+/*
+  Brand tokens from the live site stylesheet.
+  Look & feel must match the live site — do not invent a new theme.
+*/
+:root {
+  --mw-navy: #002169;
+  --mw-navy-deep: #00205b;
+  --mw-gold: #ffbe17;
+  --mw-gold-hover: #e0a800;
+  --mw-font: 'Baloo Bhai 2', sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--mw-font);
+  font-size: 14px;
+  color: #222;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mw-heading {
+  font-size: 36px;
+  color: var(--mw-navy);
+  font-weight: 700;
+}
+
+.mw-btn-primary {
+  background-color: var(--mw-gold);
+  border: 1px solid var(--mw-gold);
+  border-radius: 8px;
+  padding: 4px 14px;
+  color: #fff;
+  font-weight: 600;
+  transition: 0.4s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mw-btn-primary:hover {
+  background-color: var(--mw-gold);
+  border-color: var(--mw-gold);
+  box-shadow: 1px 3px 3px hsl(0deg 0% 80% / 50%);
+  color: #fff;
+  transform: scale(1.02);
+}
+
+/* Login password field — eye toggle centered inside the input */
+.password-field {
+  position: relative;
+}
+
+.password-field .form-control {
+  padding-right: 44px;
+  width: 100%;
+}
+
+.password-field .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  line-height: 1;
+}
+
+.password-field .password-toggle i {
+  font-size: 16px;
+  color: #6c757d;
+  transition: color 0.2s ease;
+}
+
+.password-field .password-toggle:hover i {
+  color: #002169;
+}
+
+/* Login title — avoid global .heading (36px) / section underline conflicts */
+.login-container .login-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 0 20px;
+  padding: 0 0 10px;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  position: relative;
+}
+
+.login-container .login-heading::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 150px;
+  margin: 0 auto;
+  border-bottom: solid 2px #ffbe17;
+}
+
+.login-container .login-heading-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.login-container .login-heading-back i {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.login-container .login-heading-text {
+  display: inline-block;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 575.98px) {
+  .login-container .login-heading,
+  .login-container .login-heading-text {
+    font-size: 26px;
+  }
+  .login-container .login-heading-text {
+    white-space: normal;
+  }
+}

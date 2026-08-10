@@ -1,0 +1,189 @@
+/* ==========================================================================
+   theme2.css — Deep Teal & Lime Green (Plus Jakarta Sans)
+   Purpose: Colors, fonts, and theme2-specific component styling
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    /* Core Theme Tokens */
+    --mw-primary-color: #a3e635;
+    --mw-secondary-color: #84cc16;
+    --mw-accent-color: #10b981;
+
+    --mw-background-color: #0b141a;
+    --mw-card-background: #112027;
+    --mw-heading-color: #ffffff;
+    --mw-text-color: #94a3b8;
+
+    --mw-border-radius: 12px;
+    --mw-shadow: 0 12px 30px rgba(5, 12, 16, 0.6),
+                 0 1px 2px rgba(255, 255, 255, 0.03);
+
+    --mw-font-heading: 'Plus Jakarta Sans', sans-serif;
+    --mw-font-body: 'Plus Jakarta Sans', sans-serif;
+
+    /* Offer Card Theme Tokens */
+    --mw-offer-badge-bg: #a3e635;
+    --mw-offer-badge-color: #0b141a;
+    --mw-offer-card-shadow: 0 10px 25px rgba(163, 230, 53, 0.1);
+    --mw-offer-cta-bg: #a3e635;
+
+    /* Component Tokens */
+    --mw-btn-on-primary: #0b141a;
+    --mw-btn-hover-bg: #bef264;
+    --mw-nav-bg: rgba(11, 20, 26, 0.92);
+    --mw-nav-border: rgba(163, 230, 53, 0.12);
+    --mw-nav-inactive: #64748b;
+    --mw-nav-shadow: 0 -5px 25px rgba(0, 0, 0, 0.6);
+    --mw-card-border: rgba(163, 230, 53, 0.05);
+    --mw-input-bg: rgba(17, 32, 39, 0.6);
+    --mw-input-border: rgba(255, 255, 255, 0.06);
+    --mw-cat-active-bg: rgba(163, 230, 53, 0.05);
+    --mw-cat-img-bg: rgba(17, 32, 39, 0.8);
+    --mw-cat-img-border: rgba(163, 230, 53, 0.15);
+}
+
+body {
+    background-color: var(--mw-background-color);
+    background-image:
+        radial-gradient(circle at 10% 20%, rgba(163, 230, 53, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 40%);
+    color: var(--mw-text-color);
+    font-family: var(--mw-font-body);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+}
+
+h1, h2, .font-heading {
+    font-family: var(--mw-font-heading);
+    color: var(--mw-heading-color);
+    font-weight: 700;
+}
+
+::selection {
+    background-color: var(--mw-primary-color);
+    color: var(--mw-btn-on-primary);
+}
+
+/* =========================================
+   Theme2 Component Styling
+   ========================================= */
+
+/* Section title — horizontal dash (vcard22 style) */
+.mw-section-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    justify-content: center;
+}
+
+.mw-section-title::after {
+    content: '';
+    display: inline-block;
+    flex-grow: 0;
+    width: 45px;
+    height: 2px;
+    background-color: var(--mw-primary-color) !important;
+    margin: 0;
+}
+
+/* Cards */
+.mw-card {
+    background-color: var(--mw-card-background) !important;
+    border: 1px solid var(--mw-card-border) !important;
+}
+
+/* Category sidebar */
+.mw-cat-item {
+    border-left: 3px solid transparent !important;
+}
+
+.mw-cat-item.active {
+    border-left-color: var(--mw-primary-color) !important;
+    background-color: var(--mw-cat-active-bg) !important;
+}
+
+.mw-cat-img-box {
+    background: var(--mw-cat-img-bg) !important;
+    border: 1px solid var(--mw-cat-img-border);
+}
+
+/* Buttons */
+.mw-btn-add {
+    border: 1px solid var(--mw-primary-color) !important;
+    color: var(--mw-primary-color) !important;
+    background: transparent !important;
+}
+
+.mw-btn-add:hover {
+    background: var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+    box-shadow: 0 0 10px rgba(163, 230, 53, 0.3);
+}
+
+.mw-btn-add-overlay {
+    background: var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-btn-add-overlay:hover {
+    background: var(--mw-btn-hover-bg) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-btn-add-shop {
+    background: var(--mw-primary-color) !important;
+    border: 1px solid var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+    box-shadow: 0 4px 12px rgba(163, 230, 53, 0.15);
+}
+
+.mw-btn-add-shop:hover {
+    background: var(--mw-btn-hover-bg) !important;
+    border-color: var(--mw-btn-hover-bg) !important;
+    box-shadow: 0 4px 16px rgba(163, 230, 53, 0.3);
+}
+
+/* Forms */
+.mw-input {
+    background-color: var(--mw-input-bg) !important;
+    border: 1px solid var(--mw-input-border) !important;
+    color: var(--mw-heading-color) !important;
+}
+
+.mw-input:focus {
+    border-color: var(--mw-primary-color) !important;
+    background-color: rgba(17, 32, 39, 0.9) !important;
+    box-shadow: 0 0 10px rgba(163, 230, 53, 0.15);
+}
+
+/* Share buttons */
+.mw-qr-share .mw-share-btn {
+    background-color: var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-qr-share .mw-share-btn:hover {
+    background-color: var(--mw-btn-hover-bg) !important;
+}
+
+/* Navigation */
+.mw-sticky-nav {
+    background-color: var(--mw-nav-bg) !important;
+    border-top: 1px solid var(--mw-nav-border) !important;
+    box-shadow: var(--mw-nav-shadow) !important;
+}
+
+.mw-nav-item {
+    color: var(--mw-nav-inactive) !important;
+}
+
+.mw-nav-item:hover,
+.mw-nav-item.active {
+    color: var(--mw-primary-color) !important;
+}

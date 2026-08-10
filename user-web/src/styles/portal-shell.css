@@ -1,0 +1,1029 @@
+/**
+ * Portal bridge CSS — mirrors user/includes/header.php inline rules only.
+ * Do NOT redefine .upload-profile / .circle / Pay Now / table (those live in
+ * assets/css/styles.css + common.css).
+ */
+:root {
+  --mw-color-primary: #ffbe17;
+  --mw-color-primary-dark: #2b4ba9;
+  --mw-color-primary-light: #e0bf4a;
+  --mw-color-secondary: #5c6b7a;
+  --mw-color-secondary-dark: #0f0f1c;
+  --mw-color-accent: #ffc107;
+  --mw-color-bg: #f8fafc;
+  --mw-color-surface: #ffffff;
+  --mw-color-border: #e2e8f0;
+  --mw-color-text: #0f172a;
+  --mw-color-text-muted: #64748b;
+  --mw-color-nav-active: #2b4ba9;
+  --mw-topnav-height: 8.1rem;
+  --mw-sidebar-width: 260px;
+  --mw-sidebar-width-mobile: 280px;
+  --mw-content-padding-top: 1.5rem;
+  --mw-content-padding-x: 1rem;
+  --mw-content-padding-x-md: 2.5rem;
+  --mw-page-header-gap: 1.5rem;
+  --mw-page-header-padding-bottom: 1rem;
+  --mw-font-page-title: 1.5rem;
+  --mw-font-page-title-lg: 1.875rem;
+  --mw-font-body: 0.875rem;
+  --mw-font-caption: 0.75rem;
+  --mw-font-breadcrumb: 0.875rem;
+  --mw-icon: 1.25rem;
+  --mw-radius-input: 0.5rem;
+  --mw-shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06);
+  --mw-shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 4px 12px -2px rgb(0 0 0 / 0.05);
+  --mw-shadow-elevated: 0 8px 24px -4px rgb(0 0 0 / 0.08), 0 4px 8px -2px rgb(0 0 0 / 0.04);
+}
+
+body.sb-nav-fixed.mw-portal-app {
+  background: var(--mw-color-bg);
+  font-family: Barlow, system-ui, sans-serif;
+  color: var(--mw-color-text);
+}
+
+/* Tailwind !shadow-card (header.php sb-topnav) */
+.\!shadow-card,
+.shadow-card {
+  --tw-shadow: var(--mw-shadow-card) !important;
+  --tw-shadow-colored: var(--mw-shadow-card) !important;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
+}
+
+/* ---- Top nav (from header.php) ---- */
+.sb-topnav.navbar,
+.sb-topnav {
+  height: var(--mw-topnav-height) !important;
+  min-height: var(--mw-topnav-height) !important;
+  padding-top: 0.625rem !important;
+  padding-bottom: 0.625rem !important;
+  align-items: stretch !important;
+  background: #fff !important;
+  border-bottom: 1px solid var(--mw-color-border);
+  z-index: 1039;
+  /* Override legacy common.css height:130px */
+  padding-left: 0 !important;
+  --tw-shadow: var(--mw-shadow-card) !important;
+  --tw-shadow-colored: var(--mw-shadow-card) !important;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
+}
+
+.sb-topnav .head-left {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex: 0 0 var(--mw-sidebar-width) !important;
+  width: var(--mw-sidebar-width) !important;
+  max-width: var(--mw-sidebar-width) !important;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-left: 1rem !important;
+  padding-right: 0.75rem !important;
+  gap: 0.5rem;
+}
+
+.sb-topnav .navbar-brand {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.sb-topnav .navbar-brand .mw-logo {
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.sb-topnav .navbar-brand .mw-logo--desktop {
+  display: none !important;
+}
+.sb-topnav .navbar-brand .mw-logo--mobile {
+  display: block !important;
+  max-height: 2.5rem !important;
+  max-width: 9rem !important;
+}
+
+@media (min-width: 768px) {
+  .sb-topnav .navbar-brand .mw-logo--desktop {
+    display: block !important;
+    max-width: 16.9rem !important;
+    max-height: 4.55rem !important;
+  }
+  .sb-topnav .navbar-brand .mw-logo--mobile {
+    display: none !important;
+  }
+  .sb-topnav .head-left {
+    padding-left: 1.25rem !important;
+  }
+}
+
+/* Collapse icon — exact PHP header.php sizing (beats common.css margin-top:85px) */
+#sidebarToggle,
+.sb-topnav #sidebarToggle,
+.sb-topnav.navbar-dark #sidebarToggle {
+  flex-shrink: 0;
+  margin: 0 !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  min-width: 2rem !important;
+  min-height: 2rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--mw-color-text-muted) !important;
+  background: #f1f5f9 !important;
+  border: 1px solid var(--mw-color-border) !important;
+  border-radius: var(--mw-radius-input) !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+}
+#sidebarToggle .fa,
+.sb-topnav #sidebarToggle .fa {
+  font-size: 1rem !important;
+  line-height: 1 !important;
+}
+
+.mw-topnav-divider {
+  display: block;
+  align-self: stretch;
+  width: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--mw-color-border);
+}
+
+.sb-topnav .head-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  padding-right: 1rem;
+  overflow: visible !important;
+}
+.sb-topnav .head-right > .navbar-nav {
+  width: auto !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  align-items: center;
+  overflow: visible !important;
+}
+
+/* Profile wrap — let styles.css handle .circle / .profile-pic / gap:15px */
+.upload-profile-wrap {
+  position: relative !important;
+  width: max-content !important;
+  max-width: 100%;
+  margin-left: auto !important;
+  overflow: visible !important;
+}
+.upload-profile-wrap > .nav-link {
+  display: inline-flex !important;
+  justify-content: flex-end !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.upload-profile-wrap .upload-profile {
+  margin-left: auto;
+  position: relative;
+}
+
+/* Header profile chip — right-align name + ID (header.php) */
+.upload-profile .profile-text {
+  align-items: flex-end !important;
+  text-align: right !important;
+}
+.upload-profile .profile-name-line {
+  justify-content: flex-end !important;
+}
+.upload-profile-wrap .upload-profile .file-upload {
+  display: none !important;
+}
+.upload-profile-wrap .upload-button {
+  cursor: pointer;
+}
+.upload-profile-wrap .profile-text {
+  cursor: pointer;
+}
+
+/* Profile crop modal (PHP image_upload_crop_modal parity) */
+#imageCropModal.mw-modal {
+  position: fixed;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: transparent;
+}
+#imageCropModal .mw-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+#imageCropModal .mw-modal-panel {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+  width: 100%;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+#imageCropModal .mw-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(90deg, #1e4db7 0%, #153e9b 100%);
+  color: #fff;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+#imageCropModal .mw-modal-header-main {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+#imageCropModal .mw-modal-title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+#imageCropModal .mw-modal-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  opacity: 0.9;
+}
+#imageCropModal .mw-modal-close {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+#imageCropModal .mw-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.mw-profile-dropdown {
+  position: absolute !important;
+  top: calc(100% + 0.375rem) !important;
+  right: 0 !important;
+  left: auto !important;
+  min-width: 16rem !important;
+  z-index: 1050 !important;
+  display: none;
+  background: #fff;
+  border: 1px solid var(--mw-color-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  padding: 0.375rem;
+}
+.mw-profile-dropdown.show {
+  display: block;
+}
+.mw-profile-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  color: var(--mw-color-text);
+  text-decoration: none;
+  font-size: 0.875rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.mw-profile-dropdown .dropdown-item:hover {
+  background: #f1f5f9;
+}
+.mw-profile-dropdown .dropdown-item.text-danger {
+  color: #dc2626 !important;
+}
+.mw-profile-dropdown .dropdown-divider {
+  margin: 0.375rem 0;
+  border-top: 1px solid var(--mw-color-border);
+}
+
+/* Light sidebar + active nav */
+#layoutSidenav #layoutSidenav_nav .sb-sidenav {
+  background: #fff !important;
+  border-right: 1px solid var(--mw-color-border) !important;
+}
+.sb-nav-fixed #layoutSidenav #layoutSidenav_content {
+  top: var(--mw-topnav-height) !important;
+}
+
+.mw-portal-nav-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  margin: 0.125rem 0 !important;
+  padding: 0.625rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  color: #334155 !important;
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+  border-left: 2px solid transparent !important;
+}
+.mw-portal-nav-link:hover {
+  background: #f1f5f9 !important;
+}
+.mw-portal-nav-link.mw-nav-link-active,
+.mw-portal-nav-link.active {
+  color: var(--mw-color-nav-active) !important;
+  font-weight: 600 !important;
+  background-color: color-mix(in srgb, var(--mw-color-nav-active) 10%, transparent) !important;
+  border-left-color: var(--mw-color-nav-active) !important;
+}
+.mw-portal-nav-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  background: #f1f5f9;
+  margin-right: 0 !important;
+  flex-shrink: 0;
+}
+.mw-portal-nav-link.mw-nav-link-active .mw-portal-nav-icon-wrap {
+  background-color: color-mix(in srgb, var(--mw-color-nav-active) 14%, transparent) !important;
+}
+.mw-nav-icon {
+  font-size: var(--mw-icon);
+  line-height: 1;
+  color: var(--mw-color-text-muted);
+}
+.mw-portal-nav-link.mw-nav-link-active .mw-nav-icon,
+.mw-portal-nav-link:hover .mw-nav-icon {
+  color: var(--mw-color-nav-active) !important;
+}
+
+/* Page header / content padding come from mw-portal-inline.css (header.php).
+   Do not pad main.Dashboard here — PHP pads .customer_content_area only. */
+
+footer.mw-portal-footer {
+  background: #fff !important;
+  border-top: 1px solid var(--mw-color-border);
+  padding: 1rem 0;
+  margin-top: auto;
+}
+footer.mw-portal-footer .Copyright {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: var(--mw-font-body);
+}
+footer.mw-portal-footer .Copyright-right p {
+  color: var(--mw-color-nav-active) !important;
+  font-size: var(--mw-font-caption) !important;
+  margin: 0;
+}
+footer.mw-portal-footer a {
+  color: #64748b;
+  text-decoration: none;
+}
+
+/* Customer Tracker (user/customer-manager) */
+#customerTrackerSearchForm {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+#customerTrackerSearchForm .tracker-search-input-wrap {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 200px;
+  max-width: 360px;
+}
+#customerTrackerSearchForm .tracker-search-input-wrap .form-control {
+  padding-right: 2.25rem;
+}
+#customerTrackerSearchForm .tracker-search-input-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #6e7a97;
+  padding: 4px 6px;
+  line-height: 1;
+  border-radius: 6px;
+  z-index: 2;
+  cursor: pointer;
+}
+#customerTrackerTableWrap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+#customerTrackerTable {
+  /* Fill card when few columns; grow + scroll when many */
+  width: max-content;
+  min-width: 100%;
+  margin-bottom: 0;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+#customerTrackerTable thead th,
+#customerTrackerTable tbody td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+/* Match dashboard #ReferredUsers / Manage Users table header fonts */
+#customerTrackerTable thead tr:first-child th {
+  padding: 15px 12px;
+  font-weight: 500 !important;
+  font-size: 16px !important;
+  color: #334155;
+}
+#customerTrackerTable tbody td {
+  padding: 10px 12px;
+  font-size: 16px;
+  font-weight: 500;
+}
+#customerTrackerTable thead tr th:first-child,
+#customerTrackerTable tr td:first-child {
+  padding-left: 30px !important;
+}
+#customerTrackerTable tbody tr:first-child td {
+  padding-top: 20px;
+}
+#customerTrackerTable .ct-table-comment {
+  white-space: normal;
+  min-width: 11rem;
+  max-width: 18rem;
+  word-break: break-word;
+}
+/* Don't let ManageUsers / dashboard full-bleed rules shrink this table */
+main.Dashboard .ManageUsers > #customerTrackerTableWrap {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+main.Dashboard .ManageUsers > #customerTrackerTableWrap table#customerTrackerTable {
+  width: max-content !important;
+  min-width: 100% !important;
+}
+.phone-group .country-code-select {
+  max-width: 5.5rem;
+  flex: 0 0 auto;
+}
+.phone-group .phone-input {
+  flex: 1 1 auto;
+}
+
+/* Business Name form — from user/website/business-name.php inline styles */
+.mw-business-name-form {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+.mw-business-name-fields-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem 1.5rem;
+  width: 100%;
+}
+.mw-business-name-fields-row > .mw-form-group {
+  flex: 1 1 0;
+  min-width: min(100%, 16rem);
+  margin-bottom: 0;
+}
+.mw-business-name-fields-row > .mw-form-group:first-child {
+  padding-right: 0.5rem;
+}
+.mw-business-name-fields-row > .mw-form-group:last-child {
+  padding-left: 0.5rem;
+}
+.mw-business-name-fields-row .form-control {
+  width: 100%;
+}
+.mw-business-name-url-extra {
+  width: 100%;
+  margin-top: 1rem;
+}
+.req {
+  color: #dc2626;
+  margin-left: 0.15rem;
+}
+
+/* Portal mw-modal shell (from common/mw_modal.php) — needed in React */
+.mw-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1055;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+.mw-modal.is-open {
+  display: flex;
+}
+.mw-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(26 43 75 / 0.45);
+  backdrop-filter: blur(2px);
+}
+.mw-modal-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 0.5rem);
+  max-width: 32rem;
+  max-height: calc(100vh - 2rem);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px -8px rgb(21 62 155 / 0.22), 0 4px 12px -2px rgb(0 0 0 / 0.08);
+  overflow: hidden;
+}
+.mw-modal-panel.mw-modal-sm { max-width: 24rem; }
+.mw-modal-panel.mw-modal-md { max-width: 32rem; }
+.mw-modal-panel.mw-modal-lg { max-width: 48rem; }
+.mw-modal-panel.mw-modal-xl { max-width: 71.25rem; }
+.mw-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(90deg, #1e4db7 0%, #153e9b 100%);
+  color: #fff;
+  flex-shrink: 0;
+}
+.mw-modal-header-main {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.mw-modal-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  flex-shrink: 0;
+}
+.mw-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+}
+.mw-modal-action-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mw-modal-action-title .fa-whatsapp,
+.mw-modal-action-title .fa-brands {
+  color: #25d366;
+}
+.mw-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.92;
+}
+.mw-modal-close:hover {
+  opacity: 1;
+  background: rgb(255 255 255 / 0.12);
+}
+.mw-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #fff;
+}
+.mw-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  flex-shrink: 0;
+}
+.mw-modal-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e4db7;
+}
+.mw-modal-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* WhatsApp shareOfferModal extras */
+#shareOfferModal .wa-message-field textarea {
+  padding-bottom: 1.75rem;
+  min-height: 200px;
+}
+#shareOfferModal .wa-popup-footer .btn {
+  min-height: 2.4rem;
+}
+@media (max-width: 767.98px) {
+  #shareOfferModal .wa-popup-footer {
+    flex-direction: column;
+  }
+  #shareOfferModal .wa-popup-footer .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .mw-business-name-fields-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .mw-business-name-fields-row > .mw-form-group:first-child,
+  .mw-business-name-fields-row > .mw-form-group:last-child {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Franchisee sidebar Download Invoice (mirrors PHP header.php) */
+.mw-sidebar-invoice {
+  margin-top: 1.25rem;
+  padding: 0 0.75rem 0.5rem;
+}
+.mw-sidebar-invoice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  background: var(--mw-color-accent);
+  color: var(--mw-color-secondary-dark);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  box-shadow: var(--mw-shadow-soft);
+  text-decoration: none;
+  border: 0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.mw-sidebar-invoice-btn:hover {
+  background: #e0a800;
+  color: var(--mw-color-secondary-dark);
+  box-shadow: var(--mw-shadow-card);
+  text-decoration: none;
+}
+.mw-sidebar-invoice-btn.is-disabled {
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+}
+.mw-sidebar-invoice-btn.is-disabled:hover {
+  background: #e2e8f0;
+  color: #64748b;
+  box-shadow: none;
+}
+
+/* Wallet table — match dashboard Manage Users / #ReferredUsers header fonts */
+#WalletTransactions thead tr:first-child th {
+  padding: 15px 0;
+  font-weight: 500 !important;
+  font-size: 16px !important;
+}
+#WalletTransactions thead tr th:first-child,
+#WalletTransactions tr td:first-child {
+  padding-left: 30px !important;
+}
+#WalletTransactions tbody tr:first-child td {
+  padding-top: 20px;
+}
+#WalletTransactions td {
+  padding: 10px 6px;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Wallet recharge form (PHP wallet/index.php parity) */
+.FranchiseeDashboard-head.Wallet .card.RechargeWallet .content > p {
+  margin-bottom: 0.75rem;
+}
+#walletRechargeForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+#walletRechargeForm .recharge_amount {
+  min-width: 11rem;
+  height: 42px;
+}
+.addMoney_btn {
+  font-size: 14px !important;
+  padding: 11px 16px;
+  border: 1px solid #ffbe17;
+  white-space: nowrap;
+}
+@media screen and (max-width: 768px) {
+  #walletRechargeForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .addMoney_btn {
+    width: 100%;
+  }
+}
+
+/* ID Card page — from user/idcard/index.php */
+.idcard-preview-wrapper {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  border: 2px dashed #dee2e6;
+  overflow: hidden;
+}
+.idcard-canvas-col {
+  display: flex;
+  justify-content: center;
+}
+.idcard-canvas {
+  display: block;
+  width: 100%;
+  max-width: 4.25in;
+  height: auto;
+  aspect-ratio: 2.125 / 3.34;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.idcard-head .sub_title {
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+.idcard-head .displayFlex {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+.idcard-head .action-buttons {
+  width: 100%;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.idcard-head .action-buttons button {
+  color: #fff !important;
+  font-size: 16px !important;
+  margin: 0 !important;
+  flex: 1 1 220px;
+}
+.idcard-head #profile_picture {
+  font-size: 16px;
+}
+.idcard-head .profile-preview {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.idcard-head .profile-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 50%;
+  border: 3px solid #007bff;
+  object-fit: cover;
+}
+.idcard-head .upload-download-box {
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 25px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+.idcard-head .upload-download-box .form-group label {
+  font-weight: 600;
+}
+.idcard-head .upload-download-box .btn {
+  width: 100%;
+}
+@media (min-width: 576px) {
+  .idcard-head .upload-download-box .btn {
+    width: auto;
+    min-width: 180px;
+  }
+}
+.idcard-head .heading {
+  font-size: 24px !important;
+}
+@media (max-width: 768px) {
+  .idcard-canvas {
+    max-width: min(100%, 280px);
+  }
+  .idcard-head .upload-download-box {
+    padding: 20px 15px;
+  }
+  .idcard-head .action-buttons {
+    gap: 10px;
+  }
+  .idcard-head .action-buttons button {
+    color: #fff !important;
+    font-size: 14px !important;
+    flex: 1 1 100%;
+  }
+  .idcard-head .heading {
+    font-size: 1.25rem !important;
+  }
+  .idcard-head .sub_title {
+    font-size: 0.95rem;
+  }
+  .idcard-preview-wrapper {
+    padding: 15px 10px;
+  }
+  .idcard-head {
+    overflow-x: hidden;
+  }
+  .idcard-head #profile_picture {
+    font-size: 14px;
+    max-width: 100%;
+  }
+  .idcard-head .profile-preview img {
+    max-width: 150px;
+    max-height: 150px;
+  }
+}
+
+/* Kit explorer — from user/kit/index.php (Windows-style folders) */
+.kit-explorer-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+.kit-explorer-up {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 6px;
+  background: #002169;
+  color: #fff !important;
+  text-decoration: none !important;
+  flex-shrink: 0;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+.kit-explorer-up:hover {
+  background: #00154d;
+  color: #fff !important;
+}
+.kit-crumb-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #278de6;
+  cursor: pointer;
+  font: inherit;
+}
+.kit-crumb-btn:hover {
+  text-decoration: underline;
+}
+.kit-explorer-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.92rem;
+}
+.kit-explorer-breadcrumb li + li::before {
+  content: '›';
+  margin-right: 0.35rem;
+  color: #94a3b8;
+}
+.kit-folder-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  padding: 1.25rem 0.75rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  min-height: 180px;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+}
+.kit-folder-tile:hover,
+.kit-folder-tile:focus {
+  background: #fff8eb;
+  border-color: #fcd34d;
+  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.15);
+  outline: none;
+  transform: translateY(-2px);
+}
+.kit-folder-icon {
+  font-size: 5.5rem;
+  line-height: 1;
+  margin-bottom: 0.6rem;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.12));
+}
+.kit-folder-icon .win-folder-svg {
+  width: 1em;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.kit-folder-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+  word-break: break-word;
+  max-width: 100%;
+}
+.kit-folder-count {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.3rem;
+}
+@media (max-width: 575.98px) {
+  .kit-folder-icon {
+    font-size: 4rem;
+  }
+  .kit-folder-tile {
+    min-height: 140px;
+  }
+}

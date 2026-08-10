@@ -1,0 +1,420 @@
+/* ==========================================================================
+   theme4.css — Light Modern vCard (Plus Jakarta Sans)
+   Purpose: Colors, fonts, and theme4-specific component styling
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+    /* Core Theme Tokens */
+    --mw-primary-color: #ff922b;
+    --mw-secondary-color: #4dabf7;
+    --mw-accent-color: #f06595;
+    --mw-background-color: #f5f7fb;
+    --mw-card-background: #ffffff;
+    --mw-heading-color: #1e293b;
+    --mw-text-color: #64748b;
+
+    --mw-border-radius: 16px;
+    --mw-shadow: 0 4px 24px rgba(15, 23, 42, 0.07),
+                 0 1px 3px rgba(15, 23, 42, 0.04);
+
+    --mw-font-heading: 'Plus Jakarta Sans', sans-serif;
+    --mw-font-body: 'Plus Jakarta Sans', sans-serif;
+
+    /* Offer Card Theme Tokens */
+    --mw-offer-badge-bg: #fff4e6;
+    --mw-offer-badge-color: #e8590c;
+    --mw-offer-card-shadow: 0 8px 28px rgba(255, 146, 43, 0.12);
+    --mw-offer-cta-bg: #1e293b;
+
+    /* Component Tokens */
+    --mw-btn-on-primary: #ffffff;
+    --mw-btn-hover-bg: #334155;
+    --mw-nav-bg: rgba(255, 255, 255, 0.96);
+    --mw-nav-border: rgba(15, 23, 42, 0.06);
+    --mw-nav-inactive: #94a3b8;
+    --mw-nav-shadow: 0 -4px 24px rgba(15, 23, 42, 0.08);
+    --mw-card-border: rgba(15, 23, 42, 0.06);
+    --mw-input-bg: #eff6ff;
+    --mw-input-border: rgba(77, 171, 247, 0.25);
+    --mw-cat-active-bg: rgba(77, 171, 247, 0.1);
+    --mw-cat-img-bg: #f8fafc;
+    --mw-cat-img-border: rgba(15, 23, 42, 0.08);
+}
+
+body {
+    background-color: var(--mw-background-color);
+    background-image:
+        radial-gradient(ellipse 65% 45% at 0% 4%, rgba(240, 101, 149, 0.11) 0%, transparent 58%),
+        radial-gradient(ellipse 55% 40% at 100% 12%, rgba(77, 171, 247, 0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 35% at 75% 92%, rgba(255, 146, 43, 0.09) 0%, transparent 52%);
+    color: var(--mw-text-color);
+    font-family: var(--mw-font-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+
+
+h1, h2, .font-heading {
+    font-family: var(--mw-font-heading);
+    color: var(--mw-heading-color);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+::selection {
+    background-color: var(--mw-secondary-color);
+    color: #fff;
+}
+
+/* =========================================
+   Theme4 Component Styling
+   ========================================= */
+
+/* Section title — centered with thick accent underline */
+.mw-section-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+.grid .mw-card .mw-contact-icon{
+    position:absolute;
+    top:-13px;
+    .text-xl{
+        font-size: 2.25rem;
+        line-height: 3.75rem;
+    }
+
+}
+
+
+.mw-section-title::after {
+    content: '';
+    display: block;
+    width: 48px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--mw-primary-color);
+    margin: 10px auto 0;
+}
+
+.mw-action-grid .mw-section-title::after { background-color: #f06595; }
+.mw-qr-share .mw-section-title::after { background-color: #4dabf7; }
+.mw-services .mw-section-title::after { background-color: #ff922b; }
+.mw-special-offers .mw-section-title::after { background-color: #f06595; }
+.mw-products .mw-section-title::after { background-color: #4dabf7; }
+.mw-video-gallery .mw-section-title::after { background-color: #9775fa; }
+.mw-image-gallery .mw-section-title::after { background-color: #ff922b; }
+.mw-payment-qr .mw-section-title::after { background-color: #9775fa; }
+.mw-business-info .mw-section-title::after { background-color: #4dabf7; }
+
+/* Cards */
+.mw-card {
+    background-color: var(--mw-card-background) !important;
+    border: 1px solid var(--mw-card-border) !important;
+    box-shadow: var(--mw-shadow) !important;
+    position: relative;
+}
+
+/* Hero */
+.mw-hero > div:first-child img {
+    opacity: 1 !important;
+}
+
+.mw-hero > div:first-child > .absolute {
+    background: linear-gradient(
+        to bottom,
+        rgba(245, 247, 251, 0.05) 0%,
+        rgba(245, 247, 251, 0.92) 100%
+    ) !important;
+}
+
+.mw-hero .rounded-full {
+    border-radius: 20px !important;
+    border-color: #74c0fc !important;
+    border-width: 4px !important;
+    box-shadow: 0 8px 28px rgba(77, 171, 247, 0.22) !important;
+}
+
+.mw-hero h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+.mw-hero .mw-section-padding  p{
+    color: #bebebe;
+    font-size: 20px;
+} 
+    
+
+
+.mw-hero a.flex-1 {
+    background: #1e293b !important;
+    color: #fff !important;
+    border-color: #1e293b !important;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(30, 41, 59, 0.2);
+}
+
+.mw-hero a.flex-1:hover {
+    background: #334155 !important;
+    border-color: #334155 !important;
+}
+.mw-social-links {
+    border-radius: 50px;
+    border: 1px solid;
+    display: flex;
+    flex-direction: row;
+    width: 400px;
+    margin: 0 auto;
+    padding: 5px !important;
+}
+
+.mw-business-intro{
+    margin-top: 20px;
+}
+
+/* Social links */
+.mw-social-links a {
+    
+    color: #000000 !important;
+    background: transparent;
+    font-size: x-large;
+}
+
+.mw-social-links a:hover {
+    background: var(--mw-secondary-color) !important;
+    color: #fff !important;
+    border-color: var(--mw-secondary-color) !important;
+}
+
+/* Contact grid — colorful icon circles */
+.mw-action-grid .mw-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.mw-action-grid .mw-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1) !important;
+}
+
+.mw-contact-icon {
+    border-radius: 50% !important;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    position:absolute;
+    top:-13px
+    
+}
+
+
+
+.mw-action-grid .grid > div:nth-child(1) .mw-contact-icon {
+    background: #fff0f6 !important;
+    color: #e64980 !important;
+}
+
+.mw-action-grid .grid > div:nth-child(2) .mw-contact-icon {
+    background: #fff4e6 !important;
+    color: #fd7e14 !important;
+}
+
+.mw-action-grid .grid > div:nth-child(3) .mw-contact-icon {
+    background: #e7f5ff !important;
+    color: #1c7ed6 !important;
+}
+
+.mw-action-grid .grid > div:nth-child(4) .mw-contact-icon {
+    background: #f3f0ff !important;
+    color: #7950f2 !important;
+}
+
+.mw-action-grid .mw-contact-icon:hover {
+    transform: scale(1.05);
+}
+
+/* QR Share */
+.mw-qr-share {
+    background: transparent !important;
+}
+
+.mw-qr-share .mw-card {
+    border-radius: 20px !important;
+}
+
+.mw-qr-share .bg-white {
+    border-radius: 12px !important;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+/* Category sidebar */
+.mw-cat-item.active {
+    background-color: var(--mw-cat-active-bg) !important;
+    border-left-color: var(--mw-secondary-color) !important;
+}
+
+.mw-cat-img-box {
+    background: var(--mw-cat-img-bg) !important;
+    border: 1px solid var(--mw-cat-img-border) !important;
+}
+
+/* Buttons */
+.mw-btn-add {
+    border: 1px solid var(--mw-primary-color) !important;
+    color: var(--mw-primary-color) !important;
+    background: transparent !important;
+}
+
+.mw-btn-add:hover {
+    background: var(--mw-primary-color) !important;
+    color: #fff !important;
+}
+
+.mw-btn-add-overlay {
+    background: #1e293b !important;
+    color: #fff !important;
+    border-color: #1e293b !important;
+}
+
+.mw-btn-add-overlay:hover {
+    background: var(--mw-btn-hover-bg) !important;
+    color: #fff !important;
+}
+
+.mw-btn-add-shop {
+    background: #1e293b !important;
+    border: 1px solid #1e293b !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(30, 41, 59, 0.18);
+}
+
+.mw-btn-add-shop:hover {
+    background: var(--mw-btn-hover-bg) !important;
+    border-color: var(--mw-btn-hover-bg) !important;
+}
+
+.mw-offer-wa-cta {
+    background: #1e293b !important;
+    color: #fff !important;
+}
+
+.mw-offer-wa-cta:hover {
+    background: #334155 !important;
+}
+
+/* Product card text overrides (HTML uses text-white) */
+.mw-product-card h3,
+.mw-product-card .mw-product-card-sale {
+    color: var(--mw-heading-color) !important;
+}
+
+.mw-product-card .text-gray-500,
+.mw-product-card .text-gray-400 {
+    color: var(--mw-text-color) !important;
+}
+
+/* Forms */
+.mw-input {
+    background-color: var(--mw-input-bg) !important;
+    border: 1px solid var(--mw-input-border) !important;
+    color: var(--mw-heading-color) !important;
+    border-radius: 12px !important;
+}
+
+.mw-input::placeholder {
+    color: #94a3b8;
+}
+
+.mw-input:focus {
+    border-color: var(--mw-secondary-color) !important;
+    background-color: #fff !important;
+    box-shadow: 0 0 0 3px rgba(77, 171, 247, 0.15);
+}
+
+/* Share buttons */
+.mw-qr-share .mw-share-btn {
+    background-color: #1e293b !important;
+    color: #fff !important;
+    border: none !important;
+    font-weight: 600;
+}
+
+.mw-qr-share .mw-share-btn:hover {
+    background-color: var(--mw-btn-hover-bg) !important;
+    color: #fff !important;
+}
+
+.mw-qr-share #mw-download-qr-btn {
+    background: #1e293b !important;
+    color: #fff !important;
+}
+
+.mw-qr-share #mw-download-qr-btn:hover {
+    background: #334155 !important;
+}
+
+/* Services / offers section backgrounds */
+.mw-services,
+.mw-special-offers,
+.mw-video-gallery,
+.mw-business-info {
+    background: transparent !important;
+}
+
+/* Business hours */
+.mw-business-info .border-white\/10 {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Footer */
+.mw-footer {
+    border-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Navigation */
+.mw-sticky-nav {
+    background-color: var(--mw-nav-bg) !important;
+    border-top: 1px solid var(--mw-nav-border) !important;
+    box-shadow: var(--mw-nav-shadow) !important;
+    backdrop-filter: blur(16px);
+}
+
+.mw-nav-item {
+    color: var(--mw-nav-inactive) !important;
+}
+
+.mw-nav-item:hover,
+.mw-nav-item.active {
+    color: var(--mw-secondary-color) !important;
+    transform: scale(1.05);
+}
+
+/* Cart bar */
+.mw-shop-cart-bar {
+    background: rgba(255, 255, 255, 0.98) !important;
+    border-color: rgba(15, 23, 42, 0.08) !important;
+    box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Gallery item border */
+.mw-gallery-item {
+    border-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Offer valid row */
+.mw-offer-valid-row {
+    border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Load more button */
+#mw-videos-load-more {
+    background: rgba(77, 171, 247, 0.1) !important;
+    color: #1c7ed6 !important;
+    border-color: rgba(77, 171, 247, 0.3) !important;
+}
+
+#mw-videos-load-more:hover {
+    background: #4dabf7 !important;
+    color: #fff !important;
+}

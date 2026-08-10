@@ -1,0 +1,465 @@
+
+@import url(https://fonts.googleapis.com/css?family=Montserrat:100,200,300,400,500,600,700);
+
+html {overflow-x: hidden;}
+body {padding: 0;
+    margin: 0;
+    font-family: Montserrat;
+    background: url(card_images/bgt1.png);
+    background-position: center;
+    background-size: 107px 108px;
+    background-attachment: fixed;}
+	a {text-decoration:none;color:unset;}
+div,h1,h2,h3,h4,p,i,a {position:relative;transition:0.4s;}
+
+form,input,textarea,select {font-family:Montserrat;}
+:root {
+	--color:#848484;
+	--color2:#64af35;
+}
+/*alerts */
+div,h1,h2,h3,h4,p,i,a,footer {position:relative;transition:0.4s;}
+
+input,select,textarea,button {font-family: Montserrat;}
+
+a {    text-decoration: unset;
+    color: unset;}
+
+input::placeholder {font-size:12px}
+
+.card,.card2 {}
+
+.btn_buy2 {background: linear-gradient(45deg, #FF5722, #FF9800);
+    color: white;
+    width: fit-content;
+    margin: 5px auto;
+    padding: 10px;
+    font-size: 13px;
+    border-radius: 3px;}
+.alert {     padding: 23px;
+    width: fit-content;
+    font-size: 13px;
+    margin: 0px auto;
+    font-weight: 500;
+    border-radius: 6px;}
+	
+.danger {background: #ffd0d082;
+    color: #d45050;}
+.info {    background: #d0deff82;
+    color: #5097d4;
+}
+.success {background: #90ff6c82;
+    color: #1aab2c;
+}
+.card{   width: 400px;
+    overflow: hidden;
+    margin: 0px auto;
+    z-index: 0;
+    background: repeating-linear-gradient(45deg, white, #efececb8 50px),repeating-linear-gradient(-45deg, #eae5e5, #b9b9b9 50px);
+    background-size: 100% 100%;
+    color: #101e6b;
+    padding: 0px 0px 7px;
+    height: auto;
+
+	}
+	
+	.card_content {margin: 0px;
+    z-index: 2;
+    text-align: center;
+    padding: 31px;
+   
+    -webkit-animation: animateBack 3s linear infinite;
+    animation: animateBack 10s linear infinite;
+    background-position: top;
+    background-attachment: initial;
+    background-size: cover;
+    position: absolute;
+    width: -webkit-fill-available;
+    height: 162px;
+	}
+	
+	
+	
+	#d_logo_back {    position: absolute;
+    z-index: 0;
+    width: 100%;
+    height: 313px;
+    max-width: 100%;
+    left: 0;
+    top: -27px;
+    border: 0px;
+    border-radius: 0;
+    box-shadow: 0px 0px 0px 0px black;
+
+
+
+}
+
+
+
+#social_media_icons {
+	   
+}
+
+#share_on_whatsapp {}
+
+#popup_share_box {}
+	.card_content img{border: 4px solid white;
+    box-shadow: 0px 0px 10px 0px #231f1fa3;
+    max-width: 250px;
+    border-radius: 66px;
+    position: relative;
+    top: 51%;
+    max-height: 100px;}
+	.card_content2 {    z-index: 2;
+    text-align: center;
+    font-weight: 400;
+    background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    margin: 63% auto 18px;
+    color: white;
+    padding: 3px 5px 14px;}
+	.card_content2 h2{text-transform: capitalize;
+    margin: 20px 30px 10px;
+    letter-spacing: -1px;
+}
+
+	.card_content2 p{text-transform: capitalize;
+    font-weight: 600;
+    font-size: 15px;
+    margin: 0px 33px;}
+
+.dis_flex {    display: block;
+    text-align: center;
+    padding: 0px 0px 0px;}
+
+
+
+.dis_flex .link_btn { padding: 7px;
+    width: 49px;
+    font-size: 10px;
+    background: transparent;
+    border-radius: 0px;
+    margin: 8px 2px;
+    display: inline-block;
+    text-align: center;
+    font-weight: 600;
+    color: linear-gradient(45deg, #3F51B5, #9C27B0);
+}
+.dis_flex .link_btn i {
+	font-size: 20px;
+    background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    color: #ffffff;
+    padding: 12px 8px;
+    border-radius: 59px;
+    width: 28px;
+    margin: -20px auto 5px;
+    display: block;
+}
+.contact_details {
+        padding: 4px 36px;
+}
+.contact_details .contact_d{     display: flex;
+    color: linear-gradient(45deg, #3F51B5, #9C27B0);
+}
+.contact_details .contact_d i{margin: 4px;
+    color: white;
+    height: 22px;
+    font-size: 21px;
+    padding: 7px;
+    text-align: center;
+    width: 23px;
+    background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    border-radius: 34px;}
+.contact_details .contact_d p{margin: 6px 15px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 2;}
+.dis_icon2 {position: relative;
+    top: -179px;
+    height: 20px;}
+
+.dis_flex .share_wtsp {padding: 0pc;
+    margin: 10px auto;
+    text-align: center;}
+.dis_flex .share_wtsp select {}
+.dis_flex  .share_wtsp input {font-size: 13px;
+    border: 0px;
+    padding: 10px;
+    outline: none;
+    background: white;
+    box-shadow: 0px 0px 10px 0px #0000002e;
+}
+.dis_flex  .share_wtsp input[type=submit]{    background: #47b303;
+    color: white;
+    font-size: 10px;
+    padding: 11px;
+    top: -2px;
+    position: relative;}
+
+.dis_flex .big_btns {background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    color: white;
+    border-radius: 38px;
+    font-size: 12px;
+    padding: 10px;
+    display: inline-block;
+    text-align: center;
+    margin: 3px 0px;
+    border: 0px;
+    width: 139px;
+    font-weight: 500;
+    box-shadow: 0px 0px 10px 0px #0000002e;
+}
+
+.wtsp_share_btn {background: green;
+    color: white;}
+.dis_flex .big_btns i{}
+.dis_flex .social_med {    padding: 2px;
+    margin: 21px 0px 32px;
+    display: inline-block;}
+.dis_flex .social_med i{font-size: 26px;
+    width: 25px;
+    text-align: center;
+    border-radius: 37px;
+    padding: 9px 10px;
+    margin: 3px;}
+
+.fa-twitter {background: #149bd2;
+    color: white;}
+.fa-facebook {background: #5858fd;
+    
+    color: white;}
+.fa-linkedin {background:#007bb6;
+color:white}
+.fa-youtube {background: #e63e3e;
+    color: white;}
+.fa-pinterest {background:#cb2027;color:white}
+.fa-instagram {background: #fd01bb;
+    color: white;}
+
+
+.card2 {background: white;
+    width: 400px;
+    margin: 7px auto;
+    padding: 0px;
+    border-radius: 6px;
+    overflow: hidden;}
+.card2 h1{}
+.card2 h2{}
+.card2 h3{    text-align: left;
+    font-size: 17px;
+    background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    color: #ffffff;
+    font-weight: 400;
+    letter-spacing: -1px;
+    width: -webkit-fill-available;
+    border-bottom: 3px solid;
+    padding: 12px 25px;
+    margin: 0px 0px 21px;}
+.card2 form{}
+.card2 form input,.card2 form textarea{width: -webkit-fill-available;
+    font-size: 14px;
+    border-radius: 5px;
+    padding: 10px;
+    border: 1px solid #dedede;
+    margin: 4px 26px;
+    resize: vertical;
+    background: #00000005;}
+.card2 form input[type=submit]{  color: white;
+    font-size: 20px;
+    background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    border-radius: 28px;}
+
+.card2 iframe {margin: 8px auto;
+    position: relative;
+    left: 50%;
+    transform: translate(-50%, 0px);
+    border-radius: 5px;
+    width: auto;
+    height: 188px;}
+	
+/*prouct services*/
+
+.product_s {   text-align: center;
+    background: white;
+    padding: 10px;
+    width: fit-content;
+    margin: 9px;
+    border-radius: 7px;
+    display: inline-block;
+    border: 3px solid orange;
+}
+	
+	#product_services {text-align:center}
+.product_s p{font-weight: 600;
+    text-transform: capitalize;}	
+.product_s img{width: auto;
+    max-width: 91%;
+    max-height: auto;
+    background: white;
+    border-radius: 5px;}	
+
+
+.d_dis {
+   white-space: pre-wrap;
+    margin: 17px 22px 0px;
+    font-weight: 500;
+    font-size: 12px;
+    text-align: left;
+}
+/*image gallery*/
+
+
+.img_gall {
+   display: inline-block;
+    width: 32%;
+    vertical-align: middle;
+    margin: 2px;
+}
+.img_gall img {
+ max-width: 100%;
+    background: white;
+    max-height: 100%;
+    border-radius: 1px;
+    display: block;
+    margin: 0 auto;
+    position: relative;
+}
+/* about us*/
+
+#about_us {}
+#about_us h3{}
+#about_us p{      white-space: pre-line;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    background: white;
+    padding: 26px;
+    margin: 0;}
+
+/*payment */
+
+#payment {}
+#payment p{font-size: 19px;
+    font-weight: 500;
+    color: black;
+    width: 77%;
+    margin: 8px auto;}
+#payment h2{font-size: 12px;
+    font-weight: 500;
+    color: gray;
+    width: 77%;
+    margin: 0 auto;}
+#payment img{width: 100%;
+    border-radius: 20px;
+    margin: 10px 0px;}
+
+
+
+.menu_bottom {  background: linear-gradient(45deg, #3F51B5, #9C27B0);
+    width: -webkit-fill-available;
+    text-align: center;
+    color: #ffffff;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    overflow-x: auto;
+}
+
+.menu_container {width: auto;
+    text-align: left;
+    display: flex;}
+ .menu_item{   text-align: center;
+    font-weight: 600;
+    display: inline-grid;
+    font-size: 12px;
+    margin: 15px;
+    width: 209px;
+    white-space: pre;}
+ .menu_item i{font-size: 20px;}
+
+
+/* order page */
+ 
+ #shop_online {
+	 display: grid;
+    grid-template-columns: 50% 50%;
+    text-align: center;
+ }
+ .order_box {width: -webkit-fill-available;
+    display: inline-block;
+    margin: 6px 6px;
+    vertical-align: text-top;
+    border-radius: 4px;
+    background: white;
+    padding: 0px 0px 13px 0px;
+    overflow: hidden;
+    box-shadow: 0px 0px 20px 0px #00000030;
+  
+}
+ .order_box img{width: 100%;
+    max-height: 100px;}
+ .order_box h2{padding: 9px 0px 3px;
+    margin: 0px;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 500;}
+ .order_box h4{padding: 0px 0px 7px;
+    margin: 0px;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 500;
+    color: #4CAF50;
+}
+ .order_box p{padding: 2px;
+    margin: 0px;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 500;
+    color: gray;}
+.btn_buy {
+    background: #4CAF50;
+    color: white;
+    padding: 10px 10px;
+    text-align: center;
+    font-size: 12px;
+    width: fit-content;
+    margin: 11px auto 6px;
+    border-radius: 3px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+
+
+
+
+
+
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+/*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*//*Mobile style*/
+
+
+
+
+
+@media screen and (max-width:700px){
+	.card {
+    width: -webkit-fill-available;
+    overflow: hidden;
+    margin: 0px auto 0px;
+    z-index: 0;
+    background-size: 100% 100%;
+}
+
+
+
+.card2 {
+      width: auto !important;
+    margin: 0 0px !important;
+    
+}

@@ -1,0 +1,205 @@
+/* @media (max-width: 1366px) {
+    header .navbar-expand-lg .navbar-nav .nav-link , header .navbar-expand-lg .navbar-nav .dropdown-menu .dropdown-item{ font-size: 22px;}
+    .banner .banner-wrap .banner-content .heading  {}
+    .heading { font-size: 42px;}
+    .banner .banner-wrap .banner-content p { font-size: 28px; }
+    .banner .banner-wrap .banner-content ul li { font-size: 30px;}
+    .banner .banner-wrap .banner-content .btn { font-size: 26px;}
+    .cards .card-heading { font-size: 28px;}
+    .cards p { font-size: 18px; line-height: 18px;}
+    .go-digital .info-card h3 { font-size: 38px; line-height: 40px; }
+    .go-digital .info-card p { font-size: 24px; line-height: 24px;}
+
+    .feature-box img { width: 100px; }
+    .feature-text { font-size: 30px; font-weight: 600; }
+
+    .pricing-card h3  { font-size: 24px; line-height: 24px;}
+    .pricing-card .price sub  { font-size: 14px;}
+    .pricing-card .old-price  { font-size: 38px; line-height: 38px;}
+    .pricing-card .card-content ul li { font-size: 18px;}
+
+    .faq .faq-item .card-body ,.faq .faq-item .btn-link { font-size: 20px;}
+
+    .main-foot .contact-info { margin-left: 50px;}
+    .contact-info img { width: 30px; left: -50px;}
+    .footer p, .footer a { font-size: 18px;}
+
+} */
+@media (max-width: 1024px) {
+    .banner .banner-wrap .banner-content .heading { font-size: 55px; line-height: 55px;}
+    .heading { font-size: 32px;} 
+    .screenshots-carousel .owl-nav { display: none}
+}
+@media (max-width: 991px) {
+    
+    [data-target="#navbarSupportedContent"] img { width: 24px;}
+    #navbarSupportedContent  { position: absolute; top: 100%; left: 0;background-color: #002169; width: 100%; z-index: 11; height: 100vh;}
+    header .navbar-expand-lg .navbar-nav .nav-link, header .navbar-expand-lg .navbar-nav .dropdown-menu .dropdown-item { color: #fff; margin: 0;}
+    #navbarSupportedContent .navbar-nav { max-width: 300px; margin-right: auto; margin-left: 0 !important;}
+    header .navbar-expand-lg .navbar-nav .nav-item { padding: 0px;}
+    header .navbar-expand-lg .navbar-nav .dropdown-menu { border: 0px; }
+    .banner .banner-wrap .banner-content { width: 90%; margin: 0 auto;}
+    .banner .banner-wrap  { flex-direction: column; padding: 50px 0;}
+    .banner .banner-wrap .banner-content .heading { font-size: 40px; line-height: 40px;}
+    .banner .banner-wrap .banner-content p { font-size: 20px; line-height: normal;}
+    .banner .banner-wrap .banner-content ul li { font-size: 24px; line-height: normal;}
+    .banner .banner-wrap .banner-content ul li::before { top: 10px;}
+    .banner .banner-wrap .banner-img { width: 80%; padding-top: 20px; margin: 0 auto;}
+    .heading { font-size: 36px;} 
+    .cards .card-heading { font-size: 22px; line-height: 24px;}
+    .how-web-works , .demo-samples , .Website-Features , .go-digital , .why-miniweb , .pricing , .textimonial , .franchise , .faq{ padding: 50px 0 0;}
+    .cards p {  font-size: 18px; line-height: 18px;}
+    .WebsiteFeatures .cards .card-heading { font-size: 26px; line-height: 46px;}
+    .WebsiteFeatures .cards p { font-size: 20px; line-height: 20px;}
+    .WebsiteFeatures .cards { padding: 20px 15px; max-width: calc( 100% / 3 - 15px); flex-basis: calc( 100% / 3 - 15px);}
+    .Website-Features { padding: 50px 0;}
+    .go-digital .info-card { max-width: 100%;}
+    .go-digital .info-card h3 { font-size: 24px; margin: 15px auto;}
+    .go-digital .info-card p { font-size: 20px; line-height: 22px;}
+    .feature-text { font-size: 23px; padding-left: 16px;}
+    .pricing-card .btn-plan { font-size: 20px;}
+    .pricing-card .price { font-size: 36px; line-height: 46px;}
+    .pricing-card .price sub { font-size: 22px; line-height: 24px;}
+    #testimonial-carousel .owl-nav { display: none;}
+    #testimonial-carousel .owl-dots { padding-top: 30px;}
+    .textimonial-wrap  { padding-bottom: 50px;}
+    .pricing-card .card {  height: 300px;}
+    .franchise-text h2 { font-size: 38px; line-height: 42px;}
+    .faq .faq-container { max-width: 80%; padding: 10px;}
+
+    .features-container { grid-template-columns:none; gap: 20px; width: 90%;}
+    .features-container .feature-box { margin: 0;}
+    
+    .features-container .feature-box:nth-of-type(odd) { margin-left: -12%;}
+    .features-container .feature-box:nth-of-type(even) { margin-right: -24%;}
+    .WebsiteFeatures .cards { max-width: 90%; flex-basis: 90%; margin: 0 auto;}
+    .WebsiteFeatures .cards .card-heading { text-align: center;}
+
+    .franchasee .banner .banner-wrap .banner-content , .franchasee .banner .banner-wrap .banner-form { width: 100%;}
+    .franchasee .banner .banner-wrap .banner-form { margin-top: 40px;}
+    .franchasee .textimonial .textimonial-wrap .heading { width: 90%; font-size: 30px;}
+    .franchasee .textimonial .textimonial-wrap .heading span { display: block;}
+
+}
+@media (max-width: 768px) {
+    header { height: 100px; margin: 0 auto; }
+    .navbar-brand { margin-left: 20px;}
+    .navbar-toggler { margin-right: 20px;}
+    .navbar-brand { width: 155px;}
+    header .navbar-toggler , header .navbar-toggler:focus{ border: 0px; box-shadow: none;}
+    header #navbarNav ul li { margin: 10px;}
+    header .navbar-nav .nav-link , header .navbar-nav .nav-link.active, header .navbar-nav .nav-link.show { color: #fff;}
+    header .navbar-nav { align-items: baseline;}
+    header .navbar-nav .dropdown-menu { background-color: transparent; border: 0px;}
+    header .navbar-nav .dropdown-menu .dropdown-item { color: #fff;}
+    header .navbar-nav .dropdown-item:focus, header .navbar-nav .dropdown-item:hover { background-color: transparent;}
+    header .navbar-expand-lg .navbar-nav .nav-link.btn { width: 150px;}
+    .heading { font-size: 28px;}
+    section .heading::before{ bottom: -10px;}
+    .footer .footer-logo { width: 80%; margin: 0 auto; display: block; text-align: center;} 
+    .footer p, .footer a { font-size: 18px; line-height: 22px;}
+    .main-foot .row { flex-direction: column-reverse;}
+    .main-foot .contact-form { margin-bottom: 50px;}
+    .main-foot .contact-form .col-6  { flex:0 0 100%; max-width: 100%;}
+    .copyright .footer-bottom { flex-direction: column;}
+    .copyright p { font-size: 17px;}
+    .how-web-works .web-works .heading { width: 80%;}
+    .how-web-works .web-works .web-works-card { flex-wrap: wrap;}
+    
+    .web-works-card .cards { width: 100%; padding: 20px 15px; margin-bottom: 20px; margin-left: 15px; margin-right: 15px; max-width: unset; }
+    
+    .demo-samples-wrap { padding-bottom: 50px;}
+    .demo-samples-wrap .owl-dots { padding-top: 30px;}
+    .demo-samples-wrap .owl-dots .owl-dot span { margin: 5px 3px;}
+    .owl-theme .owl-dots .owl-dot.active span, .owl-theme .owl-dots .owl-dot:hover span { margin: 4px 3px; height: 12px; width: 12px;}
+    .demo-samples-wrap .demo-heading-wrap img { width: 50px;}
+    .screenshots-carousel .screenshots img { width: 90%; margin: 0 auto;}
+    .screenshots-carousel .screenshots .btn { margin: 20px auto 0;}
+    
+    
+    .features-container { padding-bottom: 60px;}
+    .features-container .feature-box { margin: 0; width: 260px; padding: 0px;} 
+    .pricing-container { margin: 40px auto;}
+    .pricing-card h3 { font-size: 25px; line-height: 30px;}
+    .banner .banner-wrap .banner-content .heading { font-size: 30px; line-height: 24px;}
+    .banner .banner-wrap .banner-content .heading span { font-size: 44px; line-height: 56px;}
+    .banner .banner-wrap .banner-content p { font-size: 17px; line-height: 22px;}
+    .banner .banner-wrap .banner-content ul { margin: 0 auto;}
+    .banner .banner-wrap .banner-content ul li { font-size: 20px; line-height: 26px;}
+    .banner .banner-wrap .banner-content .btn { font-size: 18px; margin: 15px auto; }
+    .banner .banner-wrap .banner-content ul li::before { top: 3px;}
+    .WebsiteFeatures { width: 90%; margin: 0 auto; padding: 50px 0;}
+    .go-digital .info-card>div { padding: 0 4px;}
+    .go-digital .info-card { padding:20px 11px; border-radius: 12px; box-shadow: inset 2px 2px 4px rgb(197 197 197 / 53%) ,  1px 6px 8px 0px rgb(0 0 0 / 50%);}
+    .go-digital .info-card h3{ font-size: 21px; line-height: 22px; margin: 0;}
+    .go-digital .info-card p { font-size: 14px; line-height: 14px;}
+    .go-digital .info-card img { margin: 0;}
+    .testimonial-card {width: 100%; margin: 100px 0 0 0 ;}
+    .testimonial-carousel .owl-item:first-child .testimonial-card { border-top-left-radius: 50px; border-bottom-left-radius: 50px;}
+    .testimonial-carousel .owl-item:last-child .testimonial-card { border-top-right-radius: 50px; border-bottom-right-radius: 50px;}
+    .testimonial-card:nth-child(1) { border-radius: 20px;}
+    .testimonial-card {border-radius: 20px; width: 80%; margin-left: auto; margin-right: auto;}
+    .franchise-img { max-width: 250px;}
+    .franchise-text { max-width: 100%; margin-top: 20px; margin-left: 0; margin-right: auto; text-align: center;}
+    .franchise-text h5 { font-size: 21px; line-height: 28px;}
+    
+    .footer .container { width: 80%;}
+    .contact-section , .contact-section.contact-section-form { width: 100%; padding-bottom: 40px;}
+     .form-control { font-size: 14px; height: 40px;}
+     textarea.form-control { height: 90px;}
+
+
+    .franchasee .banner .banner-wrap { width: 85%; margin: 0 auto;}
+    .franchasee .banner .banner-wrap .banner-content h3 { font-size: 32px; line-height: 44px;}
+    .franchasee .banner .banner-wrap .banner-content .heading { font-size: 45px; line-height: 46px; margin-bottom: 20px;}
+    .franchasee .banner .banner-wrap .banner-content p { font-size: 21px; line-height: 26px;}
+    .franchasee .banner .banner-wrap .banner-content .btn { margin-top: 0px; font-size: 23px;}
+    .franchasee .banner .banner-wrap .banner-form { padding: 20px 25px 40px 25px;} 
+    .franchasee .banner .banner-wrap .banner-form .form-control { border-radius: 8px; box-shadow: none;}
+    .franchasee .banner-wrap .banner-form .btn  {display: flex; margin: 0 auto; text-align: center; justify-content: center; width: auto;}
+
+    .franchasee .testimonial-card {width: 100%; margin: 70px 0 0 0 ;counter-increment: step 0;}
+    .franchasee .textimonial { width: 85%; margin: 0 auto; padding:100px 0 40px}
+    .franchasee .testimonial-carousel { flex-wrap: wrap; margin-top: 50px; }
+    .franchasee .testimonial-card h3 { padding: 0 ; margin: 20px auto 0;}
+    
+    .franchasee .testimonial-carousel .owl-item:first-child .testimonial-card { border-top-left-radius: 50px; border-bottom-left-radius: 50px;}
+    .franchasee .testimonial-carousel .owl-item:last-child .testimonial-card { border-top-right-radius: 50px; border-bottom-right-radius: 50px;}
+    .franchasee .testimonial-card:nth-child(1) { border-radius: 20px;}
+    .franchasee .testimonial-card {border-radius: 20px}
+    .franchasee .testimonial-carousel .testimonial-card:first-child    {  border-top-left-radius: 80px; border-bottom-left-radius: 80px;}
+    .franchasee .testimonial-carousel .testimonial-card:last-child { border-top-right-radius: 80px; border-bottom-right-radius: 80px;}
+    .franchasee .textimonial .textimonial-wrap .heading { width: 100%;}
+    .franchasee .textimonial .textimonial-wrap .heading .theme-color { display: block;}
+    .franchasee .testimonial-card::before { text-indent: 0; display: block; counter-increment: step; content: "" counter(step); color: #fff; position: absolute; top: -30%; left: 50%; -webkit-transition: .2sease -in 0s; transition: .2sease -in 0s; font-size: 34px; line-height: normal; margin-top: 0; margin-left: -3%; z-index: 11; font-weight: 600;}
+    .franchasee .testimonial-carousel .testimonial-card::after {content: "";
+        background-image: url(../images/03Howtobecome/icon.png);
+        height: 75px;
+        position: absolute;
+        top: -85px ;
+        width: 70px;
+        background-repeat: no-repeat;
+        font-weight: 600;
+        background-size: 100%;
+        margin-left: 0;
+        margin-right: auto;}
+        .franchasee .textimonial .textimonial-wrap ul { display: none;}
+        .franchasee .testimonial-card { padding: 40px 15px; height: auto; border-width: 2px;}
+
+
+        .login-container { padding: 40px 20px; width: 90%;}
+
+        .faq { padding-bottom: 50px;}
+        .testimonial-text { font-size: 16px;}
+
+        .franchasee .banner-wrap .banner-form small { font-size: 18px;}
+
+        .login-container .heading { font-size: 26px;}
+        .login-container .text-white { margin-bottom: 10px;}
+}
+@media (max-width: 520px) {
+    .go-digital .info-card img { width: 40%; margin-right: 4px;}
+
+     .Website-FeaturesWrap .heading  { width: 65%;}
+     .demo-samples-wrap .heading { width: 50%;}
+}

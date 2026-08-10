@@ -1,0 +1,395 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using MiniWebsite.Application.Admin.EmailTemplates;
+using MiniWebsite.Application.Admin.Franchisees.Dtos;
+using MiniWebsite.Application.Common.Interfaces;
+using MiniWebsite.Application.Common.Models;
+using MiniWebsite.Application.Common.Options;
+using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Enums;
+
+namespace MiniWebsite.Application.Admin.Franchisees;
+
+public class AdminFranchiseesService : IAdminFranchiseesService
+{
+    private readonly IApplicationDbContext _db;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly IEmailSender _email;
+    private readonly IEmailTemplateRenderer _templates;
+    private readonly IWalletBalanceLookup _wallet;
+    private readonly IConfiguration _configuration;
+    private readonly AppOptions _app;
+
+    public AdminFranchiseesService(
+        IApplicationDbContext db,
+        IPasswordHasher passwordHasher,
+        IEmailSender email,
+        IEmailTemplateRenderer templates,
+        IWalletBalanceLookup wallet,
+        IConfiguration configuration,
+        IOptions<AppOptions> app)
+    {
+        _db = db;
+        _passwordHasher = passwordHasher;
+        _email = email;
+        _templates = templates;
+        _wallet = wallet;
+        _configuration = configuration;
+        _app = app.Value;
+    }
+
+    public async Task<ApiResult<FranchiseePageDto>> ListAsync(FranchiseeQuery query, CancellationToken ct = default)
+    {
+        query.Page = query.Page < 1 ? 1 : query.Page;
+        query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
+
+        var q = _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Franchisee);
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var s = query.Search.Trim().ToLower();
+            q = q.Where(u =>
+                u.Email.ToLower().Contains(s)
+                || u.Name.ToLower().Contains(s)
+                || (u.Phone != null && u.Phone.Contains(s)));
+        }
+
+        var total = await q.CountAsync(ct);
+        var users = await q
+            .OrderByDescending(u => u.Id)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(ct);
+
+        var emails = users.Select(u => Normalize(u.Email)).Where(e => e.Length > 0).Distinct().ToList();
+        var referrerEmails = users
+            .Select(u => Normalize(u.ReferredBy))
+            .Where(e => e.Length > 0 && e.Contains('@'))
+            .Distinct()
+            .ToList();
+
+        var referrerList = referrerEmails.Count == 0
+            ? new List<User>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => referrerEmails.Contains(u.Email.ToLower()))
+                .ToListAsync(ct);
+
+        var referrers = referrerList
+            .GroupBy(u => Normalize(u.Email))
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var cards = emails.Count == 0
+            ? []
+            : await _db.Cards.AsNoTracking()
+                .Where(c => c.FUserEmail != null && emails.Contains(c.FUserEmail.ToLower()))
+                .OrderByDescending(c => c.Id)
+                .ToListAsync(ct);
+
+        var cardsByEmail = cards
+            .GroupBy(c => Normalize(c.FUserEmail))
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var invoices = await GetFranchiseInvoicesAsync(emails, ct);
+        var docs = await GetDocumentStatusesAsync(emails, ct);
+        var siteBase = (_configuration["App:PhpSiteBaseUrl"] ?? "https://miniwebsite.in").TrimEnd('/');
+        var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
+
+        var rows = new List<FranchiseeRowDto>();
+        foreach (var u in users)
+        {
+            var email = Normalize(u.Email);
+            cardsByEmail.TryGetValue(email, out var userCards);
+            userCards ??= [];
+            var first = userCards.FirstOrDefault();
+            invoices.TryGetValue(email, out var inv);
+            docs.TryGetValue(email, out var docStatus);
+            docStatus ??= "Not Uploaded";
+
+            var isActive = string.Equals(u.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase);
+            var wallet = await _wallet.GetLatestBalanceAsync(u.Email, ct);
+            var (payLabel, payTone, paidOn) = ResolvePayment(inv);
+            var fee = inv?.Amount ?? 0m;
+            var company = first == null
+                ? "-"
+                : (!string.IsNullOrWhiteSpace(first.DGstName)
+                    ? first.DGstName!
+                    : (first.DCompName ?? "-"));
+            if (string.IsNullOrWhiteSpace(company)) company = "-";
+
+            var publicUrl = first != null ? $"https://{publicHost}/{first.Id}" : "";
+            var editUrl = first != null
+                ? $"{siteBase}/admin/select_theme.php?card_number={first.Id}&user_email={Uri.EscapeDataString(first.UserEmail ?? "")}"
+                : "";
+
+            rows.Add(new FranchiseeRowDto(
+                u.Id,
+                u.Email,
+                u.Name,
+                u.Phone,
+                u.CreatedAt,
+                BuildReferralSource(u, referrers),
+                company,
+                isActive ? "Active" : "Inactive",
+                isActive,
+                first?.Id,
+                first?.UserEmail,
+                publicUrl,
+                editUrl,
+                payLabel,
+                payTone,
+                paidOn,
+                fee,
+                "₹" + fee.ToString("N2", CultureInfo.CreateSpecificCulture("en-IN")),
+                inv?.InvoiceId,
+                userCards.Count,
+                MapDocumentLabel(docStatus),
+                MapDocumentTone(docStatus),
+                wallet,
+                "₹" + wallet.ToString("N2", CultureInfo.CreateSpecificCulture("en-IN"))));
+        }
+
+        return ApiResult<FranchiseePageDto>.Ok(new FranchiseePageDto(rows, total, query.Page, query.PageSize));
+    }
+
+    public async Task<ApiResult> ActivateAsync(ActivateFranchiseeRequest request, CancellationToken ct = default)
+    {
+        if (request.Id <= 0)
+            return ApiResult.Fail("Invalid franchisee account selected.");
+
+        var user = await _db.Users.FirstOrDefaultAsync(
+            u => u.Id == request.Id && u.Role == UserRole.Franchisee, ct);
+        if (user == null)
+            return ApiResult.Fail("Franchisee not found.");
+
+        if (string.Equals(user.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            return ApiResult.Fail("Unable to activate this account. It may already be active.");
+
+        user.Status = "ACTIVE";
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return ApiResult.Ok("Franchisee account activated successfully.");
+    }
+
+    public async Task<ApiResult> CreateAsync(CreateFranchiseeRequest request, CancellationToken ct = default)
+    {
+        var name = (request.Name ?? "").Trim();
+        var email = Normalize(request.Email);
+        var phone = (request.Phone ?? "").Trim();
+        var password = request.Password ?? "";
+
+        if (name.Length == 0) return ApiResult.Fail("User Name is required");
+        if (email.Length == 0) return ApiResult.Fail("Email is required");
+        if (!email.Contains('@')) return ApiResult.Fail("Please enter a valid email address");
+        if (!Regex.IsMatch(phone, @"^\d{10}$")) return ApiResult.Fail("Contact number must be exactly 10 digits");
+        if (password.Length < 1) return ApiResult.Fail("Password is required");
+
+        var exists = await _db.Users.AsNoTracking().AnyAsync(
+            u => u.Email.ToLower() == email && u.Role == UserRole.Franchisee, ct);
+        if (exists)
+            return ApiResult.Fail("A franchisee with this email already exists. Please use a different email ID.");
+
+        var hash = _passwordHasher.Hash(password);
+        _db.Users.Add(new User
+        {
+            Role = UserRole.Franchisee,
+            Email = email,
+            Phone = phone,
+            Name = name,
+            Password = hash,
+            PasswordHash = hash,
+            Status = "ACTIVE",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync(ct);
+
+        try
+        {
+            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["name"] = name,
+                ["email"] = email,
+                ["password"] = password,
+                ["login_url"] = _app.FranchiseeLoginUrl,
+                ["host"] = _app.PublicHost,
+            };
+            var rendered = await _templates.TryRenderAsync("franchisee_admin_created", vars, ct);
+            var subject = rendered?.Subject ?? "Welcome to MiniWebsite Franchisee";
+            var html = rendered?.Html ?? $"""
+                <p>Hello {System.Net.WebUtility.HtmlEncode(name)},</p>
+                <p>Your franchisee account has been created.</p>
+                <p><strong>Login Email:</strong> {System.Net.WebUtility.HtmlEncode(email)}<br/>
+                <strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(password)}</p>
+                <p>Please complete your franchisee registration payment if required.</p>
+                """;
+            await _email.SendAsync(email, subject, html, ct);
+            return ApiResult.Ok("Account Created! Welcome email sent successfully.");
+        }
+        catch
+        {
+            return ApiResult.Ok("Account Created! (Email sending failed)");
+        }
+    }
+
+    public async Task<ApiResult<FranchiseeDashboardDto>> GetDashboardAsync(string email, CancellationToken ct = default)
+    {
+        var key = Normalize(email);
+        if (key.Length == 0)
+            return ApiResult<FranchiseeDashboardDto>.Fail("Invalid email.");
+
+        var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
+        var cards = await _db.Cards.AsNoTracking()
+            .Where(c => c.FUserEmail != null && c.FUserEmail.ToLower() == key)
+            .OrderByDescending(c => c.Id)
+            .ToListAsync(ct);
+
+        var sites = cards.Select(c =>
+        {
+            var status = string.Equals(c.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase)
+                ? "Active"
+                : "Trial / Unpaid";
+            var pay = string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase)
+                ? "Paid"
+                : (c.DPaymentStatus ?? "Unpaid");
+            return new FranchiseeWebsiteDto(
+                c.Id,
+                c.DCompName,
+                c.UploadedDate,
+                c.ValidityDate,
+                status,
+                pay,
+                $"https://{publicHost}/{c.Id}");
+        }).ToList();
+
+        return ApiResult<FranchiseeDashboardDto>.Ok(new FranchiseeDashboardDto(key, sites));
+    }
+
+    private async Task<Dictionary<string, InvoiceInfo>> GetFranchiseInvoicesAsync(
+        IReadOnlyList<string> emails, CancellationToken ct)
+    {
+        var map = new Dictionary<string, InvoiceInfo>(StringComparer.OrdinalIgnoreCase);
+        if (emails.Count == 0) return map;
+
+        try
+        {
+            var rows = await _db.Invoices.AsNoTracking()
+                .Where(i => i.ServiceName == "Franchisee Registration")
+                .OrderByDescending(i => i.Id)
+                .Select(i => new
+                {
+                    i.Id,
+                    i.UserEmail,
+                    i.TotalAmount,
+                    i.PaymentStatus,
+                    i.InvoiceDate,
+                })
+                .ToListAsync(ct);
+
+            var set = emails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                if (row.UserEmail == null) continue;
+                var key = Normalize(row.UserEmail);
+                if (!set.Contains(key) || map.ContainsKey(key)) continue;
+                map[key] = new InvoiceInfo(row.Id, row.TotalAmount, row.PaymentStatus, row.InvoiceDate);
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<string, string>> GetDocumentStatusesAsync(
+        IReadOnlyList<string> emails, CancellationToken ct)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (emails.Count == 0) return map;
+
+        try
+        {
+            var rows = await _db.FranchiseVerifications.AsNoTracking()
+                .OrderByDescending(v => v.Id)
+                .Select(v => new { v.UserEmail, v.Status })
+                .ToListAsync(ct);
+
+            var set = emails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in rows)
+            {
+                if (row.UserEmail == null) continue;
+                var key = Normalize(row.UserEmail);
+                if (!set.Contains(key) || map.ContainsKey(key)) continue;
+                map[key] = row.Status ?? "Not Uploaded";
+            }
+        }
+        catch
+        {
+            // table may be missing
+        }
+
+        return map;
+    }
+
+    private static (string Label, string Tone, string? PaidOn) ResolvePayment(InvoiceInfo? inv)
+    {
+        if (inv == null)
+            return ("Unpaid", "neutral", null);
+
+        if (string.Equals(inv.PaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+        {
+            var paidOn = inv.InvoiceDate.HasValue && inv.InvoiceDate.Value.Year > 1
+                ? inv.InvoiceDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                : DateTime.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            return ("Paid", "ok", paidOn);
+        }
+
+        return ("Unpaid", "neutral", null);
+    }
+
+    private static string MapDocumentLabel(string status) => status.Trim().ToLowerInvariant() switch
+    {
+        "submitted" => "Ready to Verify",
+        "approved" => "Approved",
+        "rejected" => "Not Approved",
+        _ => "Not Uploaded"
+    };
+
+    private static string MapDocumentTone(string status) => status.Trim().ToLowerInvariant() switch
+    {
+        "submitted" => "warn",
+        "approved" => "ok",
+        "rejected" => "danger",
+        _ => "neutral"
+    };
+
+    private static string BuildReferralSource(User user, Dictionary<string, User> referrers)
+    {
+        if (string.IsNullOrWhiteSpace(user.ReferredBy))
+            return "Direct";
+
+        var refBy = user.ReferredBy.Trim();
+        if (int.TryParse(refBy, out var numericId))
+            return "User - " + numericId;
+
+        var key = Normalize(refBy);
+        if (!referrers.TryGetValue(key, out var referrer))
+            return "User - " + refBy;
+
+        return referrer.Role switch
+        {
+            UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
+            UserRole.Team => "Team - " + referrer.Id,
+            UserRole.Admin => "Admin - " + referrer.Id,
+            _ => "User - " + referrer.Id
+        };
+    }
+
+    private static string Normalize(string? value) => (value ?? string.Empty).Trim().ToLowerInvariant();
+
+    private sealed record InvoiceInfo(int InvoiceId, decimal Amount, string? PaymentStatus, DateTime? InvoiceDate);
+}

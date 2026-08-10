@@ -1,0 +1,1099 @@
+
+CREATE TABLE `admin_login` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `admin_email` varchar(200) DEFAULT '',
+  `admin_contact` varchar(200) DEFAULT '',
+  `admin_password` varchar(200) DEFAULT '',
+  `admin_name` varchar(200) DEFAULT '',
+  `admin_image` longblob DEFAULT NULL,
+  `admin_google_pay` varchar(200) DEFAULT '',
+  `admin_paytm` varchar(200) DEFAULT '',
+  `admin_rz_pay` varchar(300) DEFAULT '',
+  `admin_rz_pay2` varchar(300) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `admin_notifications` (
+  `id` int(11) NOT NULL,
+  `type` enum('account_creation','payment','verification','order','franchisee','general') NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `user_email` varchar(255) DEFAULT NULL,
+  `user_type` enum('customer','franchisee','admin') DEFAULT NULL,
+  `related_id` int(11) DEFAULT NULL,
+  `is_read` tinyint(1) DEFAULT 0,
+  `priority` enum('low','medium','high') DEFAULT 'medium',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `card_image_gallery` (
+  `id` int(11) NOT NULL,
+  `card_id` varchar(50) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `gallery_image` longblob DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `card_products_services` (
+  `id` int(11) NOT NULL,
+  `card_id` varchar(50) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `product_name` varchar(200) DEFAULT '',
+  `product_category` int(11) DEFAULT NULL,
+  `category_source` varchar(10) DEFAULT 'system',
+  `product_description` text DEFAULT '',
+  `product_image` longblob DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `card_product_pricing` (
+  `id` int(11) NOT NULL,
+  `card_id` varchar(50) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `product_name` varchar(200) DEFAULT '',
+  `product_category` int(11) DEFAULT NULL,
+  `category_source` varchar(10) DEFAULT 'system',
+  `product_description` text DEFAULT '',
+  `product_image` longblob DEFAULT NULL,
+  `mrp` decimal(10,2) DEFAULT 0.00,
+  `selling_price` decimal(10,2) DEFAULT 0.00,
+  `price_type` varchar(20) DEFAULT 'price',
+  `pricing_unit` varchar(30) DEFAULT '',
+  `cta_text` varchar(50) DEFAULT '',
+  `tax_rate` decimal(10,2) DEFAULT 0.00,
+  `display_order` int(11) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `card_special_offers` (
+  `id` int(11) NOT NULL,
+  `card_id` varchar(50) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `offer_title` varchar(255) NOT NULL,
+  `offer_description` longtext DEFAULT NULL,
+  `offer_image` varchar(255) DEFAULT NULL,
+  `badge` varchar(100) DEFAULT NULL,
+  `discount_percentage` int(3) DEFAULT 0,
+  `start_date` date DEFAULT NULL,
+  `start_time` time DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `status` varchar(50) DEFAULT 'Active',
+  `display_order` int(11) DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `content_management` (
+  `id` int(11) NOT NULL,
+  `content_type` enum('terms_conditions','privacy_policy','franchisee_agreement','franchisee_distributer','mw_full_franchise_agreement','mw_franchisee_operation_policy') NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `content` longtext NOT NULL,
+  `meta_description` text DEFAULT NULL,
+  `meta_keywords` text DEFAULT NULL,
+  `last_updated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `updated_by` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `customer_login` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `user_contact` varchar(200) DEFAULT '',
+  `user_name` varchar(200) DEFAULT '',
+  `user_password` varchar(200) DEFAULT '',
+  `user_token` varchar(200) DEFAULT '',
+  `user_active` varchar(200) DEFAULT '',
+  `select_service` varchar(200) DEFAULT '',
+  `sender_token` varchar(500) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp(),
+  `reset_otp` varchar(10) DEFAULT NULL,
+  `reset_otp_expiry` bigint(20) DEFAULT NULL,
+  `referred_by` varchar(200) DEFAULT NULL,
+  `referral_code` varchar(50) DEFAULT NULL,
+  `collaboration_enabled` enum('YES','NO') DEFAULT 'NO',
+  `user_image` longblob DEFAULT NULL,
+  `saleskit_enabled` varchar(10) DEFAULT 'NO',
+  `refund_status` varchar(20) DEFAULT 'None',
+  `refund_status_date` datetime DEFAULT NULL,
+  `mw_referral_id` tinyint(1) DEFAULT 0
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `customer_notifications` (
+  `id` int(11) NOT NULL,
+  `type` varchar(50) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `related_id` int(11) DEFAULT NULL,
+  `priority` enum('low','medium','high') DEFAULT 'medium',
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `customer_tracker` (
+  `id` int(11) NOT NULL,
+  `team_member_id` int(10) UNSIGNED NOT NULL,
+  `shop_name` varchar(255) NOT NULL DEFAULT '',
+  `business_type` varchar(255) DEFAULT NULL,
+  `contact_number` varchar(50) DEFAULT '',
+  `approached_for` varchar(150) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `date_visited` date NOT NULL,
+  `final_status` enum('Joined','Not Interested','Followup required') NOT NULL DEFAULT 'Followup required',
+  `comments` text DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `customer_tracker_followups` (
+  `id` int(11) NOT NULL,
+  `tracker_id` int(11) NOT NULL,
+  `team_member_id` int(11) NOT NULL,
+  `followup_datetime` datetime NOT NULL,
+  `followup_method` varchar(191) NOT NULL,
+  `followup_status` varchar(100) NOT NULL,
+  `comments` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `customer_tracker_history` (
+  `id` int(11) NOT NULL,
+  `tracker_id` int(11) NOT NULL,
+  `team_member_id` int(10) UNSIGNED NOT NULL,
+  `changed_field` varchar(50) DEFAULT NULL,
+  `old_value` text DEFAULT NULL,
+  `new_value` text DEFAULT NULL,
+  `change_type` enum('status_change','comment_change','other_change') NOT NULL DEFAULT 'other_change',
+  `changed_by` int(10) UNSIGNED NOT NULL,
+  `changed_at` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `deals` (
+  `id` int(6) NOT NULL,
+  `plan_name` varchar(200) DEFAULT '',
+  `deal_name` varchar(200) DEFAULT '',
+  `coupon_code` varchar(100) DEFAULT '',
+  `coupon_type` varchar(50) NOT NULL DEFAULT '',
+  `bonus_amount` varchar(50) DEFAULT '0',
+  `discount_amount` varchar(50) DEFAULT '0',
+  `discount_percentage` varchar(50) DEFAULT '0',
+  `renewal_bonus_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `validity_date` date DEFAULT NULL,
+  `max_usage` int(10) DEFAULT 0,
+  `current_usage` int(10) DEFAULT 0,
+  `deal_status` varchar(20) DEFAULT 'Active',
+  `created_by` varchar(200) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp(),
+  `mapped_customers` text DEFAULT NULL,
+  `plan_type` varchar(100) DEFAULT NULL,
+  `deal_state` varchar(100) DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `deal_customer_mapping` (
+  `id` int(11) NOT NULL,
+  `deal_id` int(11) NOT NULL,
+  `customer_email` varchar(255) NOT NULL,
+  `created_by` varchar(255) NOT NULL,
+  `created_date` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `digi_card` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(50) DEFAULT '',
+  `f_user_email` varchar(200) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `card_id` varchar(200) DEFAULT '',
+  `password` varchar(200) DEFAULT '',
+  `d_css` varchar(100) DEFAULT '',
+  `d_mobile_css` varchar(100) DEFAULT '',
+  `d_comp_name` varchar(200) DEFAULT '',
+  `d_display_name` varchar(199) DEFAULT '',
+  `d_logo` longblob DEFAULT NULL,
+  `d_title` varchar(10) DEFAULT '',
+  `d_f_name` varchar(30) DEFAULT '',
+  `d_l_name` varchar(30) DEFAULT '',
+  `d_position` varchar(30) DEFAULT '',
+  `d_contact` varchar(30) DEFAULT '',
+  `d_contact2` varchar(30) DEFAULT '',
+  `d_whatsapp` varchar(30) DEFAULT '',
+  `d_address` varchar(500) DEFAULT '',
+  `d_email` varchar(100) DEFAULT '',
+  `d_website` varchar(150) DEFAULT '',
+  `d_location` varchar(1000) DEFAULT '',
+  `d_fb` varchar(700) DEFAULT '',
+  `d_twitter` varchar(700) DEFAULT '',
+  `d_instagram` varchar(700) DEFAULT '',
+  `d_linkedin` varchar(500) DEFAULT '',
+  `d_youtube` varchar(300) DEFAULT '',
+  `d_pinterest` varchar(500) DEFAULT '',
+  `d_website2` varchar(500) DEFAULT '',
+  `d_comp_est_date` varchar(100) DEFAULT '',
+  `d_nature_of_business` varchar(200) DEFAULT '',
+  `d_speciality` varchar(200) DEFAULT '',
+  `d_about_us` varchar(2000) DEFAULT '',
+  `d_paytm` varchar(100) DEFAULT '',
+  `d_google_pay` varchar(100) DEFAULT '',
+  `d_phone_pay` varchar(100) DEFAULT '',
+  `d_account_no` varchar(40) DEFAULT '',
+  `d_ifsc` varchar(40) DEFAULT '',
+  `d_ac_name` varchar(100) DEFAULT '',
+  `d_bank_name` varchar(100) DEFAULT '',
+  `d_ac_type` varchar(30) DEFAULT '',
+  `d_qr_paytm` longblob DEFAULT NULL,
+  `d_qr_google_pay` longblob DEFAULT NULL,
+  `d_qr_phone_pay` longblob DEFAULT NULL,
+  `d_youtube1` varchar(150) DEFAULT '',
+  `d_youtube2` varchar(150) DEFAULT '',
+  `d_youtube3` varchar(150) DEFAULT '',
+  `d_youtube4` varchar(150) DEFAULT '',
+  `d_youtube5` varchar(150) DEFAULT '',
+  `d_pro_name1` varchar(100) DEFAULT '',
+  `d_pro_name2` varchar(100) DEFAULT '',
+  `d_pro_name3` varchar(100) DEFAULT '',
+  `d_pro_name4` varchar(100) DEFAULT '',
+  `d_pro_name5` varchar(100) DEFAULT '',
+  `d_pro_name6` varchar(100) DEFAULT '',
+  `d_pro_name7` varchar(100) DEFAULT '',
+  `d_pro_name8` varchar(100) DEFAULT '',
+  `d_pro_name9` varchar(100) DEFAULT '',
+  `d_pro_name10` varchar(100) DEFAULT '',
+  `d_payment_status` varchar(200) DEFAULT '',
+  `d_card_status` varchar(200) DEFAULT '',
+  `d_payment_amount` varchar(200) DEFAULT '',
+  `d_order_id` varchar(200) DEFAULT '',
+  `d_logo_location` varchar(1000) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp(),
+  `d_payment_date` datetime DEFAULT current_timestamp(),
+  `d_gst` varchar(50) DEFAULT NULL,
+  `d_gst_name` varchar(100) DEFAULT NULL,
+  `d_gst_address` varchar(255) DEFAULT NULL,
+  `d_gst_state` varchar(50) DEFAULT NULL,
+  `d_gst_city` varchar(50) DEFAULT NULL,
+  `d_gst_pincode` varchar(20) DEFAULT NULL,
+  `collaboration_enabled` enum('YES','NO') DEFAULT 'NO',
+  `complimentary_enabled` varchar(10) DEFAULT 'No',
+  `d_gst_email` varchar(100) DEFAULT NULL,
+  `d_gst_contact` varchar(20) DEFAULT NULL,
+  `validity_date` datetime DEFAULT NULL,
+  `name_change_count` int(11) NOT NULL DEFAULT 0,
+  `d_name_change_count` int(11) NOT NULL DEFAULT 0,
+  `d_hero_image_location` varchar(255) DEFAULT NULL COMMENT 'Filename for hero image stored in assets/upload/websites/company_details/',
+  `d_position_primary` varchar(200) NOT NULL DEFAULT '',
+  `d_position_secondary` varchar(200) NOT NULL DEFAULT '',
+  `d_gst_number` varchar(100) NOT NULL DEFAULT '',
+  `d_address2` varchar(500) NOT NULL DEFAULT '',
+  `d_city` varchar(200) NOT NULL DEFAULT '',
+  `d_state` varchar(200) NOT NULL DEFAULT '',
+  `d_pincode` varchar(50) NOT NULL DEFAULT '',
+  `d_country` varchar(200) NOT NULL DEFAULT '',
+  `d_youtube6` varchar(150) DEFAULT '',
+  `d_youtube7` varchar(150) DEFAULT '',
+  `d_youtube8` varchar(150) DEFAULT '',
+  `d_youtube9` varchar(150) DEFAULT '',
+  `d_youtube10` varchar(150) DEFAULT '',
+  `d_youtube11` varchar(150) DEFAULT '',
+  `d_youtube12` varchar(150) DEFAULT '',
+  `d_youtube13` varchar(150) DEFAULT '',
+  `d_youtube14` varchar(150) DEFAULT '',
+  `d_youtube15` varchar(150) DEFAULT '',
+  `d_youtube16` varchar(150) DEFAULT '',
+  `d_youtube17` varchar(150) DEFAULT '',
+  `d_youtube18` varchar(150) DEFAULT '',
+  `d_youtube19` varchar(150) DEFAULT '',
+  `d_youtube20` varchar(150) DEFAULT '',
+  `d_business_hours` text DEFAULT NULL,
+  `d_video_type1` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb1` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type2` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb2` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type3` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb3` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type4` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb4` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type5` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb5` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type6` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb6` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type7` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb7` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type8` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb8` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type9` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb9` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type10` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb10` varchar(255) NOT NULL DEFAULT '',
+  `d_video_type11` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb11` text DEFAULT NULL,
+  `d_video_type12` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb12` text DEFAULT NULL,
+  `d_video_type13` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb13` text DEFAULT NULL,
+  `d_video_type14` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb14` text DEFAULT NULL,
+  `d_video_type15` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb15` text DEFAULT NULL,
+  `d_video_type16` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb16` text DEFAULT NULL,
+  `d_video_type17` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb17` text DEFAULT NULL,
+  `d_video_type18` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb18` text DEFAULT NULL,
+  `d_video_type19` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb19` text DEFAULT NULL,
+  `d_video_type20` varchar(20) NOT NULL DEFAULT '',
+  `d_video_thumb20` text DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `digi_card2` (
+  `id` varchar(50) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `card_id` varchar(200) DEFAULT '',
+  `d_pro_img1` longblob DEFAULT NULL,
+  `d_pro_img2` longblob DEFAULT NULL,
+  `d_pro_img3` longblob DEFAULT NULL,
+  `d_pro_img4` longblob DEFAULT NULL,
+  `d_pro_img5` longblob DEFAULT NULL,
+  `d_pro_img6` longblob DEFAULT NULL,
+  `d_pro_img7` longblob DEFAULT NULL,
+  `d_pro_img8` longblob DEFAULT NULL,
+  `d_pro_img9` longblob DEFAULT NULL,
+  `d_pro_img10` longblob DEFAULT NULL,
+  `d_pro_name1` varchar(100) DEFAULT '',
+  `d_pro_name2` varchar(100) DEFAULT '',
+  `d_pro_name3` varchar(100) DEFAULT '',
+  `d_pro_name4` varchar(100) DEFAULT '',
+  `d_pro_name5` varchar(100) DEFAULT '',
+  `d_pro_name6` varchar(100) DEFAULT '',
+  `d_pro_name7` varchar(100) DEFAULT '',
+  `d_pro_name8` varchar(100) DEFAULT '',
+  `d_pro_name9` varchar(100) DEFAULT '',
+  `d_pro_name10` varchar(100) DEFAULT ''
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `digi_card3` (
+  `id` varchar(50) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `card_id` varchar(200) DEFAULT '',
+  `d_gall_img1` longblob DEFAULT NULL,
+  `d_gall_img2` longblob DEFAULT NULL,
+  `d_gall_img3` longblob DEFAULT NULL,
+  `d_gall_img4` longblob DEFAULT NULL,
+  `d_gall_img5` longblob DEFAULT NULL,
+  `d_gall_img6` longblob DEFAULT NULL,
+  `d_gall_img7` longblob DEFAULT NULL,
+  `d_gall_img8` longblob DEFAULT NULL,
+  `d_gall_img9` longblob DEFAULT NULL,
+  `d_gall_img10` longblob DEFAULT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `digi_card_previous_slug` (
+  `digi_card_id` int(10) UNSIGNED NOT NULL,
+  `previous_slug` varchar(255) NOT NULL,
+  `d_business_type` varchar(32) NOT NULL DEFAULT '',
+  `d_business_operation_area` varchar(32) NOT NULL DEFAULT '',
+  `d_business_operation_locations` text DEFAULT NULL,
+  `d_business_profile_type` varchar(100) NOT NULL DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `doc_media` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  `rel_path` varchar(512) NOT NULL,
+  `mime` varchar(128) DEFAULT NULL,
+  `size_bytes` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `uploaded_by` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `doc_pages` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `section_id` int(10) UNSIGNED NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `slug` varchar(191) NOT NULL,
+  `status` enum('draft','published') NOT NULL DEFAULT 'draft',
+  `content_html` mediumtext DEFAULT NULL,
+  `meta_title` varchar(255) DEFAULT NULL,
+  `meta_description` varchar(500) DEFAULT NULL,
+  `meta_keywords` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `published_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `doc_sections` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `slug` varchar(191) NOT NULL,
+  `description` varchar(500) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `collapsed_default` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `email_logs` (
+  `id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `email_type` varchar(100) NOT NULL,
+  `subject` varchar(500) NOT NULL,
+  `sent_date` timestamp NOT NULL DEFAULT current_timestamp(),
+  `status` enum('SENT','FAILED') DEFAULT 'SENT'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `faq_management` (
+  `id` int(6) NOT NULL,
+  `page_type` enum('home','refer_earn','franchise') NOT NULL,
+  `question` text NOT NULL,
+  `answer` longtext NOT NULL,
+  `sort_order` int(6) DEFAULT 0,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `franchisee_kit` (
+  `id` int(11) NOT NULL,
+  `type` enum('image','video','file') NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `file_path` varchar(500) DEFAULT NULL,
+  `video_url` text DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `category` varchar(50) NOT NULL DEFAULT 'franchisee',
+  `folder_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `franchisee_kit_folders` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `category` varchar(50) NOT NULL DEFAULT 'sales',
+  `parent_id` int(11) DEFAULT NULL,
+  `display_order` int(11) NOT NULL DEFAULT 0,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `franchisee_login` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `f_user_email` varchar(200) DEFAULT '',
+  `f_user_contact` varchar(200) DEFAULT '',
+  `f_user_name` varchar(200) DEFAULT '',
+  `f_user_password` varchar(200) DEFAULT '',
+  `f_user_token` varchar(200) DEFAULT '',
+  `f_user_active` varchar(200) DEFAULT '',
+  `f_user_image` longblob DEFAULT NULL,
+  `f_user_google_pay` varchar(200) DEFAULT '',
+  `f_user_paytm` varchar(200) DEFAULT '',
+  `f_user_rz_pay` varchar(300) DEFAULT '',
+  `f_user_rz_pay2` varchar(300) DEFAULT '',
+  `f_select_service` varchar(200) DEFAULT '',
+  `f_wallet_balance` varchar(200) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp(),
+  `reset_otp` varchar(10) DEFAULT NULL,
+  `reset_otp_expiry` bigint(20) DEFAULT NULL,
+  `referred_by` varchar(200) DEFAULT '',
+  `referral_code` varchar(20) DEFAULT '',
+  `referral_type` varchar(20) DEFAULT '',
+  `f_user_address` varchar(500) DEFAULT '',
+  `f_user_state` varchar(50) DEFAULT '',
+  `f_user_city` varchar(50) DEFAULT '',
+  `f_user_pincode` varchar(20) DEFAULT '',
+  `f_user_gst` varchar(50) DEFAULT ''
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `franchisee_notifications` (
+  `id` int(11) NOT NULL,
+  `type` varchar(50) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `related_id` int(11) DEFAULT NULL,
+  `priority` enum('low','medium','high') DEFAULT 'medium',
+  `is_read` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `franchisee_team_members` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `franchisee_email` varchar(255) NOT NULL,
+  `member_name` varchar(150) NOT NULL,
+  `member_email` varchar(255) NOT NULL,
+  `member_phone` varchar(25) DEFAULT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `franchisee_verification` (
+  `id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `pan_card_document` varchar(255) DEFAULT NULL,
+  `aadhaar_front_document` varchar(255) DEFAULT NULL,
+  `aadhaar_back_document` varchar(255) DEFAULT NULL,
+  `status` enum('pending','submitted','approved','rejected') DEFAULT 'pending',
+  `admin_remarks` text DEFAULT NULL,
+  `submitted_at` datetime DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `franchise_payments` (
+  `id` int(11) NOT NULL,
+  `franchise_id` int(11) DEFAULT NULL,
+  `franchise_email` varchar(255) NOT NULL,
+  `reference_number` varchar(100) NOT NULL,
+  `razorpay_order_id` varchar(100) DEFAULT NULL,
+  `razorpay_payment_id` varchar(100) DEFAULT NULL,
+  `razorpay_signature` varchar(255) DEFAULT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(10) DEFAULT 'INR',
+  `payment_status` enum('Pending','Success','Failed','Refunded') DEFAULT 'Pending',
+  `payment_method` varchar(50) DEFAULT 'Razorpay',
+  `payment_date` datetime NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `admin_notes` text DEFAULT NULL,
+  `refund_amount` decimal(10,2) DEFAULT 0.00,
+  `refund_date` datetime DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `invoice_details` (
+  `id` int(11) NOT NULL,
+  `invoice_number` varchar(20) NOT NULL,
+  `invoice_date` datetime NOT NULL,
+  `card_id` int(11) NOT NULL,
+  `user_email` varchar(100) NOT NULL,
+  `user_name` varchar(100) NOT NULL,
+  `user_contact` varchar(20) NOT NULL,
+  `billing_name` varchar(100) NOT NULL,
+  `billing_email` varchar(100) NOT NULL,
+  `billing_contact` varchar(20) NOT NULL,
+  `billing_address` text NOT NULL,
+  `billing_state` varchar(50) NOT NULL,
+  `billing_city` varchar(50) NOT NULL,
+  `billing_pincode` varchar(10) NOT NULL,
+  `billing_gst_number` varchar(20) DEFAULT NULL,
+  `original_amount` decimal(10,2) NOT NULL,
+  `discount_amount` decimal(10,2) DEFAULT 0.00,
+  `final_amount` decimal(10,2) NOT NULL,
+  `promo_code` varchar(20) DEFAULT NULL,
+  `promo_discount` decimal(10,2) DEFAULT 0.00,
+  `razorpay_order_id` varchar(100) NOT NULL,
+  `razorpay_payment_id` varchar(100) NOT NULL,
+  `razorpay_signature` text NOT NULL,
+  `payment_status` enum('Success','Failed','Pending') NOT NULL DEFAULT 'Pending',
+  `payment_date` datetime DEFAULT NULL,
+  `service_name` varchar(200) NOT NULL,
+  `service_description` text NOT NULL,
+  `hsn_sac_code` varchar(10) NOT NULL DEFAULT '998313',
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(10,2) NOT NULL,
+  `total_price` decimal(10,2) NOT NULL,
+  `sub_total` decimal(10,2) NOT NULL,
+  `igst_percentage` decimal(5,2) NOT NULL DEFAULT 18.00,
+  `igst_amount` decimal(10,2) NOT NULL,
+  `cgst_amount` decimal(10,2) DEFAULT 0.00,
+  `sgst_amount` decimal(10,2) DEFAULT 0.00,
+  `total_amount` decimal(10,2) NOT NULL,
+  `payment_type` enum('Regular','Franchisee','Wallet') NOT NULL DEFAULT 'Regular',
+  `reference_number` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `plan_name` varchar(120) DEFAULT NULL,
+  `plan_validity` varchar(80) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `joining_deals` (
+  `id` int(11) NOT NULL,
+  `deal_code` varchar(50) NOT NULL,
+  `deal_name` varchar(255) NOT NULL,
+  `deal_type` varchar(100) NOT NULL,
+  `fees` decimal(10,2) DEFAULT 0.00,
+  `gst_amount` decimal(10,2) DEFAULT 0.00,
+  `total_fees` decimal(10,2) DEFAULT 0.00,
+  `commission_amount` decimal(10,2) DEFAULT 0.00,
+  `discount_amount` decimal(10,2) DEFAULT 0.00,
+  `description` text DEFAULT NULL,
+  `is_active` enum('YES','NO') DEFAULT 'YES',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `mw_deal_id` int(11) DEFAULT NULL,
+  `franchise_deal_id` int(11) DEFAULT NULL,
+  `upgrade_order` int(11) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `miniwebsite_theme_catalog` (
+  `id` int(11) NOT NULL,
+  `theme_number` int(11) NOT NULL,
+  `theme_name` varchar(100) NOT NULL,
+  `css_value` varchar(120) NOT NULL,
+  `preview_image` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `mw_customers` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `owner_user_id` int(10) UNSIGNED NOT NULL,
+  `owner_role` varchar(20) NOT NULL,
+  `customer_name` varchar(150) NOT NULL,
+  `label_tag` varchar(18) DEFAULT '',
+  `business_type` varchar(150) DEFAULT '',
+  `approached_for` varchar(150) DEFAULT '',
+  `followup_method` varchar(150) DEFAULT '',
+  `phone_number` varchar(25) NOT NULL,
+  `email_id` varchar(150) DEFAULT '',
+  `company_name` varchar(150) DEFAULT '',
+  `website` varchar(255) DEFAULT '',
+  `address_line1` varchar(255) DEFAULT '',
+  `area_city` varchar(120) DEFAULT '',
+  `comments` text DEFAULT NULL,
+  `source` varchar(18) DEFAULT 'Direct',
+  `status` varchar(40) DEFAULT 'Followup required',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `last_shared_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `mw_customer_batch_cooldown` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `owner_user_id` int(10) UNSIGNED NOT NULL,
+  `owner_role` varchar(20) NOT NULL,
+  `last_batch_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `mw_customer_followups` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `customer_id` int(10) UNSIGNED NOT NULL,
+  `owner_user_id` int(10) UNSIGNED NOT NULL,
+  `owner_role` varchar(20) NOT NULL,
+  `followup_datetime` datetime NOT NULL,
+  `followup_method` varchar(150) NOT NULL DEFAULT '',
+  `followup_status` varchar(40) NOT NULL DEFAULT '',
+  `comments` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `orders` (
+  `id` varchar(200) DEFAULT '',
+  `card_id` varchar(200) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `pro_id` varchar(200) DEFAULT '',
+  `c_address` varchar(200) DEFAULT '',
+  `c_email` varchar(200) DEFAULT '',
+  `c_contact` varchar(200) DEFAULT '',
+  `c_name` varchar(200) DEFAULT '',
+  `c_city` varchar(200) DEFAULT '',
+  `c_state` varchar(200) DEFAULT '',
+  `c_pincode` varchar(200) DEFAULT '',
+  `payment_type` varchar(200) DEFAULT '',
+  `payment_amount` varchar(200) DEFAULT '',
+  `order_status` varchar(200) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `password_resets` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `role` enum('CUSTOMER','FRANCHISEE','TEAM','ADMIN') NOT NULL,
+  `otp_hash` varchar(255) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used` tinyint(1) NOT NULL DEFAULT 0,
+  `used_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `password_reset_tokens` (
+  `Id` int(11) NOT NULL,
+  `UserId` int(11) NOT NULL,
+  `TokenHash` varchar(128) NOT NULL,
+  `ExpiresAt` datetime(6) NOT NULL,
+  `UsedAt` datetime(6) DEFAULT NULL,
+  `CreatedAt` datetime(6) NOT NULL,
+  `UpdatedAt` datetime(6) DEFAULT NULL,
+  `IsDeleted` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `pricing_plans` (
+  `id` int(11) NOT NULL,
+  `plan_type` varchar(100) NOT NULL,
+  `plan_name` varchar(200) NOT NULL,
+  `original_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `original_price_gst` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `offered_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `offered_price_gst` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `deal_id` int(11) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'Active',
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `products` (
+  `id` varchar(200) DEFAULT '',
+  `user_email` varchar(200) DEFAULT '',
+  `pro_name1` varchar(200) DEFAULT '',
+  `pro_img1` longblob DEFAULT NULL,
+  `pro_mrp1` varchar(200) DEFAULT '',
+  `pro_price1` varchar(200) DEFAULT '',
+  `pro_tax1` varchar(200) DEFAULT '',
+  `pro_name2` varchar(200) DEFAULT '',
+  `pro_img2` longblob DEFAULT NULL,
+  `pro_mrp2` varchar(200) DEFAULT '',
+  `pro_price2` varchar(200) DEFAULT '',
+  `pro_tax2` varchar(200) DEFAULT '',
+  `pro_name3` varchar(200) DEFAULT '',
+  `pro_img3` longblob DEFAULT NULL,
+  `pro_mrp3` varchar(200) DEFAULT '',
+  `pro_price3` varchar(200) DEFAULT '',
+  `pro_tax3` varchar(200) DEFAULT '',
+  `pro_name4` varchar(200) DEFAULT '',
+  `pro_img4` longblob DEFAULT NULL,
+  `pro_mrp4` varchar(200) DEFAULT '',
+  `pro_price4` varchar(200) DEFAULT '',
+  `pro_tax4` varchar(200) DEFAULT '',
+  `pro_name5` varchar(200) DEFAULT '',
+  `pro_img5` longblob DEFAULT NULL,
+  `pro_mrp5` varchar(200) DEFAULT '',
+  `pro_price5` varchar(200) DEFAULT '',
+  `pro_tax5` varchar(200) DEFAULT '',
+  `pro_name6` varchar(200) DEFAULT '',
+  `pro_img6` longblob DEFAULT NULL,
+  `pro_mrp6` varchar(200) DEFAULT '',
+  `pro_price6` varchar(200) DEFAULT '',
+  `pro_tax6` varchar(200) DEFAULT '',
+  `pro_name7` varchar(200) DEFAULT '',
+  `pro_img7` longblob DEFAULT NULL,
+  `pro_mrp7` varchar(200) DEFAULT '',
+  `pro_price7` varchar(200) DEFAULT '',
+  `pro_tax7` varchar(200) DEFAULT '',
+  `pro_name8` varchar(200) DEFAULT '',
+  `pro_img8` longblob DEFAULT NULL,
+  `pro_mrp8` varchar(200) DEFAULT '',
+  `pro_price8` varchar(200) DEFAULT '',
+  `pro_tax8` varchar(200) DEFAULT '',
+  `pro_name9` varchar(200) DEFAULT '',
+  `pro_img9` longblob DEFAULT NULL,
+  `pro_mrp9` varchar(200) DEFAULT '',
+  `pro_price9` varchar(200) DEFAULT '',
+  `pro_tax9` varchar(200) DEFAULT '',
+  `pro_name10` varchar(200) DEFAULT '',
+  `pro_img10` longblob DEFAULT NULL,
+  `pro_mrp10` varchar(200) DEFAULT '',
+  `pro_price10` varchar(200) DEFAULT '',
+  `pro_tax10` varchar(200) DEFAULT '',
+  `pro_name11` varchar(200) DEFAULT '',
+  `pro_img11` longblob DEFAULT NULL,
+  `pro_mrp11` varchar(200) DEFAULT '',
+  `pro_price11` varchar(200) DEFAULT '',
+  `pro_tax11` varchar(200) DEFAULT '',
+  `pro_name12` varchar(200) DEFAULT '',
+  `pro_img12` longblob DEFAULT NULL,
+  `pro_mrp12` varchar(200) DEFAULT '',
+  `pro_price12` varchar(200) DEFAULT '',
+  `pro_tax12` varchar(200) DEFAULT '',
+  `pro_name13` varchar(200) DEFAULT '',
+  `pro_img13` longblob DEFAULT NULL,
+  `pro_mrp13` varchar(200) DEFAULT '',
+  `pro_price13` varchar(200) DEFAULT '',
+  `pro_tax13` varchar(200) DEFAULT '',
+  `pro_name14` varchar(200) DEFAULT '',
+  `pro_img14` longblob DEFAULT NULL,
+  `pro_mrp14` varchar(200) DEFAULT '',
+  `pro_price14` varchar(200) DEFAULT '',
+  `pro_tax14` varchar(200) DEFAULT '',
+  `pro_name15` varchar(200) DEFAULT '',
+  `pro_img15` longblob DEFAULT NULL,
+  `pro_mrp15` varchar(200) DEFAULT '',
+  `pro_price15` varchar(200) DEFAULT '',
+  `pro_tax15` varchar(200) DEFAULT '',
+  `pro_name16` varchar(200) DEFAULT '',
+  `pro_img16` longblob DEFAULT NULL,
+  `pro_mrp16` varchar(200) DEFAULT '',
+  `pro_price16` varchar(200) DEFAULT '',
+  `pro_tax16` varchar(200) DEFAULT '',
+  `pro_name17` varchar(200) DEFAULT '',
+  `pro_img17` longblob DEFAULT NULL,
+  `pro_mrp17` varchar(200) DEFAULT '',
+  `pro_price17` varchar(200) DEFAULT '',
+  `pro_tax17` varchar(200) DEFAULT '',
+  `pro_name18` varchar(200) DEFAULT '',
+  `pro_img18` longblob DEFAULT NULL,
+  `pro_mrp18` varchar(200) DEFAULT '',
+  `pro_price18` varchar(200) DEFAULT '',
+  `pro_tax18` varchar(200) DEFAULT '',
+  `pro_name19` varchar(200) DEFAULT '',
+  `pro_img19` longblob DEFAULT NULL,
+  `pro_mrp19` varchar(200) DEFAULT '',
+  `pro_price19` varchar(200) DEFAULT '',
+  `pro_tax19` varchar(200) DEFAULT '',
+  `pro_name20` varchar(200) DEFAULT '',
+  `pro_img20` longblob DEFAULT NULL,
+  `pro_mrp20` varchar(200) DEFAULT '',
+  `pro_price20` varchar(200) DEFAULT '',
+  `pro_tax20` varchar(200) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `product_categories` (
+  `id` int(11) NOT NULL,
+  `business_profile_type` varchar(100) NOT NULL DEFAULT '',
+  `business_heading` varchar(255) NOT NULL DEFAULT '',
+  `business_category` varchar(255) NOT NULL,
+  `business_category_slug` varchar(255) NOT NULL,
+  `product_category` varchar(255) NOT NULL,
+  `product_category_slug` varchar(255) NOT NULL,
+  `directory_priority` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `keywords` text DEFAULT NULL,
+  `tags` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `product_categories_backup` (
+  `id` int(11) NOT NULL,
+  `parent_id` int(11) DEFAULT NULL,
+  `category_name` varchar(255) NOT NULL,
+  `category_type` varchar(50) DEFAULT 'product',
+  `category_slug` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `icon_class` varchar(100) DEFAULT NULL,
+  `display_order` int(11) DEFAULT 0,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_by` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `referral_earnings` (
+  `id` int(11) NOT NULL,
+  `referrer_email` varchar(255) NOT NULL,
+  `referred_email` varchar(255) NOT NULL,
+  `referral_date` datetime DEFAULT current_timestamp(),
+  `payment_date` datetime DEFAULT NULL,
+  `amount` decimal(10,2) DEFAULT 0.00,
+  `status` varchar(20) DEFAULT NULL,
+  `deal_id` int(11) DEFAULT NULL,
+  `is_collaboration` enum('NO','YES') DEFAULT 'NO'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `referral_payment_history` (
+  `id` int(11) NOT NULL,
+  `referral_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `transaction_number` varchar(100) NOT NULL,
+  `payment_method` varchar(50) NOT NULL,
+  `payment_notes` text DEFAULT NULL,
+  `payment_date` datetime NOT NULL,
+  `processed_by` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `refresh_tokens` (
+  `Id` int(11) NOT NULL,
+  `UserId` int(11) NOT NULL,
+  `Token` varchar(500) NOT NULL,
+  `ExpiresAt` datetime(6) NOT NULL,
+  `RevokedAt` datetime(6) DEFAULT NULL,
+  `CreatedAt` datetime(6) NOT NULL,
+  `UpdatedAt` datetime(6) DEFAULT NULL,
+  `IsDeleted` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `registration_pending` (
+  `Id` int(11) NOT NULL,
+  `Role` varchar(20) NOT NULL,
+  `Email` varchar(255) NOT NULL,
+  `Phone` varchar(25) NOT NULL,
+  `Name` varchar(150) NOT NULL,
+  `State` varchar(100) DEFAULT NULL,
+  `PasswordHash` varchar(255) NOT NULL,
+  `PlainPassword` varchar(255) NOT NULL,
+  `ReferrerEmail` varchar(255) DEFAULT NULL,
+  `Otp` varchar(10) NOT NULL,
+  `ExpiresAt` datetime(6) NOT NULL,
+  `IsConsumed` tinyint(1) NOT NULL DEFAULT 0,
+  `CreatedAt` datetime(6) NOT NULL,
+  `UpdatedAt` datetime(6) DEFAULT NULL,
+  `IsDeleted` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `role_access_features` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `feature_key` varchar(80) NOT NULL,
+  `feature_label` varchar(200) NOT NULL,
+  `feature_group` varchar(80) NOT NULL DEFAULT 'General',
+  `field_type` enum('yes_no','text','textarea') NOT NULL DEFAULT 'text',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `role_access_profiles` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `profile_key` varchar(50) NOT NULL,
+  `profile_label` varchar(150) NOT NULL,
+  `base_role` enum('ADMIN','CUSTOMER','TEAM','FRANCHISEE') NOT NULL,
+  `requires_collaboration` enum('ANY','YES','NO') NOT NULL DEFAULT 'ANY',
+  `requires_influencer` enum('ANY','YES','NO') NOT NULL DEFAULT 'ANY',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `role_access_settings` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `profile_id` int(10) UNSIGNED NOT NULL,
+  `feature_id` int(10) UNSIGNED NOT NULL,
+  `is_not_applicable` tinyint(1) NOT NULL DEFAULT 0,
+  `setting_value` text NOT NULL,
+  `updated_by` varchar(255) DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `team_members` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `member_name` varchar(150) NOT NULL,
+  `member_email` varchar(255) NOT NULL,
+  `member_phone` varchar(25) DEFAULT NULL,
+  `department` varchar(100) DEFAULT NULL,
+  `profile_image` varchar(255) DEFAULT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  `last_login_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `referral_code` varchar(50) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_bank_details` (
+  `id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `bank_name` varchar(255) NOT NULL,
+  `account_holder_name` varchar(255) NOT NULL,
+  `account_number` varchar(50) NOT NULL,
+  `ifsc_code` varchar(20) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `upi_id` varchar(100) DEFAULT NULL,
+  `upi_name` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+CREATE TABLE `user_custom_categories` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `category_name` varchar(255) NOT NULL,
+  `category_type` enum('business-category','product-category','product-name') DEFAULT 'product-name',
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `user_details` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `role` enum('CUSTOMER','FRANCHISEE','TEAM','ADMIN') NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `phone` varchar(25) DEFAULT NULL,
+  `name` varchar(150) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `password_hash` varchar(255) DEFAULT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `status` enum('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `isDeleted` tinyint(1) DEFAULT 0,
+  `user_token` varchar(200) DEFAULT '',
+  `refund_status` varchar(20) DEFAULT 'None',
+  `refund_status_date` datetime DEFAULT NULL,
+  `mw_referral_id` int(10) UNSIGNED DEFAULT NULL,
+  `collaboration_enabled` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  `saleskit_enabled` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  `influencer` enum('YES','NO') NOT NULL DEFAULT 'NO',
+  `referred_by` varchar(255) DEFAULT '',
+  `sender_user_id` int(10) UNSIGNED DEFAULT NULL,
+  `select_service` varchar(200) DEFAULT '',
+  `wallet_balance` varchar(200) DEFAULT '',
+  `image` longblob DEFAULT NULL,
+  `google_pay` varchar(200) DEFAULT '',
+  `paytm` varchar(200) DEFAULT '',
+  `rz_pay` varchar(300) DEFAULT '',
+  `rz_pay2` varchar(300) DEFAULT '',
+  `legacy_customer_id` int(11) DEFAULT NULL,
+  `legacy_franchisee_id` int(11) DEFAULT NULL,
+  `legacy_team_id` int(11) DEFAULT NULL,
+  `legacy_admin_id` int(11) DEFAULT NULL,
+  `department` varchar(100) DEFAULT NULL,
+  `profile_image` varchar(255) DEFAULT NULL,
+  `referral_code` varchar(50) DEFAULT '',
+  `district` varchar(100) DEFAULT '',
+  `state` varchar(100) DEFAULT ''
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `user_joining_deals_mapping` (
+  `id` int(11) NOT NULL,
+  `user_email` varchar(255) NOT NULL,
+  `joining_deal_id` int(11) NOT NULL,
+  `deal_code` varchar(50) NOT NULL,
+  `mapping_status` enum('ACTIVE','INACTIVE','CANCELLED') DEFAULT 'ACTIVE',
+  `mapped_by` varchar(255) NOT NULL,
+  `mapped_date` timestamp NOT NULL DEFAULT current_timestamp(),
+  `email_sent` enum('YES','NO') DEFAULT 'NO',
+  `email_sent_date` timestamp NULL DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `start_date` datetime DEFAULT NULL,
+  `expiry_date` datetime DEFAULT NULL,
+  `transaction_id` varchar(255) DEFAULT NULL,
+  `invoice_id` int(11) DEFAULT NULL,
+  `payment_status` enum('PENDING','PAID','FAILED','REFUNDED') DEFAULT 'PENDING',
+  `payment_date` datetime DEFAULT NULL,
+  `amount_paid` decimal(10,2) DEFAULT 0.00
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `views` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `card_id` varchar(100) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;
+
+CREATE TABLE `wallet` (
+  `id` int(6) NOT NULL,
+  `ip` varchar(100) DEFAULT '',
+  `f_user_email` varchar(200) DEFAULT '',
+  `w_balance` varchar(200) DEFAULT '',
+  `w_deposit` varchar(200) DEFAULT '',
+  `w_withdraw` varchar(200) DEFAULT '',
+  `w_order_id` varchar(200) DEFAULT '',
+  `w_txn_msg` varchar(200) DEFAULT '',
+  `uploaded_date` datetime DEFAULT current_timestamp()
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci;

@@ -1,0 +1,195 @@
+/* ==========================================================================
+   theme3.css — Midnight Violet & Coral Sunset (Outfit)
+   Purpose: Colors, fonts, and theme3-specific component styling
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    /* Core Theme Tokens */
+    --mw-primary-color: #ff6b6b;
+    --mw-secondary-color: #feca57;
+    --mw-accent-color: #a29bfe;
+
+    --mw-background-color: #130f1f;
+    --mw-card-background: #1e1830;
+    --mw-heading-color: #ffffff;
+    --mw-text-color: #b8b0d0;
+
+    --mw-border-radius: 16px;
+    --mw-shadow: 0 14px 36px rgba(8, 4, 18, 0.65),
+                 0 0 0 1px rgba(162, 155, 254, 0.06);
+
+    --mw-font-heading: 'Outfit', sans-serif;
+    --mw-font-body: 'Outfit', sans-serif;
+
+    /* Offer Card Theme Tokens */
+    --mw-offer-badge-bg: #ff6b6b;
+    --mw-offer-badge-color: #130f1f;
+    --mw-offer-card-shadow: 0 12px 32px rgba(255, 107, 107, 0.12);
+    --mw-offer-cta-bg: #ff6b6b;
+
+    /* Component Tokens */
+    --mw-btn-on-primary: #130f1f;
+    --mw-btn-hover-bg: #ff8787;
+    --mw-nav-bg: rgba(19, 15, 31, 0.94);
+    --mw-nav-border: rgba(255, 107, 107, 0.15);
+    --mw-nav-inactive: #7c7494;
+    --mw-nav-shadow: 0 -8px 30px rgba(8, 4, 18, 0.7);
+    --mw-card-border: rgba(162, 155, 254, 0.1);
+    --mw-input-bg: rgba(30, 24, 48, 0.75);
+    --mw-input-border: rgba(255, 255, 255, 0.08);
+    --mw-cat-active-bg: rgba(255, 107, 107, 0.08);
+    --mw-cat-img-bg: rgba(30, 24, 48, 0.9);
+    --mw-cat-img-border: rgba(162, 155, 254, 0.2);
+}
+
+body {
+    background-color: var(--mw-background-color);
+    background-image:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(255, 107, 107, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 90% 100%, rgba(162, 155, 254, 0.07) 0%, transparent 50%);
+    color: var(--mw-text-color);
+    font-family: var(--mw-font-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, .font-heading {
+    font-family: var(--mw-font-heading);
+    color: var(--mw-heading-color);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+::selection {
+    background-color: var(--mw-primary-color);
+    color: var(--mw-btn-on-primary);
+}
+
+/* =========================================
+   Theme3 Component Styling
+   ========================================= */
+
+/* Section title — centered with coral + violet flanking dashes */
+.mw-section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.mw-section-title::before,
+.mw-section-title::after {
+    content: '';
+    display: inline-block;
+    width: 28px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.mw-section-title::before {
+    background: linear-gradient(90deg, transparent, var(--mw-accent-color));
+}
+
+.mw-section-title::after {
+    background: linear-gradient(90deg, var(--mw-primary-color), transparent);
+}
+
+/* Cards */
+.mw-card {
+    background-color: var(--mw-card-background) !important;
+    border: 1px solid var(--mw-card-border) !important;
+}
+
+/* Category sidebar */
+.mw-cat-item {
+    border-left: 3px solid transparent !important;
+}
+
+.mw-cat-item.active {
+    border-left-color: var(--mw-primary-color) !important;
+    background-color: var(--mw-cat-active-bg) !important;
+}
+
+.mw-cat-img-box {
+    background: var(--mw-cat-img-bg) !important;
+    border: 1px solid var(--mw-cat-img-border);
+}
+
+/* Buttons */
+.mw-btn-add {
+    border: 1px solid var(--mw-primary-color) !important;
+    color: var(--mw-primary-color) !important;
+    background: transparent !important;
+}
+
+.mw-btn-add:hover {
+    background: var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+    box-shadow: 0 0 16px rgba(255, 107, 107, 0.35);
+}
+
+.mw-btn-add-overlay {
+    background: var(--mw-primary-color) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-btn-add-overlay:hover {
+    background: var(--mw-btn-hover-bg) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-btn-add-shop {
+    background: linear-gradient(135deg, var(--mw-primary-color), #ee5a5a) !important;
+    border: 1px solid transparent !important;
+    color: var(--mw-btn-on-primary) !important;
+    box-shadow: 0 4px 14px rgba(255, 107, 107, 0.25);
+}
+
+.mw-btn-add-shop:hover {
+    background: linear-gradient(135deg, var(--mw-btn-hover-bg), var(--mw-primary-color)) !important;
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+}
+
+/* Forms */
+.mw-input {
+    background-color: var(--mw-input-bg) !important;
+    border: 1px solid var(--mw-input-border) !important;
+    color: var(--mw-heading-color) !important;
+}
+
+.mw-input:focus {
+    border-color: var(--mw-accent-color) !important;
+    background-color: rgba(30, 24, 48, 0.95) !important;
+    box-shadow: 0 0 0 3px rgba(162, 155, 254, 0.15);
+}
+
+/* Share buttons */
+.mw-qr-share .mw-share-btn {
+    background: linear-gradient(135deg, var(--mw-primary-color), var(--mw-secondary-color)) !important;
+    color: var(--mw-btn-on-primary) !important;
+}
+
+.mw-qr-share .mw-share-btn:hover {
+    background: linear-gradient(135deg, var(--mw-btn-hover-bg), #ffd56a) !important;
+    filter: brightness(1.05);
+}
+
+/* Navigation */
+.mw-sticky-nav {
+    background-color: var(--mw-nav-bg) !important;
+    border-top: 1px solid var(--mw-nav-border) !important;
+    box-shadow: var(--mw-nav-shadow) !important;
+}
+
+.mw-nav-item {
+    color: var(--mw-nav-inactive) !important;
+}
+
+.mw-nav-item:hover,
+.mw-nav-item.active {
+    color: var(--mw-primary-color) !important;
+}
