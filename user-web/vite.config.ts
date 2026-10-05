@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    watch: {
+      ignored: ['**/dist.zip'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5209',

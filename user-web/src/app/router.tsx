@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { UserPortalLayout } from '@/layouts/UserPortalLayout'
-import { HomePage } from '@/features/home/HomePage'
+import { SharebizzMaintenancePage } from '@/features/marketing/SharebizzMaintenancePage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
@@ -80,8 +80,9 @@ export function AppRouter() {
       <Route path="payment/joining-deal/success" element={<PaymentSuccessPage kind="joining-deal" />} />
       <Route path="payment/distributor/success" element={<PaymentSuccessPage kind="distributor" />} />
 
+      <Route index element={<SharebizzMaintenancePage />} />
+
       <Route element={<PublicLayout />}>
-        <Route index element={<HomePage />} />
         <Route path="refer-and-earn" element={<ReferAndEarnPage />} />
         <Route path="franchisee" element={<FranchiseeMarketingPage />} />
         <Route path="website-development" element={<WebsiteDevelopmentPage />} />
