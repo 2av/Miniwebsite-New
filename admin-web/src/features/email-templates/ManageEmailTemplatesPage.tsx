@@ -181,15 +181,15 @@ export function ManageEmailTemplatesPage() {
       }
       if (editing) {
         await updateEmailTemplate(editing.id, payload)
-        toast.success('Email template updated')
+        toast.push('Email template updated', 'success')
       } else {
         await createEmailTemplate(payload)
-        toast.success('Email template created')
+        toast.push('Email template created', 'success')
       }
       setFormOpen(false)
       await qc.invalidateQueries({ queryKey: ['email-templates'] })
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Save failed')
+      toast.push(e instanceof ApiError ? e.message : 'Save failed', 'error')
     } finally {
       setFormBusy(false)
     }
@@ -198,10 +198,10 @@ export function ManageEmailTemplatesPage() {
   async function onToggle(row: EmailTemplateRow) {
     try {
       await toggleEmailTemplateStatus(row.id)
-      toast.success(row.status === 'active' ? 'Template deactivated' : 'Template activated')
+      toast.push(row.status === 'active' ? 'Template deactivated' : 'Template activated', 'success')
       await qc.invalidateQueries({ queryKey: ['email-templates'] })
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Status update failed')
+      toast.push(e instanceof ApiError ? e.message : 'Status update failed', 'error')
     }
   }
 
@@ -210,11 +210,11 @@ export function ManageEmailTemplatesPage() {
     setDeleteBusy(true)
     try {
       await deleteEmailTemplate(deleteTarget.id)
-      toast.success('Email template deleted')
+      toast.push('Email template deleted', 'success')
       setDeleteTarget(null)
       await qc.invalidateQueries({ queryKey: ['email-templates'] })
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Delete failed')
+      toast.push(e instanceof ApiError ? e.message : 'Delete failed', 'error')
     } finally {
       setDeleteBusy(false)
     }
@@ -229,7 +229,7 @@ export function ManageEmailTemplatesPage() {
       const result = await previewEmailTemplate({ subject, bodyHtml, sampleVariables: vars })
       setPreviewHtml(result)
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'Preview failed')
+      toast.push(e instanceof ApiError ? e.message : 'Preview failed', 'error')
     } finally {
       setPreviewBusy(false)
     }
@@ -334,7 +334,7 @@ export function ManageEmailTemplatesPage() {
                                 sampleVariables: sampleVarsFromList(row.availableVariables),
                               })
                                 .then(setPreviewHtml)
-                                .catch((e) => toast.error(e instanceof ApiError ? e.message : 'Preview failed'))
+                                .catch((e) => toast.push(e instanceof ApiError ? e.message : 'Preview failed', 'error'))
                             }}
                           >
                             <Eye className="h-4 w-4" />
