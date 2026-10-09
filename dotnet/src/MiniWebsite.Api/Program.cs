@@ -13,8 +13,9 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
-    // Local secrets (gitignored) — e.g. production DB credentials for Development.
-    builder.Configuration.AddJsonFile("appsettings.Development.local.json", optional: true, reloadOnChange: true);
+    // Local secrets (gitignored), e.g. appsettings.Development.local.json or a server-only appsettings.Production.local.json.
+    builder.Configuration.AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.local.json", optional: true, reloadOnChange: true);
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)

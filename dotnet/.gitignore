@@ -16,3 +16,4 @@ logs/
 .env
 .env.*
 publish.zip
+live-migrations.sql
