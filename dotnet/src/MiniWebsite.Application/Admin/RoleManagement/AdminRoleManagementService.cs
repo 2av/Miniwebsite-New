@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Admin.RoleManagement.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 
 namespace MiniWebsite.Application.Admin.RoleManagement;
@@ -113,6 +114,9 @@ public class AdminRoleManagementService : IAdminRoleManagementService
                     r => r.RoleId != roleId && r.RoleName.ToLower() == data.RoleName.ToLower(), ct))
                 return ApiResult<ManageRoleRowDto>.Fail("A role with this name already exists");
 
+            var prefixError = await ValidatePrefixChangeAsync(entity, data.Prefix, ct);
+            if (prefixError != null) return ApiResult<ManageRoleRowDto>.Fail(prefixError);
+
             entity.RoleName = data.RoleName;
             entity.RoleDescription = data.RoleDescription;
             entity.Prefix = data.Prefix;
@@ -135,6 +139,11 @@ public class AdminRoleManagementService : IAdminRoleManagementService
             var entity = await _db.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId, ct);
             if (entity == null) return ApiResult.Fail("Role not found");
 
+            if (IsSystemPrefix(entity.Prefix))
+                return ApiResult.Fail($"Role '{entity.RoleName}' is a system role and can't be deleted.");
+            if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.RoleId == roleId, ct))
+                return ApiResult.Fail($"Role '{entity.RoleName}' is assigned to users and can't be deleted.");
+
             _db.Roles.Remove(entity);
             await _db.SaveChangesAsync(ct);
             return ApiResult.Ok("Role deleted successfully!");
@@ -143,6 +152,23 @@ public class AdminRoleManagementService : IAdminRoleManagementService
         {
             return ApiResult.Fail("Error deleting role: " + ex.Message);
         }
+    }
+
+    private static bool IsSystemPrefix(string? prefix) =>
+        prefix != null && RolePrefixes.All.Contains(prefix.Trim().ToUpperInvariant());
+
+    /// <summary>System prefixes decide each user's portal, so they must stay unique and unchanged.</summary>
+    private async Task<string?> ValidatePrefixChangeAsync(Role entity, string? newPrefix, CancellationToken ct)
+    {
+        var oldKey = (entity.Prefix ?? "").Trim().ToUpperInvariant();
+        var newKey = (newPrefix ?? "").Trim().ToUpperInvariant();
+        if (oldKey == newKey) return null;
+
+        if (IsSystemPrefix(oldKey))
+            return $"Prefix '{entity.Prefix}' is used by the system and can't be changed.";
+        if (IsSystemPrefix(newKey))
+            return $"Prefix '{newKey}' is reserved for a system role.";
+        return null;
     }
 
     private static IQueryable<Role> ApplyFilters(IQueryable<Role> q, ManageRolesQuery query)

@@ -1,7 +1,8 @@
 namespace MiniWebsite.Application.Auth.Dtos;
 
 public record RegisterRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string Phone,
     string Password,

@@ -65,7 +65,8 @@ import {
 } from '@/components/ui/table'
 
 type FormState = {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   phone: string
   district: string
@@ -74,7 +75,8 @@ type FormState = {
 }
 
 const emptyForm: FormState = {
-  name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   phone: '',
   district: '',
@@ -178,7 +180,8 @@ export function ManageTeamsPage() {
   const openEdit = (row: ManageTeamRow) => {
     setEditing(row)
     setForm({
-      name: row.name,
+      firstName: row.firstName,
+      lastName: row.lastName,
       email: row.email,
       phone: row.phone,
       district: row.district,
@@ -189,7 +192,7 @@ export function ManageTeamsPage() {
   }
 
   const submitForm = async () => {
-    if (!form.name.trim()) return toast.push('Member name is required', 'error')
+    if (!form.firstName.trim()) return toast.push('First Name is required', 'error')
     if (!form.email.trim() || !form.email.includes('@'))
       return toast.push('A valid email is required', 'error')
     if (!editing && form.password.trim().length < 6)
@@ -199,7 +202,8 @@ export function ManageTeamsPage() {
     try {
       if (editing) {
         const res = await updateTeamMember(editing.id, {
-          name: form.name.trim(),
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
           email: form.email.trim(),
           phone: form.phone.trim(),
           district: form.district.trim(),
@@ -208,7 +212,8 @@ export function ManageTeamsPage() {
         toast.push(res.message || 'Team member updated', 'success')
       } else {
         const res = await createTeamMember({
-          name: form.name.trim(),
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
           email: form.email.trim(),
           phone: form.phone.trim(),
           district: form.district.trim(),
@@ -513,9 +518,20 @@ export function ManageTeamsPage() {
             <DrawerDescription>Team accounts use role TEAM in user details</DrawerDescription>
           </DrawerHeader>
           <div className="space-y-3 px-4 pb-2">
-            <Field label="Member Name *">
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First Name *">
+                <Input
+                  value={form.firstName}
+                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                />
+              </Field>
+              <Field label="Last Name">
+                <Input
+                  value={form.lastName}
+                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                />
+              </Field>
+            </div>
             <Field label="Email *">
               <Input
                 type="email"

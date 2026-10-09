@@ -38,6 +38,7 @@ export type MappedDeal = {
 
 export type ManageUserRow = {
   id: number
+  userCode: string
   email: string
   name: string
   phone?: string | null
@@ -268,26 +269,6 @@ export type FranchiseeWebsite = {
 export type FranchiseeDashboard = {
   email: string
   websites: FranchiseeWebsite[]
-}
-
-export type UserDeletionRow = {
-  id: number
-  email: string
-  name: string
-  role: string
-  status: string
-  isDeleted: boolean
-  createdAt: string
-  updatedAt?: string | null
-}
-
-export type UserDeletionPage = {
-  users: UserDeletionRow[]
-  totalCount: number
-  activeCount: number
-  deletedCount: number
-  page: number
-  pageSize: number
 }
 
 export type ManageReferralRow = {
@@ -674,6 +655,8 @@ export type CategoryImportResult = {
 export type ManageTeamRow = {
   id: number
   legacyTeamId?: number | null
+  firstName: string
+  lastName: string
   name: string
   email: string
   phone: string
@@ -970,7 +953,9 @@ export type SalesChannelPartnerRole = {
 
 export type SalesChannelPartnerRow = {
   id: number
-  partnerCode: string
+  userCode: string
+  firstName: string
+  lastName: string
   name: string
   email: string
   phone: string
@@ -990,7 +975,8 @@ export type SalesChannelPartnersPage = {
 }
 
 export type UpsertSalesChannelPartnerPayload = {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   phone?: string
   district?: string

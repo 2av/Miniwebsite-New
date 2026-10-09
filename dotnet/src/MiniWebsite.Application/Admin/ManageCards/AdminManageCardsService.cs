@@ -7,6 +7,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.ManageCards;
 
@@ -27,7 +28,7 @@ public class AdminManageCardsService : IAdminManageCardsService
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
 
         var teamEmails = await _db.Users.AsNoTracking()
-            .Where(u => u.Role == UserRole.Team)
+            .WhereRole(UserRole.Team)
             .Select(u => u.Email.ToLower())
             .ToListAsync(ct);
         var teamSet = teamEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -79,7 +80,7 @@ public class AdminManageCardsService : IAdminManageCardsService
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var referrerEmails = users
-            .Select(u => Normalize(u.ReferredBy))
+            .Select(u => Normalize(u.Referral.ReferredBy))
             .Where(e => e.Length > 0)
             .Distinct()
             .ToList();
@@ -125,7 +126,7 @@ public class AdminManageCardsService : IAdminManageCardsService
                 c.UserEmail,
                 c.FUserEmail,
                 user?.Id,
-                user?.Name,
+                user?.FullName,
                 user?.Phone,
                 BuildReferralSource(user, referrers, frdSet),
                 company,
@@ -207,14 +208,14 @@ public class AdminManageCardsService : IAdminManageCardsService
         Dictionary<string, User> referrers,
         HashSet<string> frdSet)
     {
-        if (user == null || string.IsNullOrWhiteSpace(user.ReferredBy))
+        if (user == null || string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             return "Direct";
 
-        var refEmail = Normalize(user.ReferredBy);
+        var refEmail = Normalize(user.Referral.ReferredBy);
         if (!referrers.TryGetValue(refEmail, out var referrer))
-            return "Ref: " + user.ReferredBy.Trim();
+            return "Ref: " + user.Referral.ReferredBy.Trim();
 
-        var display = referrer.Role switch
+        var display = referrer.LoginRole switch
         {
             UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
             UserRole.Team => "Team - " + referrer.Id,

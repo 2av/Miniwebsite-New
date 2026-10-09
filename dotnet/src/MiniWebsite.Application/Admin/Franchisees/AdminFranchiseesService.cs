@@ -10,6 +10,8 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.Franchisees;
 
@@ -46,13 +48,13 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         query.Page = query.Page < 1 ? 1 : query.Page;
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
 
-        var q = _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Franchisee);
+        var q = _db.Users.AsNoTracking().WhereRole(UserRole.Franchisee);
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var s = query.Search.Trim().ToLower();
             q = q.Where(u =>
                 u.Email.ToLower().Contains(s)
-                || u.Name.ToLower().Contains(s)
+                || (u.FirstName + " " + u.LastName).ToLower().Contains(s)
                 || (u.Phone != null && u.Phone.Contains(s)));
         }
 
@@ -65,7 +67,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
 
         var emails = users.Select(u => Normalize(u.Email)).Where(e => e.Length > 0).Distinct().ToList();
         var referrerEmails = users
-            .Select(u => Normalize(u.ReferredBy))
+            .Select(u => Normalize(u.Referral.ReferredBy))
             .Where(e => e.Length > 0 && e.Contains('@'))
             .Distinct()
             .ToList();
@@ -126,7 +128,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             rows.Add(new FranchiseeRowDto(
                 u.Id,
                 u.Email,
-                u.Name,
+                u.FullName,
                 u.Phone,
                 u.CreatedAt,
                 BuildReferralSource(u, referrers),
@@ -158,8 +160,8 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         if (request.Id <= 0)
             return ApiResult.Fail("Invalid franchisee account selected.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Id == request.Id && u.Role == UserRole.Franchisee, ct);
+        var user = await _db.Users.WhereRole(UserRole.Franchisee).FirstOrDefaultAsync(
+            u => u.Id == request.Id, ct);
         if (user == null)
             return ApiResult.Fail("Franchisee not found.");
 
@@ -174,31 +176,33 @@ public class AdminFranchiseesService : IAdminFranchiseesService
 
     public async Task<ApiResult> CreateAsync(CreateFranchiseeRequest request, CancellationToken ct = default)
     {
-        var name = (request.Name ?? "").Trim();
+        var firstName = (request.FirstName ?? "").Trim();
+        var lastName = (request.LastName ?? "").Trim();
+        var name = $"{firstName} {lastName}".Trim();
         var email = Normalize(request.Email);
         var phone = (request.Phone ?? "").Trim();
         var password = request.Password ?? "";
 
-        if (name.Length == 0) return ApiResult.Fail("User Name is required");
+        if (firstName.Length == 0) return ApiResult.Fail("First Name is required");
         if (email.Length == 0) return ApiResult.Fail("Email is required");
         if (!email.Contains('@')) return ApiResult.Fail("Please enter a valid email address");
         if (!Regex.IsMatch(phone, @"^\d{10}$")) return ApiResult.Fail("Contact number must be exactly 10 digits");
         if (password.Length < 1) return ApiResult.Fail("Password is required");
 
-        var exists = await _db.Users.AsNoTracking().AnyAsync(
-            u => u.Email.ToLower() == email && u.Role == UserRole.Franchisee, ct);
+        var exists = await _db.Users.AsNoTracking().WhereRole(UserRole.Franchisee).AnyAsync(
+            u => u.Email.ToLower() == email, ct);
         if (exists)
             return ApiResult.Fail("A franchisee with this email already exists. Please use a different email ID.");
 
         var hash = _passwordHasher.Hash(password);
         _db.Users.Add(new User
         {
-            Role = UserRole.Franchisee,
+            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.FranchisePartner, ct),
             Email = email,
             Phone = phone,
-            Name = name,
+            FirstName = firstName,
+            LastName = lastName,
             Password = hash,
-            PasswordHash = hash,
             Status = "ACTIVE",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -216,7 +220,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
                 ["host"] = _app.PublicHost,
             };
             var rendered = await _templates.TryRenderAsync("franchisee_admin_created", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to MiniWebsite Franchisee";
+            var subject = rendered?.Subject ?? "Welcome to ShareBizz Franchisee";
             var html = rendered?.Html ?? $"""
                 <p>Hello {System.Net.WebUtility.HtmlEncode(name)},</p>
                 <p>Your franchisee account has been created.</p>
@@ -369,10 +373,10 @@ public class AdminFranchiseesService : IAdminFranchiseesService
 
     private static string BuildReferralSource(User user, Dictionary<string, User> referrers)
     {
-        if (string.IsNullOrWhiteSpace(user.ReferredBy))
+        if (string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             return "Direct";
 
-        var refBy = user.ReferredBy.Trim();
+        var refBy = user.Referral.ReferredBy.Trim();
         if (int.TryParse(refBy, out var numericId))
             return "User - " + numericId;
 
@@ -380,7 +384,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         if (!referrers.TryGetValue(key, out var referrer))
             return "User - " + refBy;
 
-        return referrer.Role switch
+        return referrer.LoginRole switch
         {
             UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
             UserRole.Team => "Team - " + referrer.Id,

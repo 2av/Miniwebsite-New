@@ -21,7 +21,8 @@ public class CustomerRegisterRequestValidator : AbstractValidator<CustomerRegist
 {
     public CustomerRegisterRequestValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.LastName).MaximumLength(100);
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(255);
         RuleFor(x => x.Phone).NotEmpty().Matches(@"^[0-9]{10}$").WithMessage("Valid 10-digit mobile number is required.");
         RuleFor(x => x.Password).NotEmpty().MinimumLength(6);
@@ -34,7 +35,8 @@ public class FranchiseeRegisterRequestValidator : AbstractValidator<FranchiseeRe
 {
     public FranchiseeRegisterRequestValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.LastName).MaximumLength(100);
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(255);
         RuleFor(x => x.Phone).NotEmpty().Matches(@"^[0-9]{10}$").WithMessage("Valid 10-digit mobile number is required.");
         RuleFor(x => x.Password).NotEmpty().MinimumLength(6);

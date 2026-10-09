@@ -218,7 +218,7 @@ public class AdminInvoiceAccessService : IAdminInvoiceAccessService
     </div>
     <div class=""thank-you-section"">
       <p>Thank you for your business!</p>
-      <p>www.miniwebsite.in</p>
+      <p>www.sharebizz.com</p>
     </div>
     <div class=""footer"">This is a computer generated invoice.</div>
   </div>
@@ -252,11 +252,11 @@ public class AdminInvoiceAccessService : IAdminInvoiceAccessService
         {
             (plan, validity) = amountKey switch
             {
-                500 => ("Mini Website Plan", "6 Months"),
-                847 => ("Mini Website Plan", "1 Year"),
-                1500 => ("Mini Website Plan", "2 Years"),
-                2100 => ("Mini Website Plan", "3 Years"),
-                _ => ("Mini Website Plan", "As per plan")
+                500 => ("ShareBizz Plan", "6 Months"),
+                847 => ("ShareBizz Plan", "1 Year"),
+                1500 => ("ShareBizz Plan", "2 Years"),
+                2100 => ("ShareBizz Plan", "3 Years"),
+                _ => ("ShareBizz Plan", "As per plan")
             };
         }
 

@@ -9,7 +9,7 @@ export function DashboardPage() {
         <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-slate-900">
           Welcome back
         </h1>
-        <p className="mt-1 text-slate-500">Manage MiniWebsite from the React admin. Start with users.</p>
+        <p className="mt-1 text-slate-500">Manage ShareBizz from the React admin. Start with users.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

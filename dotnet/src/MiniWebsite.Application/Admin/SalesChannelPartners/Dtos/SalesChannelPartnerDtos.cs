@@ -25,7 +25,9 @@ public record SalesChannelPartnersPageDto(
 
 public record SalesChannelPartnerRowDto(
     int Id,
-    string PartnerCode,
+    string UserCode,
+    string FirstName,
+    string LastName,
     string Name,
     string Email,
     string Phone,
@@ -36,7 +38,8 @@ public record SalesChannelPartnerRowDto(
     string CreatedAtDisplay);
 
 public record CreateSalesChannelPartnerRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string? Phone,
     string? District,
@@ -44,7 +47,8 @@ public record CreateSalesChannelPartnerRequest(
     string Password);
 
 public record UpdateSalesChannelPartnerRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string? Phone,
     string? District,

@@ -18,7 +18,7 @@ export function PublicHeader() {
           <Link to="/" className="shrink-0" onClick={() => setOpen(false)}>
             <img
               src={assetUrl('images/main-logo.png')}
-              alt="Mini Website"
+              alt="ShareBizz"
               className="h-auto w-[200px] max-w-full"
             />
           </Link>

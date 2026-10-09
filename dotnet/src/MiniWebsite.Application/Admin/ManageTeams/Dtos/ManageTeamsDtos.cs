@@ -17,6 +17,8 @@ public record ManageTeamsPageDto(
 public record ManageTeamRowDto(
     int Id,
     int? LegacyTeamId,
+    string FirstName,
+    string LastName,
     string Name,
     string Email,
     string Phone,
@@ -32,7 +34,8 @@ public record ManageTeamRowDto(
     IReadOnlyList<int> OwnMwIds);
 
 public record CreateTeamMemberRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string? Phone,
     string? District,
@@ -40,7 +43,8 @@ public record CreateTeamMemberRequest(
     string Password);
 
 public record UpdateTeamMemberRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string? Phone,
     string? District,

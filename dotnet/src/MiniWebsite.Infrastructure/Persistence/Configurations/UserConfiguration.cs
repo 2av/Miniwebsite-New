@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MiniWebsite.Domain.Entities;
-using MiniWebsite.Domain.Enums;
 
 namespace MiniWebsite.Infrastructure.Persistence.Configurations;
 
@@ -12,65 +10,75 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         builder.ToTable("users");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Role).HasMaxLength(20).HasConversion(new UserRoleConverter()).IsRequired();
         builder.Property(x => x.Email).HasMaxLength(255).IsRequired();
         builder.Property(x => x.Phone).HasMaxLength(25);
-        builder.Property(x => x.Name).HasMaxLength(150).IsRequired();
+        builder.Property(x => x.FirstName).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.LastName).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Password).HasMaxLength(255).IsRequired();
-        builder.Property(x => x.PasswordHash).HasMaxLength(255);
         builder.Property(x => x.Ip).HasMaxLength(100);
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
         builder.Property(x => x.UserToken).HasMaxLength(200);
         builder.Property(x => x.RefundStatus).HasMaxLength(20);
-        builder.Property(x => x.CollaborationEnabled).IsRequired();
-        builder.Property(x => x.SaleskitEnabled).IsRequired();
-        builder.Property(x => x.Influencer).IsRequired();
         builder.Property(x => x.SelectService).HasMaxLength(200);
-        builder.Property(x => x.GooglePay).HasMaxLength(200);
-        builder.Property(x => x.Paytm).HasMaxLength(200);
-        builder.Property(x => x.RzPay).HasMaxLength(300);
-        builder.Property(x => x.RzPay2).HasMaxLength(300);
         builder.Property(x => x.Department).HasMaxLength(100);
         builder.Property(x => x.ProfileImage).HasMaxLength(500);
-        builder.Property(x => x.ReferralCode).HasMaxLength(50);
-        builder.Property(x => x.District).HasMaxLength(100);
-        builder.Property(x => x.State).HasMaxLength(100);
-        builder.Property(x => x.Address).HasMaxLength(500);
-        builder.Property(x => x.City).HasMaxLength(100);
-        builder.Property(x => x.Pincode).HasMaxLength(20);
-        builder.Property(x => x.Gst).HasMaxLength(50);
+        builder.Property(x => x.UserCode).HasMaxLength(50).IsRequired();
+        builder.HasIndex(x => x.UserCode).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique();
-        builder.HasIndex(x => x.ReferralCode);
+        builder.HasIndex(x => x.RoleId);
         builder.HasOne(x => x.AssignedRole)
             .WithMany()
             .HasForeignKey(x => x.RoleId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(x => x.AssignedRole).AutoInclude();
+        builder.Ignore(x => x.LoginRole);
+        builder.Ignore(x => x.FullName);
+
+        builder.OwnsOne(x => x.Address, a =>
+        {
+            a.ToTable("user_addresses");
+            a.WithOwner().HasForeignKey("UserId");
+            a.Property<int>("UserId");
+            a.HasKey("UserId");
+            a.Property(x => x.AddressLine).HasMaxLength(500);
+            a.Property(x => x.City).HasMaxLength(100);
+            a.Property(x => x.District).HasMaxLength(100);
+            a.Property(x => x.State).HasMaxLength(100);
+            a.Property(x => x.Pincode).HasMaxLength(20);
+            a.Property(x => x.Gst).HasMaxLength(50);
+        });
+        builder.Navigation(x => x.Address).IsRequired();
+
+        builder.OwnsOne(x => x.Payment, p =>
+        {
+            p.ToTable("user_payment_details");
+            p.WithOwner().HasForeignKey("UserId");
+            p.Property<int>("UserId");
+            p.HasKey("UserId");
+            p.Property(x => x.GooglePay).HasMaxLength(200);
+            p.Property(x => x.Paytm).HasMaxLength(200);
+            p.Property(x => x.RzPay).HasMaxLength(300);
+            p.Property(x => x.RzPay2).HasMaxLength(300);
+        });
+        builder.Navigation(x => x.Payment).IsRequired();
+
+        builder.OwnsOne(x => x.Referral, r =>
+        {
+            r.ToTable("user_referral_settings");
+            r.WithOwner().HasForeignKey("UserId");
+            r.Property<int>("UserId");
+            r.HasKey("UserId");
+            r.Property(x => x.ReferralCode).HasMaxLength(50);
+            r.Property(x => x.ReferredBy);
+            r.Property(x => x.Influencer).IsRequired();
+            r.Property(x => x.CollaborationEnabled).IsRequired();
+            r.Property(x => x.SaleskitEnabled).IsRequired();
+            r.HasIndex(x => x.ReferralCode);
+        });
+        builder.Navigation(x => x.Referral).IsRequired();
+
         builder.HasQueryFilter(x => !x.IsDeleted);
     }
-}
-
-internal sealed class UserRoleConverter : ValueConverter<UserRole, string>
-{
-    public UserRoleConverter() : base(v => ToDb(v), v => FromDb(v)) { }
-
-    private static string ToDb(UserRole role) => role switch
-    {
-        UserRole.Customer => "CUSTOMER",
-        UserRole.Franchisee => "FRANCHISEE",
-        UserRole.Team => "TEAM",
-        UserRole.Admin => "ADMIN",
-        _ => "CUSTOMER"
-    };
-
-    private static UserRole FromDb(string value) =>
-        (value ?? "").Trim().ToUpperInvariant() switch
-        {
-            "CUSTOMER" => UserRole.Customer,
-            "FRANCHISEE" => UserRole.Franchisee,
-            "TEAM" => UserRole.Team,
-            "ADMIN" => UserRole.Admin,
-            _ => UserRole.Customer
-        };
 }
 
 public class CardConfiguration : IEntityTypeConfiguration<Card>

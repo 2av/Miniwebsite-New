@@ -307,7 +307,7 @@ export function FranchiseDistributorsPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Dashboard — {dashboardEmail ?? ''}</DialogTitle>
-            <DialogDescription>Mini website dashboard details for this distributor.</DialogDescription>
+            <DialogDescription>ShareBizz dashboard details for this distributor.</DialogDescription>
           </DialogHeader>
           {dashboardQuery.isLoading && <p className="text-muted-foreground">Loading…</p>}
           {dashboardQuery.isError && <p className="text-destructive">{(dashboardQuery.error as Error).message}</p>}
@@ -557,8 +557,8 @@ function Row({
               if (!id) return
               const name = mwDeals.find((deal) => deal.id === id)?.dealName || 'deal'
               onConfirm({
-                title: 'Map Mini Website deal',
-                description: `Map "${name}" to ${u.email} for Mini Website?`,
+                title: 'Map ShareBizz deal',
+                description: `Map "${name}" to ${u.email} for ShareBizz?`,
                 actionLabel: 'Map Deal',
                 action: () => onMapDeal(id),
               })
@@ -751,7 +751,7 @@ function ReferralPanel({
               <TableRow key={r.referralId}>
                 <TableCell>{r.userName || 'Unknown'}</TableCell>
                 <TableCell>{r.referredEmail}</TableCell>
-                <TableCell>{r.isCollaboration === 'YES' ? 'Franchisee' : 'MiniWebsite'}</TableCell>
+                <TableCell>{r.isCollaboration === 'YES' ? 'Franchisee' : 'ShareBizz'}</TableCell>
                 <TableCell>{formatDate(r.referralDate)}</TableCell>
                 <TableCell>{r.mwStatusText}</TableCell>
                 <TableCell>₹{Math.round(r.amount).toLocaleString('en-IN')}</TableCell>

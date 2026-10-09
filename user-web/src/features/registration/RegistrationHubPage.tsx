@@ -13,7 +13,7 @@ export function RegistrationHubPage() {
           </Link>
           Create Account
         </h2>
-        <p className="text-white mb-4">Choose how you want to join MiniWebsite</p>
+        <p className="text-white mb-4">Choose how you want to join ShareBizz</p>
         <Link to="/registration/customer" className="btn btn-login" style={{ display: 'block', marginBottom: 12 }}>
           Customer Registration
         </Link>

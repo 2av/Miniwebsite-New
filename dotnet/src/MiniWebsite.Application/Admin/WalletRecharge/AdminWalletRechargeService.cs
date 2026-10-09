@@ -5,6 +5,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.WalletRecharge;
 
@@ -114,7 +115,7 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
 
     private async Task<FranchiseeUser?> FindFranchiseeAsync(string? email, int? userId, CancellationToken ct)
     {
-        var q = _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Franchisee);
+        var q = _db.Users.AsNoTracking().WhereRole(UserRole.Franchisee);
 
         if (userId is > 0)
             q = q.Where(u => u.Id == userId.Value);
@@ -126,7 +127,7 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
         else
             return null;
 
-        var row = await q.Select(u => new { u.Id, u.Email, u.Name, u.Phone }).FirstOrDefaultAsync(ct);
+        var row = await q.Select(u => new { u.Id, u.Email, Name = (u.FirstName + " " + u.LastName).Trim(), u.Phone }).FirstOrDefaultAsync(ct);
         return row == null ? null : new FranchiseeUser(row.Id, row.Email, row.Name, row.Phone);
     }
 

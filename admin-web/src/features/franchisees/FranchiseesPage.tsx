@@ -60,7 +60,8 @@ export function FranchiseesPage() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
-  const [createName, setCreateName] = useState('')
+  const [createFirstName, setCreateFirstName] = useState('')
+  const [createLastName, setCreateLastName] = useState('')
   const [createEmail, setCreateEmail] = useState('')
   const [createPhone, setCreatePhone] = useState('')
   const [createPassword, setCreatePassword] = useState('')
@@ -277,11 +278,18 @@ export function FranchiseesPage() {
             <DialogTitle>Add Franchisee</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              placeholder="Full name *"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                placeholder="First Name *"
+                value={createFirstName}
+                onChange={(e) => setCreateFirstName(e.target.value)}
+              />
+              <Input
+                placeholder="Last Name"
+                value={createLastName}
+                onChange={(e) => setCreateLastName(e.target.value)}
+              />
+            </div>
             <Input
               type="email"
               placeholder="Login email *"
@@ -301,14 +309,15 @@ export function FranchiseesPage() {
             />
             <Button
               onClick={async () => {
-                if (!createName.trim() || !createEmail.trim() || createPhone.length !== 10 || !createPassword) {
+                if (!createFirstName.trim() || !createEmail.trim() || createPhone.length !== 10 || !createPassword) {
                   toast.push('Please fill all required fields correctly', 'error')
                   return
                 }
                 const ok = await run(
                   () =>
                     createFranchisee({
-                      name: createName.trim(),
+                      firstName: createFirstName.trim(),
+                      lastName: createLastName.trim(),
                       email: createEmail.trim(),
                       phone: createPhone,
                       password: createPassword,
@@ -317,7 +326,8 @@ export function FranchiseesPage() {
                 )
                 if (ok) {
                   setShowCreate(false)
-                  setCreateName('')
+                  setCreateFirstName('')
+                  setCreateLastName('')
                   setCreateEmail('')
                   setCreatePhone('')
                   setCreatePassword('')

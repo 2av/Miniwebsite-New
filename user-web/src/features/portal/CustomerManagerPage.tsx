@@ -53,10 +53,10 @@ type WaTemplatesStore = {
 }
 
 const DEFAULT_SHARE_TEMPLATE =
-  'Hello 😊\nThis is [Business Name] from [Area, City].\n\nWe have added some latest special offers for you.👇\n👉 [MiniWebsite Link]\n\nIf anything interests you, feel free to message us on WhatsApp.\n\nLimited time offers hain, jaldi check karein 👍\n\nThank you 🙏'
+  'Hello 😊\nThis is [Business Name] from [Area, City].\n\nWe have added some latest special offers for you.👇\n👉 [ShareBizz Link]\n\nIf anything interests you, feel free to message us on WhatsApp.\n\nLimited time offers hain, jaldi check karein 👍\n\nThank you 🙏'
 
 const DEFAULT_WHATSAPP_TEMPLATE =
-  'Hello 😊\nHope you are doing well.\n\nWe have added few new products & offers for you.👇\n👉 [MiniWebsite Link]\n\nYou can check. And please let us know if any requirements.\n\nThank you 🙏'
+  'Hello 😊\nHope you are doing well.\n\nWe have added few new products & offers for you.👇\n👉 [ShareBizz Link]\n\nYou can check. And please let us know if any requirements.\n\nThank you 🙏'
 
 function seedWaTemplates(): WaTemplatesStore {
   return {
@@ -470,6 +470,7 @@ export function CustomerManagerPage() {
       .replaceAll('[Customer Name]', shareCustomer.customerName || 'Customer')
       .replaceAll('[Business Name]', 'Our Business')
       .replaceAll('[Area, City]', 'your area')
+      .replaceAll('[ShareBizz Link]', siteUrl(''))
       .replaceAll('[MiniWebsite Link]', siteUrl(''))
 
     // Open during the click event so browsers do not block the WhatsApp tab.
@@ -552,7 +553,7 @@ export function CustomerManagerPage() {
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb mw-breadcrumb">
             <li className="breadcrumb-item mw-breadcrumb-item">
-              <Link to="/dashboard">Mini Website</Link>
+              <Link to="/dashboard">ShareBizz</Link>
             </li>
             <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
               Customer Manager
@@ -1140,7 +1141,7 @@ export function CustomerManagerPage() {
                     </div>
                   </div>
                   <p className="mt-2 mb-0 text-xs text-slate-500">
-                    Placeholders: [Business Name], [Area, City], [MiniWebsite Link], [Customer Name]
+                    Placeholders: [Business Name], [Area, City], [ShareBizz Link], [Customer Name]
                   </p>
                   <div className="tracker-subtle-box mt-3 rounded-lg border border-[#d9e7ff] bg-[#f2f7ff] px-3 py-2.5 text-xs text-[#2c456e]">
                     <strong>Use templates for fast messaging</strong>

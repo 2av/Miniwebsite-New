@@ -11,6 +11,8 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageTeams;
 
@@ -43,16 +45,16 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
         try
         {
-            var q = _db.Users.AsNoTracking().Where(u => u.Role == UserRole.Team);
+            var q = _db.Users.AsNoTracking().WhereRole(UserRole.Team);
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
                 var s = query.Search.Trim().ToLower();
                 q = q.Where(u =>
                     u.Email.ToLower().Contains(s)
-                    || u.Name.ToLower().Contains(s)
+                    || (u.FirstName + " " + u.LastName).ToLower().Contains(s)
                     || (u.Phone != null && u.Phone.Contains(s))
-                    || (u.District != null && u.District.ToLower().Contains(s))
-                    || (u.State != null && u.State.ToLower().Contains(s)));
+                    || (u.Address.District != null && u.Address.District.ToLower().Contains(s))
+                    || (u.Address.State != null && u.Address.State.ToLower().Contains(s)));
             }
 
             var status = NormalizeStatusFilter(query.Status);
@@ -88,47 +90,47 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
     public async Task<ApiResult<ManageTeamRowDto>> CreateAsync(CreateTeamMemberRequest request, CancellationToken ct = default)
     {
-        var name = (request.Name ?? "").Trim();
+        var firstName = (request.FirstName ?? "").Trim();
+        var lastName = (request.LastName ?? "").Trim();
         var email = NormalizeEmail(request.Email);
         var phone = (request.Phone ?? "").Trim();
         var district = (request.District ?? "").Trim();
         var state = (request.State ?? "").Trim();
         var password = request.Password ?? "";
 
-        if (name.Length == 0) return ApiResult<ManageTeamRowDto>.Fail("Member name is required.");
+        if (firstName.Length == 0) return ApiResult<ManageTeamRowDto>.Fail("Member first name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<ManageTeamRowDto>.Fail("A valid member email address is required.");
         if (password.Length < 6) return ApiResult<ManageTeamRowDto>.Fail("Password must be at least 6 characters long.");
 
         var emailConflict = await _db.Users.AsNoTracking()
             .Where(u => u.Email.ToLower() == email)
-            .Select(u => u.Role)
+            .Select(u => u.AssignedRole!.RoleName)
             .FirstOrDefaultAsync(ct);
-        if (emailConflict != default)
+        if (emailConflict != null)
             return ApiResult<ManageTeamRowDto>.Fail(
-                $"This email address is already registered as a {RoleLabel(emailConflict)}. Please use a different email.");
+                $"This email address is already registered as a {emailConflict}. Please use a different email.");
 
         if (phone.Length > 0)
         {
             var phoneConflict = await _db.Users.AsNoTracking()
                 .Where(u => u.Phone == phone)
-                .Select(u => u.Role)
+                .Select(u => u.AssignedRole!.RoleName)
                 .FirstOrDefaultAsync(ct);
-            if (phoneConflict != default)
+            if (phoneConflict != null)
                 return ApiResult<ManageTeamRowDto>.Fail(
-                    $"This mobile number is already registered as a {RoleLabel(phoneConflict)}. Please use a different mobile number.");
+                    $"This mobile number is already registered as a {phoneConflict}. Please use a different mobile number.");
         }
 
         var hash = _passwordHasher.Hash(password);
         var user = new User
         {
-            Role = UserRole.Team,
+            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.DigitalMarketingPartner, ct),
             Email = email,
             Phone = phone,
-            Name = name,
-            District = district,
-            State = state,
+            FirstName = firstName,
+            LastName = lastName,
+            Address = new UserAddress { District = district, State = state },
             Password = hash,
-            PasswordHash = hash,
             Status = "ACTIVE",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
@@ -137,6 +139,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         await _db.SaveChangesAsync(ct);
 
         var message = "Team member added successfully.";
+        var name = user.FullName;
         try
         {
             var loginUrl = string.IsNullOrWhiteSpace(_app.PhpSiteBaseUrl)
@@ -151,10 +154,10 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                 ["host"] = _app.PublicHost,
             };
             var rendered = await _templates.TryRenderAsync("team_member_welcome", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to MiniWebsite Team";
+            var subject = rendered?.Subject ?? "Welcome to ShareBizz Team";
             var html = rendered?.Html ?? $"""
                 <p>Hello {WebUtility.HtmlEncode(name)},</p>
-                <p>Your team member account has been created on MiniWebsite.</p>
+                <p>Your team member account has been created on ShareBizz.</p>
                 <p><strong>Login Email:</strong> {WebUtility.HtmlEncode(email)}<br/>
                 <strong>Password:</strong> {WebUtility.HtmlEncode(password)}</p>
                 <p>Please keep these credentials secure.</p>
@@ -174,39 +177,41 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         var user = await FindTeamAsync(id, tracked: true, ct);
         if (user == null) return ApiResult<ManageTeamRowDto>.Fail("Team member not found");
 
-        var name = (request.Name ?? "").Trim();
+        var firstName = (request.FirstName ?? "").Trim();
+        var lastName = (request.LastName ?? "").Trim();
         var email = NormalizeEmail(request.Email);
         var phone = (request.Phone ?? "").Trim();
         var district = (request.District ?? "").Trim();
         var state = (request.State ?? "").Trim();
 
-        if (name.Length == 0) return ApiResult<ManageTeamRowDto>.Fail("Member name is required.");
+        if (firstName.Length == 0) return ApiResult<ManageTeamRowDto>.Fail("Member first name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<ManageTeamRowDto>.Fail("A valid member email address is required.");
 
         var emailConflict = await _db.Users.AsNoTracking()
             .Where(u => u.Id != user.Id && u.Email.ToLower() == email)
-            .Select(u => u.Role)
+            .Select(u => u.AssignedRole!.RoleName)
             .FirstOrDefaultAsync(ct);
-        if (emailConflict != default)
+        if (emailConflict != null)
             return ApiResult<ManageTeamRowDto>.Fail(
-                $"This email address is already registered as a {RoleLabel(emailConflict)}. Please use a different email.");
+                $"This email address is already registered as a {emailConflict}. Please use a different email.");
 
         if (phone.Length > 0)
         {
             var phoneConflict = await _db.Users.AsNoTracking()
                 .Where(u => u.Id != user.Id && u.Phone == phone)
-                .Select(u => u.Role)
+                .Select(u => u.AssignedRole!.RoleName)
                 .FirstOrDefaultAsync(ct);
-            if (phoneConflict != default)
+            if (phoneConflict != null)
                 return ApiResult<ManageTeamRowDto>.Fail(
-                    $"This mobile number is already registered as a {RoleLabel(phoneConflict)}. Please use a different mobile number.");
+                    $"This mobile number is already registered as a {phoneConflict}. Please use a different mobile number.");
         }
 
-        user.Name = name;
+        user.FirstName = firstName;
+        user.LastName = lastName;
         user.Email = email;
         user.Phone = phone;
-        user.District = district;
-        user.State = state;
+        user.Address.District = district;
+        user.Address.State = state;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -242,7 +247,6 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
         var hash = _passwordHasher.Hash(password);
         user.Password = hash;
-        user.PasswordHash = hash;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password reset successfully.");
@@ -258,11 +262,10 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         try
         {
             var referredUsers = await _db.Users.AsNoTracking()
-                .Where(u => u.ReferredBy != null && u.ReferredBy.ToLower() == email)
+                .Where(u => u.Referral.ReferredBy != null && u.Referral.ReferredBy.ToLower() == email)
                 .Select(u => new
                 {
                     u.Id,
-                    u.Name,
                     u.Email,
                     u.Phone,
                     u.CreatedAt,
@@ -288,7 +291,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                 ? new Dictionary<string, (int Id, string Name, string? Phone)>(StringComparer.OrdinalIgnoreCase)
                 : (await _db.Users.AsNoTracking()
                     .Where(u => emails.Contains(u.Email.ToLower()))
-                    .Select(u => new { u.Id, u.Email, u.Name, u.Phone })
+                    .Select(u => new { u.Id, u.Email, Name = (u.FirstName + " " + u.LastName).Trim(), u.Phone })
                     .ToListAsync(ct))
                 .GroupBy(u => NormalizeEmail(u.Email))
                 .ToDictionary(
@@ -319,7 +322,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                 var (label, tone) = MapPaymentStatus(card?.DPaymentStatus, card?.DPaymentDate);
                 var type = string.Equals(earning?.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase)
                     ? "Franchise"
-                    : "Mini Website";
+                    : "ShareBizz";
                 var name = hasUser && !string.IsNullOrWhiteSpace(uInfo.Name)
                     ? uInfo.Name
                     : referredEmail;
@@ -351,7 +354,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
             var totalMw = cards.Count;
 
             return ApiResult<TeamReferralsDto>.Ok(new TeamReferralsDto(
-                user.Name,
+                user.FullName,
                 user.Email,
                 paidEmails,
                 totalMw,
@@ -408,7 +411,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                     FormatDateTime(lastUpdated));
             }).ToList();
 
-            return ApiResult<TeamTrackerDto>.Ok(new TeamTrackerDto(user.Name, user.Email, mapped));
+            return ApiResult<TeamTrackerDto>.Ok(new TeamTrackerDto(user.FullName, user.Email, mapped));
         }
         catch (Exception ex)
         {
@@ -448,7 +451,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         var email = NormalizeEmail(u.Email);
 
         var referredEmails = await _db.Users.AsNoTracking()
-            .Where(x => x.ReferredBy != null && x.ReferredBy.ToLower() == email)
+            .Where(x => x.Referral.ReferredBy != null && x.Referral.ReferredBy.ToLower() == email)
             .Select(x => x.Email.ToLower())
             .ToListAsync(ct);
 
@@ -493,11 +496,13 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         return new ManageTeamRowDto(
             u.Id,
             null,
-            u.Name,
+            u.FirstName,
+            u.LastName,
+            u.FullName,
             u.Email,
             u.Phone ?? "",
-            u.District ?? "",
-            u.State ?? "",
+            u.Address.District ?? "",
+            u.Address.State ?? "",
             status,
             tone,
             FormatDate(u.CreatedAt),
@@ -511,7 +516,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
     private async Task<User?> FindTeamAsync(int id, bool tracked, CancellationToken ct)
     {
         var q = tracked ? _db.Users : _db.Users.AsNoTracking();
-        return await q.FirstOrDefaultAsync(u => u.Id == id && u.Role == UserRole.Team, ct);
+        return await q.WhereRole(UserRole.Team).FirstOrDefaultAsync(u => u.Id == id, ct);
     }
 
     private static string? NormalizeStatusFilter(string? value)
@@ -523,14 +528,6 @@ public class AdminManageTeamsService : IAdminManageTeamsService
     }
 
     private static string NormalizeEmail(string? email) => (email ?? "").Trim().ToLowerInvariant();
-
-    private static string RoleLabel(UserRole role) => role switch
-    {
-        UserRole.Franchisee => "Franchisee",
-        UserRole.Team => "Team",
-        UserRole.Admin => "Admin",
-        _ => "Customer"
-    };
 
     private static (string Label, string Tone) MapPaymentStatus(string? status, DateTime? paidOn)
     {

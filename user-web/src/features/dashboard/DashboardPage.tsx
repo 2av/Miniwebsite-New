@@ -191,7 +191,7 @@ export function DashboardPage() {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb mw-breadcrumb">
               <li className="breadcrumb-item mw-breadcrumb-item">
-                <a href="#">Mini Website</a>
+                <a href="#">ShareBizz</a>
               </li>
               <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
                 {pageTitle}
@@ -217,7 +217,7 @@ export function DashboardPage() {
                         <p>
                           Create New
                           <br />
-                          Mini Website
+                          ShareBizz
                         </p>
                       </div>
                     </div>
@@ -328,7 +328,7 @@ export function DashboardPage() {
                           <p>
                             Create New
                             <br />
-                            Mini Website
+                            ShareBizz
                           </p>
                         </div>
                       </div>
@@ -356,7 +356,7 @@ export function DashboardPage() {
                     {cards.length === 0 ? (
                       <tr>
                         <td colSpan={customer.showInvoiceColumn ? (showRefundCol ? 9 : 8) : showRefundCol ? 8 : 7} className="text-center">
-                          No mini websites found. Create your first one!
+                          No ShareBizz websites found. Create your first one!
                         </td>
                       </tr>
                     ) : (
@@ -471,7 +471,7 @@ export function DashboardPage() {
               {/* Same gate as PHP: show unless collaboration is on without mw_referral_id */}
               {(session?.collaborationEnabled !== true || customer.mwReferralId === 1) && customer.referralCode ? (
                 <>
-                  <div className="referral-id">Mini websites Referral ID</div>
+                  <div className="referral-id">ShareBizz Referral ID</div>
                   <div className="referral-container">
                     <div className="referral-box col-md-6">
                       <p id="regular_link_value">
@@ -502,13 +502,13 @@ export function DashboardPage() {
                     </div>
                   </div>
                   <div className="social-icons">
-                    <p>Refer Mini Website</p>
+                    <p>Refer ShareBizz</p>
                     <ul>
                       {(() => {
                         const refUrl = siteUrl(
                           `registration/customer-registration.php?ref=${encodeURIComponent(customer.referralCode)}`,
                         )
-                        const msg = `🚀 Grow Your Business with MiniWebsite\n\n👇 Create Your MiniWebsite Today\n\n${refUrl}\n\n🌐 www.MiniWebsite.in`
+                        const msg = `🚀 Grow Your Business with ShareBizz\n\n👇 Create Your ShareBizz Today\n\n${refUrl}\n\n🌐 www.sharebizz.com`
                         return (
                           <>
                             <li>

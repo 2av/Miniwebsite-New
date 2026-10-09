@@ -147,7 +147,7 @@ public record IdCardProfileDto(
     string IdPrefix,
     /// <summary>e.g. "Franchise Partner" or "Sales Executive".</summary>
     string Designation,
-    string Website = "www.miniwebsite.in");
+    string Website = "www.sharebizz.com");
 
 public record CustomerManagerRowDto(
     int Id,

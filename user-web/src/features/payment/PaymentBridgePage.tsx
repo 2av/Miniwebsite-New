@@ -40,7 +40,7 @@ export function PaymentBridgePage({ kind }: { kind: BridgeKind }) {
     <div className="container py-5 text-center" style={{ maxWidth: 480, margin: '40px auto' }}>
       <h1 style={{ color: '#002169', fontSize: '1.35rem', marginBottom: 12 }}>Redirecting to secure payment…</h1>
       <p style={{ color: '#6c757d', marginBottom: 20 }}>
-        Checkout is processed on MiniWebsite&apos;s payment server. If you are not redirected, use the link below.
+        Checkout is processed on ShareBizz&apos;s payment server. If you are not redirected, use the link below.
       </p>
       <a className="btn btn-primary" href={target}>
         Continue to payment

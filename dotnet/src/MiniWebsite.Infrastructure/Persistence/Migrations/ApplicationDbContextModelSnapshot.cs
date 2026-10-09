@@ -2085,16 +2085,21 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<bool>("IsConsumed")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("LastName")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("varchar(150)");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Otp")
                         .IsRequired()
@@ -2110,11 +2115,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(25)
                         .HasColumnType("varchar(25)");
-
-                    b.Property<string>("PlainPassword")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("ReferrerEmail")
                         .HasMaxLength(255)
@@ -2361,25 +2361,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("City")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<bool>("CollaborationEnabled")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("Department")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("District")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
@@ -2388,16 +2373,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<string>("GooglePay")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("Gst")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<bool>("Influencer")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Ip")
                         .HasMaxLength(100)
@@ -2406,45 +2385,23 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<int?>("MwReferralId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
+                    b.Property<string>("LastName")
                         .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("varchar(150)");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Password")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Paytm")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
                     b.Property<string>("Phone")
                         .HasMaxLength(25)
                         .HasColumnType("varchar(25)");
 
-                    b.Property<string>("Pincode")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<string>("ProfileImage")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
-
-                    b.Property<string>("ReferralCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("ReferredBy")
-                        .HasColumnType("longtext");
 
                     b.Property<string>("RefundStatus")
                         .HasMaxLength(20)
@@ -2453,35 +2410,12 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("RefundStatusDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<int?>("RoleId")
+                    b.Property<int>("RoleId")
                         .HasColumnType("int");
-
-                    b.Property<string>("RzPay")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
-
-                    b.Property<string>("RzPay2")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
-
-                    b.Property<bool>("SaleskitEnabled")
-                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("SelectService")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
-
-                    b.Property<int?>("SenderUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("State")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2490,6 +2424,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("UserToken")
                         .HasMaxLength(200)
@@ -2500,9 +2439,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("ReferralCode");
-
                     b.HasIndex("RoleId");
+
+                    b.HasIndex("UserCode")
+                        .IsUnique();
 
                     b.ToTable("users", (string)null);
                 });
@@ -3076,9 +3016,122 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasOne("MiniWebsite.Domain.Entities.Role", "AssignedRole")
                         .WithMany()
                         .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.OwnsOne("MiniWebsite.Domain.Entities.UserAddress", "Address", b1 =>
+                        {
+                            b1.Property<int>("UserId")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("AddressLine")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("City")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("District")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Gst")
+                                .HasMaxLength(50)
+                                .HasColumnType("varchar(50)");
+
+                            b1.Property<string>("Pincode")
+                                .HasMaxLength(20)
+                                .HasColumnType("varchar(20)");
+
+                            b1.Property<string>("State")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("user_addresses", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.OwnsOne("MiniWebsite.Domain.Entities.UserPaymentDetails", "Payment", b1 =>
+                        {
+                            b1.Property<int>("UserId")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("GooglePay")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("Paytm")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("RzPay")
+                                .HasMaxLength(300)
+                                .HasColumnType("varchar(300)");
+
+                            b1.Property<string>("RzPay2")
+                                .HasMaxLength(300)
+                                .HasColumnType("varchar(300)");
+
+                            b1.HasKey("UserId");
+
+                            b1.ToTable("user_payment_details", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.OwnsOne("MiniWebsite.Domain.Entities.UserReferralSettings", "Referral", b1 =>
+                        {
+                            b1.Property<int>("UserId")
+                                .HasColumnType("int");
+
+                            b1.Property<bool>("CollaborationEnabled")
+                                .HasColumnType("tinyint(1)");
+
+                            b1.Property<bool>("Influencer")
+                                .HasColumnType("tinyint(1)");
+
+                            b1.Property<int?>("MwReferralId")
+                                .HasColumnType("int");
+
+                            b1.Property<string>("ReferralCode")
+                                .HasMaxLength(50)
+                                .HasColumnType("varchar(50)");
+
+                            b1.Property<string>("ReferredBy")
+                                .HasColumnType("longtext");
+
+                            b1.Property<bool>("SaleskitEnabled")
+                                .HasColumnType("tinyint(1)");
+
+                            b1.Property<int?>("SenderUserId")
+                                .HasColumnType("int");
+
+                            b1.HasKey("UserId");
+
+                            b1.HasIndex("ReferralCode");
+
+                            b1.ToTable("user_referral_settings", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("UserId");
+                        });
+
+                    b.Navigation("Address")
+                        .IsRequired();
 
                     b.Navigation("AssignedRole");
+
+                    b.Navigation("Payment")
+                        .IsRequired();
+
+                    b.Navigation("Referral")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.UserBankDetails", b =>

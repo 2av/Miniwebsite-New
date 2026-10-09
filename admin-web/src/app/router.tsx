@@ -6,7 +6,6 @@ import { ManageCardsPage } from '@/features/manage-cards/ManageCardsPage'
 import { FranchiseDistributorsPage } from '@/features/franchise-distributors/FranchiseDistributorsPage'
 import { FranchiseesPage } from '@/features/franchisees/FranchiseesPage'
 import { AllOrdersPage } from '@/features/all-orders/AllOrdersPage'
-import { UserDeletionsPage } from '@/features/user-deletions/UserDeletionsPage'
 import { ManageReferralsPage } from '@/features/manage-referrals/ManageReferralsPage'
 import { ManageDealsPage } from '@/features/manage-deals/ManageDealsPage'
 import { ManagePricingPage } from '@/features/manage-pricing/ManagePricingPage'
@@ -48,10 +47,6 @@ export function AppRouter() {
         <Route path="franchisee-distributor-details" element={<FranchiseDistributorsPage />} />
         <Route path="sales-channel/influencer-partner" element={<FranchiseDistributorsPage />} />
         <Route path="all-orders" element={<AllOrdersPage />} />
-        <Route path="user-deletion" element={<Navigate to="/user-deletion/customer" replace />} />
-        <Route path="user-deletion/customer" element={<UserDeletionsPage lockedRole="CUSTOMER" />} />
-        <Route path="user-deletion/franchise" element={<UserDeletionsPage lockedRole="FRANCHISEE" />} />
-        <Route path="user-deletion/team" element={<UserDeletionsPage lockedRole="TEAM" />} />
         <Route path="manage-referrals" element={<ManageReferralsPage />} />
         <Route path="manage-deals" element={<ManageDealsPage />} />
         <Route path="deals" element={<Navigate to="/manage-deals" replace />} />

@@ -41,4 +41,21 @@ public class AspNetPasswordHasher : IPasswordHasher
         var result = _identityHasher.VerifyHashedPassword(new object(), passwordHash, password);
         return result is PasswordVerificationResult.Success or PasswordVerificationResult.SuccessRehashNeeded;
     }
+
+    public bool IsHashed(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        if (value.Length == 60
+            && (value.StartsWith("$2y$", StringComparison.Ordinal)
+                || value.StartsWith("$2a$", StringComparison.Ordinal)
+                || value.StartsWith("$2b$", StringComparison.Ordinal)))
+            return true;
+
+        // ASP.NET Identity: base64 payload whose first byte is the format marker (0x00 v2, 0x01 v3).
+        Span<byte> buffer = stackalloc byte[value.Length];
+        return Convert.TryFromBase64String(value, buffer, out var written)
+               && written >= 49
+               && buffer[0] is 0x00 or 0x01;
+    }
 }

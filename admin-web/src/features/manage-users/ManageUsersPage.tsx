@@ -219,7 +219,7 @@ export function ManageUsersPage() {
             <Search size={16} className="pointer-events-none absolute top-2.5 left-3 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
-              placeholder="Email, name, or phone…"
+              placeholder="User ID, email, name, or phone…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               aria-label="Search by email, name, or phone"
@@ -245,7 +245,7 @@ export function ManageUsersPage() {
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
                 {[
-                  'ID',
+                  'User ID',
                   'Email',
                   'Name',
                   'Phone',
@@ -352,7 +352,7 @@ export function ManageUsersPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Dashboard — {dashboardEmail ?? ''}</DialogTitle>
-            <DialogDescription>Mini Website details for this customer.</DialogDescription>
+            <DialogDescription>ShareBizz details for this customer.</DialogDescription>
           </DialogHeader>
           {dashboardQuery.isLoading && <p className="text-muted-foreground">Loading…</p>}
           {dashboardQuery.isError && <p className="text-destructive">{(dashboardQuery.error as Error).message}</p>}
@@ -509,7 +509,7 @@ function UserRow({
 }) {
   return (
     <TableRow className="align-middle hover:bg-rose-50/30">
-      <TableCell className="px-3 font-medium">{u.id}</TableCell>
+      <TableCell className="px-3 font-mono font-medium">{u.userCode}</TableCell>
       <TableCell className="max-w-[180px] truncate px-3">{u.email}</TableCell>
       <TableCell className="px-3">{u.name}</TableCell>
       <TableCell className="px-3">{u.phone || '-'}</TableCell>
@@ -541,13 +541,13 @@ function UserRow({
               onClick={() =>
                 onConfirm({
                   title: 'Remove deal mapping?',
-                  description: `Remove the Mini Website deal from ${u.email}?`,
+                  description: `Remove the ShareBizz deal from ${u.email}?`,
                   actionLabel: 'Remove Deal',
                   destructive: true,
                   action: () => onRemoveDeal(u.mwDeal!.mappingId),
                 })
               }
-              aria-label="Remove Mini Website deal"
+              aria-label="Remove ShareBizz deal"
             >
               ×
             </button>
@@ -560,7 +560,7 @@ function UserRow({
               if (!id) return
               const name = mwDeals.find((deal) => deal.id === id)?.dealName || 'deal'
               onConfirm({
-                title: 'Map Mini Website deal?',
+                title: 'Map ShareBizz deal?',
                 description: `Map ${u.email} to "${name}"?`,
                 actionLabel: 'Map Deal',
                 action: () => onMapDeal(id),
@@ -800,7 +800,7 @@ function ReferralPanel({
               <TableRow key={r.referralId}>
                 <TableCell>{r.userName || 'Unknown'}</TableCell>
                 <TableCell>{r.referredEmail}</TableCell>
-                <TableCell>{r.isCollaboration === 'YES' ? 'Franchisee' : 'MiniWebsite'}</TableCell>
+                <TableCell>{r.isCollaboration === 'YES' ? 'Franchisee' : 'ShareBizz'}</TableCell>
                 <TableCell>{formatDate(r.referralDate)}</TableCell>
                 <TableCell>{r.mwStatusText}</TableCell>
                 <TableCell>₹{Math.round(r.amount).toLocaleString('en-IN')}</TableCell>

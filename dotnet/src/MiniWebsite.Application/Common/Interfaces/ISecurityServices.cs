@@ -15,4 +15,7 @@ public interface IPasswordHasher
 {
     string Hash(string password);
     bool Verify(string password, string passwordHash);
+
+    /// <summary>True when <paramref name="value"/> is a stored hash (BCrypt or ASP.NET Identity), not plain text.</summary>
+    bool IsHashed(string? value);
 }

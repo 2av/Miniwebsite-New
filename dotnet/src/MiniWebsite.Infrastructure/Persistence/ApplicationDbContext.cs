@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Common.Interfaces;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
-using MiniWebsite.Domain.Enums;
 
 namespace MiniWebsite.Infrastructure.Persistence;
 
@@ -65,39 +65,33 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        await AssignDefaultRoleIdsAsync(cancellationToken);
+        await AssignUserCodesAsync(cancellationToken);
         return await base.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// Users created through flows that only know the legacy role (registration, team/franchisee admin)
-    /// still get a RoleId so every user maps to the roles table.
-    /// </summary>
-    private async Task AssignDefaultRoleIdsAsync(CancellationToken ct)
+    private async Task AssignUserCodesAsync(CancellationToken ct)
     {
         var pending = ChangeTracker.Entries<User>()
-            .Where(e => e.State == EntityState.Added && e.Entity.RoleId == null)
+            .Where(e => e.State == EntityState.Added && string.IsNullOrEmpty(e.Entity.UserCode))
             .Select(e => e.Entity)
             .ToList();
         if (pending.Count == 0) return;
 
-        var rolesByPrefix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var r in await Roles.AsNoTracking().Where(r => r.Prefix != null).OrderBy(r => r.RoleId).ToListAsync(ct))
-            rolesByPrefix.TryAdd(r.Prefix!, r.RoleId);
-
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var user in pending)
         {
-            var prefix = DefaultRolePrefix(user.Role);
-            if (prefix != null && rolesByPrefix.TryGetValue(prefix, out var roleId))
-                user.RoleId = roleId;
+            var prefix = user.AssignedRole?.Prefix
+                ?? await Roles.AsNoTracking()
+                    .Where(r => r.RoleId == user.RoleId)
+                    .Select(r => r.Prefix)
+                    .FirstOrDefaultAsync(ct);
+
+            string code;
+            do code = UserCodeGenerator.Generate(prefix);
+            while (!claimed.Add(code)
+                   || await Users.IgnoreQueryFilters().AnyAsync(u => u.UserCode == code, ct));
+            user.UserCode = code;
         }
     }
 
-    private static string? DefaultRolePrefix(UserRole role) => role switch
-    {
-        UserRole.Customer => "SBU",
-        UserRole.Franchisee => "FRP",
-        UserRole.Team => "DMP",
-        _ => null
-    };
 }

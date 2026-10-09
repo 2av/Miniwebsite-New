@@ -4,6 +4,9 @@ namespace MiniWebsite.Application.Registration;
 
 public static class RegistrationEmailTemplates
 {
+    /// <summary>Value for the {{password}} placeholder in welcome templates; the actual password is never stored or emailed.</summary>
+    public const string PasswordHint = "The password you set during registration";
+
     public static (string Subject, string Html) OtpEmail(string name, string otp, string host) =>
     (
         $"{host} - Your OTP for Registration",
@@ -14,7 +17,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     );
 
     public static (string Subject, string Html) CustomerWelcome(
-        string name, string email, string plainPassword, AppOptions app)
+        string name, string email, AppOptions app)
     {
         var host = app.PublicHost;
         var dashboard = app.CustomerDashboardUrl;
@@ -27,10 +30,10 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     <div style=""background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;"">
         <h3 style=""color: #333; font-size: 18px; margin-top: 0; margin-bottom: 15px;"">🔐 Your Login Details:</h3>
         <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Email ID:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
-        <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(plainPassword)}</p>
+        <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {PasswordHint}</p>
         <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;"">👉 <a href=""{System.Net.WebUtility.HtmlEncode(dashboard)}"" style=""color: #007bff; text-decoration: none;"">Click here to access your dashboard</a></p>
     </div>
-    <p style=""color: #333; font-size: 16px; line-height: 1.6;"">You can now start creating your Mini Website from your dashboard.</p>
+    <p style=""color: #333; font-size: 16px; line-height: 1.6;"">You can now start creating your ShareBizz from your dashboard.</p>
     <br>
     <p style=""color: #333; font-size: 16px; line-height: 1.6;"">Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team</p>
 </div>";
@@ -38,7 +41,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     }
 
     public static (string Subject, string Html) FranchiseeWelcome(
-        string name, string email, string plainPassword, AppOptions app, bool includePaymentStep = true)
+        string name, string email, AppOptions app, bool includePaymentStep = true)
     {
         var host = app.PublicHost;
         var loginUrl = app.FranchiseeLoginUrl;
@@ -47,7 +50,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
             ? "there"
             : name;
 
-        var subject = "Welcome to MiniWebsite.in – Your Franchise Account is Ready!";
+        var subject = "Welcome to ShareBizz – Your Franchise Account is Ready!";
         var intro =
             "We are excited to have you on board! Your franchise account has been successfully created. You can now log in using your email and password at the link below:";
 
@@ -65,24 +68,24 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
         var html = $@"
         <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
             <p style=""color: #333; font-size: 16px; line-height: 1.6;"">Hi <strong>{System.Net.WebUtility.HtmlEncode(displayName)}</strong>,</p>
-            <p style=""color: #333; font-size: 16px; line-height: 1.6;"">Thank you for registering as a franchise with MiniWebsite.in.</p>
+            <p style=""color: #333; font-size: 16px; line-height: 1.6;"">Thank you for registering as a franchise with ShareBizz.</p>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;"">{intro}</p>
             <div style=""background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;"">
                 <h3 style=""color: #333; font-size: 18px; margin-top: 0; margin-bottom: 15px;"">🔐 Your Login Details:</h3>
                 <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Email ID:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
-                <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(plainPassword)}</p>
+                <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {PasswordHint}</p>
                 <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;"">👉 <a href=""{System.Net.WebUtility.HtmlEncode(loginUrl)}"" style=""color: #007bff; text-decoration: none;"">Click here to login</a></p>
             </div>
             <br>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;""><strong>Follow these simple steps to activate your franchise:</strong></p>
             {steps}
             <br>
-            <p style=""color: #333; font-size: 16px; line-height: 1.6;"">That's it! Once these steps are completed, you are officially part of the MiniWebsite.in franchise network. You can begin building your business and start earning right away.</p>
+            <p style=""color: #333; font-size: 16px; line-height: 1.6;"">That's it! Once these steps are completed, you are officially part of the ShareBizz franchise network. You can begin building your business and start earning right away.</p>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;"">If you have any questions or need assistance, feel free to reach out to our support team.</p>
             <br>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;"">Best regards,<br>
-            Team MiniWebsite.in<br>
-            <a href=""https://www.miniwebsite.in"">www.miniwebsite.in</a></p>
+            Team ShareBizz<br>
+            <a href=""https://sharebizz.com/"">www.sharebizz.com</a></p>
         </div>";
 
         return (subject, html);

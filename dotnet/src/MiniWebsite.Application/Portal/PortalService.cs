@@ -55,7 +55,7 @@ public class PortalService : IPortalService
         var agreementPaid = false;
         var verified = false;
         var franchiseInvoiceId = (int?)null;
-        if (user.Role == UserRole.Franchisee)
+        if (user.LoginRole == UserRole.Franchisee)
         {
             agreementPaid = await IsFranchiseAgreementPaidAsync(email.Trim(), ct);
             franchiseInvoiceId = await FindFranchiseInvoiceIdAsync(email.Trim(), ct);
@@ -72,12 +72,12 @@ public class PortalService : IPortalService
         return ApiResult<PortalMeDto>.Ok(new PortalMeDto(
             user.Id,
             user.Email,
-            user.Name,
-            RoleApi(user.Role),
-            user.ReferralCode,
-            user.CollaborationEnabled ? "YES" : "NO",
-            user.SaleskitEnabled ? "YES" : "NO",
-            user.Influencer ? "YES" : "NO",
+            user.FullName,
+            RoleApi(user.LoginRole),
+            user.Referral.ReferralCode,
+            user.Referral.CollaborationEnabled ? "YES" : "NO",
+            user.Referral.SaleskitEnabled ? "YES" : "NO",
+            user.Referral.Influencer ? "YES" : "NO",
             mwPaid,
             agreementPaid,
             verified,
@@ -92,7 +92,7 @@ public class PortalService : IPortalService
         if (user == null) return ApiResult<ReferralPageDto>.Fail("User not found.");
 
         var emailKey = email.Trim().ToLowerInvariant();
-        var isTeam = user.Role == UserRole.Team;
+        var isTeam = user.LoginRole == UserRole.Team;
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
             .Where(re => re.ReferrerEmail.ToLower() == emailKey)
@@ -104,9 +104,9 @@ public class PortalService : IPortalService
 
         var referredByCount = await _db.Users.AsNoTracking()
             .CountAsync(u =>
-                u.ReferredBy != null
-                && u.ReferredBy.Trim() != ""
-                && u.ReferredBy.ToLower() == emailKey, ct);
+                u.Referral.ReferredBy != null
+                && u.Referral.ReferredBy.Trim() != ""
+                && u.Referral.ReferredBy.ToLower() == emailKey, ct);
 
         var totalReferrals = Math.Max(referralCount, referredByCount);
 
@@ -118,9 +118,9 @@ public class PortalService : IPortalService
 
         var referredUsersFromUsers = await _db.Users.AsNoTracking()
             .Where(u =>
-                u.ReferredBy != null
-                && u.ReferredBy.Trim() != ""
-                && u.ReferredBy.ToLower() == emailKey)
+                u.Referral.ReferredBy != null
+                && u.Referral.ReferredBy.Trim() != ""
+                && u.Referral.ReferredBy.ToLower() == emailKey)
             .Select(u => u.Email.ToLower())
             .Distinct()
             .ToListAsync(ct);
@@ -181,10 +181,10 @@ public class PortalService : IPortalService
                 PaymentDate = re?.PaymentDate?.ToString("o", CultureInfo.InvariantCulture),
                 IsCollaboration = re?.IsCollaboration ?? "NO",
                 UserId = ud?.Id,
-                ReferredRole = ud == null ? null : RoleApi(ud.Role),
+                ReferredRole = ud == null ? null : RoleApi(ud.LoginRole),
                 UserEmail = ud?.Email,
                 UserContact = ud?.Phone,
-                UserName = ud?.Name,
+                UserName = ud?.FullName,
                 CardId = dc?.Id,
                 CardUploadedDate = dc?.CreatedAt?.ToString("o", CultureInfo.InvariantCulture),
                 CardValidityDate = dc?.ValidityDate?.ToString("o", CultureInfo.InvariantCulture),
@@ -236,9 +236,9 @@ public class PortalService : IPortalService
             && !string.IsNullOrWhiteSpace(bank?.UpiId)
             && !string.IsNullOrWhiteSpace(bank?.UpiName);
 
-        var code = user.ReferralCode ?? "";
+        var code = user.Referral.ReferralCode ?? "";
         var link = string.IsNullOrWhiteSpace(code) ? "" : $"/registration/customer?ref={code}";
-        var role = RoleApi(user.Role);
+        var role = RoleApi(user.LoginRole);
         var pageTitle = isTeam ? "Sales Details" : "Referral Details";
 
         var referredUsers = referredRows.Select(MapReferredUserRow).ToList();
@@ -418,7 +418,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<InvoiceHtmlResult>.Fail("User not found.");
-        if (user.Role != UserRole.Franchisee)
+        if (user.LoginRole != UserRole.Franchisee)
             return ApiResult<InvoiceHtmlResult>.Fail("Franchisee invoice is only available for franchisee accounts.");
 
         var invoiceId = await FindFranchiseInvoiceIdAsync(email.Trim(), ct);
@@ -662,7 +662,7 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<IdCardProfileDto>.Fail("User not found.");
 
-        var isFranchisee = user.Role == UserRole.Franchisee;
+        var isFranchisee = user.LoginRole == UserRole.Franchisee;
         var employeeId = isFranchisee
             ? user.Id.ToString("D3", CultureInfo.InvariantCulture)
             : user.Id.ToString("D6", CultureInfo.InvariantCulture);
@@ -683,12 +683,12 @@ public class PortalService : IPortalService
         }
 
         return ApiResult<IdCardProfileDto>.Ok(new IdCardProfileDto(
-            user.Name,
+            user.FullName,
             user.Email,
             string.IsNullOrEmpty(phone) ? null : phone,
             user.Department,
             ToPublicIdCardImageUrl(user.ProfileImage),
-            RoleApi(user.Role),
+            RoleApi(user.LoginRole),
             employeeId,
             idPrefix,
             designation));
@@ -797,12 +797,12 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<CustomerTrackerPageDto>.Fail("User not found.");
 
-        var role = RoleApi(user.Role);
-        var collaboration = user.CollaborationEnabled;
-        var canTeam = user.Role is UserRole.Team or UserRole.Franchisee
-            || (user.Role == UserRole.Customer && collaboration);
+        var role = RoleApi(user.LoginRole);
+        var collaboration = user.Referral.CollaborationEnabled;
+        var canTeam = user.LoginRole is UserRole.Team or UserRole.Franchisee
+            || (user.LoginRole == UserRole.Customer && collaboration);
         var variant = canTeam ? "team" : "customer";
-        var showApproachedFor = variant == "team" && user.Role != UserRole.Franchisee;
+        var showApproachedFor = variant == "team" && user.LoginRole != UserRole.Franchisee;
 
         try
         {
@@ -892,11 +892,11 @@ public class PortalService : IPortalService
         if (string.IsNullOrWhiteSpace(phone) || phone.Length > 12)
             return ApiResult<CustomerManagerRowDto>.Fail("Valid phone number is required (max 12 digits).");
 
-        var role = RoleApi(user.Role);
-        var collaboration = user.CollaborationEnabled;
-        var isTeam = user.Role is UserRole.Team or UserRole.Franchisee
-            || (user.Role == UserRole.Customer && collaboration);
-        var showApproachedFor = isTeam && user.Role != UserRole.Franchisee;
+        var role = RoleApi(user.LoginRole);
+        var collaboration = user.Referral.CollaborationEnabled;
+        var isTeam = user.LoginRole is UserRole.Team or UserRole.Franchisee
+            || (user.LoginRole == UserRole.Customer && collaboration);
+        var showApproachedFor = isTeam && user.LoginRole != UserRole.Franchisee;
 
         var label = Limit((request.LabelTag ?? "").Trim(), 18);
         var source = Limit(string.IsNullOrWhiteSpace(request.Source) ? "Direct" : request.Source.Trim(), 18);
@@ -987,7 +987,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
-        var role = RoleApi(user.Role);
+        var role = RoleApi(user.LoginRole);
         try
         {
             var entity = await _db.Customers.FirstOrDefaultAsync(
@@ -1013,7 +1013,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<IReadOnlyList<CustomerFollowupRowDto>>.Fail("User not found.");
-        var role = RoleApi(user.Role);
+        var role = RoleApi(user.LoginRole);
         try
         {
             var rows = await _db.CustomerFollowups.AsNoTracking()
@@ -1060,7 +1060,7 @@ public class PortalService : IPortalService
             && !DateTime.TryParse(request.FollowupDatetime, out dt))
             return ApiResult.Fail("Invalid follow-up date/time.");
 
-        var role = RoleApi(user.Role);
+        var role = RoleApi(user.LoginRole);
         var comments = (request.FollowupComments ?? "").Trim();
         try
         {
@@ -1098,7 +1098,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
-        var role = RoleApi(user.Role);
+        var role = RoleApi(user.LoginRole);
         try
         {
             var customer = await _db.Customers.FirstOrDefaultAsync(

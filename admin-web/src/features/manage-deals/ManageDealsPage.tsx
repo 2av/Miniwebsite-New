@@ -302,7 +302,7 @@ export function ManageDealsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="MiniWebsite">Mini Website</SelectItem>
+              <SelectItem value="MiniWebsite">ShareBizz</SelectItem>
               <SelectItem value="Franchise">Franchise</SelectItem>
             </SelectContent>
           </Select>
@@ -470,7 +470,7 @@ export function ManageDealsPage() {
         <DrawerContent className="data-[vaul-drawer-direction=right]:sm:max-w-md">
           <DrawerHeader>
             <DrawerTitle>{editing ? 'Edit Deal' : 'Add New Deal'}</DrawerTitle>
-            <DrawerDescription>Deals & coupons for MiniWebsite / Franchise plans</DrawerDescription>
+            <DrawerDescription>Deals & coupons for ShareBizz / Franchise plans</DrawerDescription>
           </DrawerHeader>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2">
             {/* Same sequence as grid columns (Plan Name kept — required DB field) */}
@@ -483,7 +483,7 @@ export function ManageDealsPage() {
                   <SelectValue placeholder="Select Plan Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MiniWebsite">Mini Website</SelectItem>
+                  <SelectItem value="MiniWebsite">ShareBizz</SelectItem>
                   <SelectItem value="Franchise">Franchise</SelectItem>
                 </SelectContent>
               </Select>

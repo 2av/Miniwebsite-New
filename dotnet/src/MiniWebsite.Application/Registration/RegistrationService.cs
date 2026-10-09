@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
+using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Registration;
 
@@ -52,10 +54,10 @@ public class RegistrationService : IRegistrationService
     }
 
     public Task<ApiResult<RegistrationStartedResponse>> StartCustomerAsync(CustomerRegisterRequest request, string? clientIp, CancellationToken ct = default) =>
-        StartAsync(RoleCustomer, request.Name, request.Email, request.Phone, request.Password, request.State, request.ReferralCode, ct);
+        StartAsync(RoleCustomer, request.FirstName, request.LastName, request.Email, request.Phone, request.Password, request.State, request.ReferralCode, ct);
 
     public Task<ApiResult<RegistrationStartedResponse>> StartFranchiseeAsync(FranchiseeRegisterRequest request, CancellationToken ct = default) =>
-        StartAsync(RoleFranchisee, request.Name, request.Email, request.Phone, request.Password, state: null, request.ReferralCode, ct);
+        StartAsync(RoleFranchisee, request.FirstName, request.LastName, request.Email, request.Phone, request.Password, state: null, request.ReferralCode, ct);
 
     public Task<ApiResult<RegistrationStartedResponse>> ResendCustomerOtpAsync(ResendOtpRequest request, CancellationToken ct = default) =>
         ResendAsync(RoleCustomer, request.Email, ct);
@@ -77,20 +79,23 @@ public class RegistrationService : IRegistrationService
         var referralCode = GenerateReferralCode(pending.Email);
         var user = new User
         {
-            Role = UserRole.Customer,
+            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.ShareBizzUser, ct),
             Email = pending.Email,
             Phone = pending.Phone,
-            Name = pending.Name,
-            State = pending.State,
+            FirstName = pending.FirstName,
+            LastName = pending.LastName,
+            Address = new UserAddress { State = pending.State },
             Password = hash,
-            PasswordHash = hash,
             Ip = clientIp,
             Status = "ACTIVE",
-            ReferralCode = referralCode,
-            ReferredBy = pending.ReferrerEmail ?? "",
-            CollaborationEnabled = false,
-            SaleskitEnabled = false,
-            Influencer = false,
+            Referral = new UserReferralSettings
+            {
+                ReferralCode = referralCode,
+                ReferredBy = pending.ReferrerEmail ?? "",
+                CollaborationEnabled = false,
+                SaleskitEnabled = false,
+                Influencer = false,
+            },
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,
             IsDeleted = false
@@ -120,15 +125,15 @@ public class RegistrationService : IRegistrationService
         {
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["name"] = pending.Name,
+                ["name"] = user.FullName,
                 ["email"] = pending.Email,
-                ["password"] = pending.PlainPassword,
+                ["password"] = RegistrationEmailTemplates.PasswordHint,
                 ["host"] = _app.PublicHost,
                 ["dashboard_url"] = _app.CustomerDashboardUrl,
             };
             var rendered = await _templates.TryRenderAsync("customer_welcome", vars, ct);
             var (subject, html) = rendered ?? RegistrationEmailTemplates.CustomerWelcome(
-                pending.Name, pending.Email, pending.PlainPassword, _app);
+                user.FullName, pending.Email, _app);
             await _email.SendAsync(pending.Email, subject, html, ct);
         }
         catch
@@ -137,7 +142,7 @@ public class RegistrationService : IRegistrationService
         }
 
         return ApiResult<RegistrationCompletedResponse>.Ok(new RegistrationCompletedResponse(
-            user.Id, user.Email, user.Name, RoleCustomer, referralCode), "Registration completed.");
+            user.Id, user.Email, user.FullName, RoleCustomer, referralCode), "Registration completed.");
     }
 
     public async Task<ApiResult<RegistrationCompletedResponse>> VerifyFranchiseeOtpAsync(VerifyOtpRequest request, CancellationToken ct = default)
@@ -150,23 +155,25 @@ public class RegistrationService : IRegistrationService
         if (uniqueness != null)
             return ApiResult<RegistrationCompletedResponse>.Fail(uniqueness);
 
-        // Franchisee: hash again at insert (same as PHP)
-        var hash = _passwordHasher.Hash(pending.PlainPassword);
+        var hash = pending.PasswordHash;
         var referralCode = GenerateReferralCode(pending.Email);
         var user = new User
         {
-            Role = UserRole.Franchisee,
+            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.FranchisePartner, ct),
             Email = pending.Email,
             Phone = pending.Phone,
-            Name = pending.Name,
+            FirstName = pending.FirstName,
+            LastName = pending.LastName,
             Password = hash,
-            PasswordHash = hash,
             Status = "ACTIVE",
-            ReferralCode = referralCode,
-            ReferredBy = pending.ReferrerEmail ?? "",
-            CollaborationEnabled = false,
-            SaleskitEnabled = false,
-            Influencer = false,
+            Referral = new UserReferralSettings
+            {
+                ReferralCode = referralCode,
+                ReferredBy = pending.ReferrerEmail ?? "",
+                CollaborationEnabled = false,
+                SaleskitEnabled = false,
+                Influencer = false,
+            },
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,
             IsDeleted = false
@@ -197,9 +204,9 @@ public class RegistrationService : IRegistrationService
             var payUrl = $"{_app.FranchiseAgreementUrl}?email={Uri.EscapeDataString(pending.Email)}";
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["name"] = pending.Name,
+                ["name"] = user.FullName,
                 ["email"] = pending.Email,
-                ["password"] = pending.PlainPassword,
+                ["password"] = RegistrationEmailTemplates.PasswordHint,
                 ["login_url"] = _app.FranchiseeLoginUrl,
                 ["payment_url"] = payUrl,
                 ["host"] = _app.PublicHost,
@@ -208,7 +215,7 @@ public class RegistrationService : IRegistrationService
             if (rendered == null)
                 rendered = await _templates.TryRenderAsync("franchisee_welcome_no_payment", vars, ct);
             var (subject, html) = rendered ?? RegistrationEmailTemplates.FranchiseeWelcome(
-                pending.Name, pending.Email, pending.PlainPassword, _app, includePaymentStep: true);
+                user.FullName, pending.Email, _app, includePaymentStep: true);
             await _email.SendAsync(pending.Email, subject, html, ct);
         }
         catch
@@ -217,15 +224,17 @@ public class RegistrationService : IRegistrationService
         }
 
         return ApiResult<RegistrationCompletedResponse>.Ok(new RegistrationCompletedResponse(
-            user.Id, user.Email, user.Name, RoleFranchisee, referralCode), "Franchisee registration completed.");
+            user.Id, user.Email, user.FullName, RoleFranchisee, referralCode), "Franchisee registration completed.");
     }
 
     private async Task<ApiResult<RegistrationStartedResponse>> StartAsync(
-        string role, string name, string email, string phone, string password, string? state, string? referralCode, CancellationToken ct)
+        string role, string firstName, string? lastName, string email, string phone, string password, string? state, string? referralCode, CancellationToken ct)
     {
         email = email.Trim().ToLowerInvariant();
         phone = phone.Trim();
-        name = name.Trim();
+        firstName = firstName.Trim();
+        lastName = (lastName ?? "").Trim();
+        var name = $"{firstName} {lastName}".Trim();
 
         var uniqueness = await EnsureUniqueAsync(email, phone, ct);
         if (uniqueness != null)
@@ -250,10 +259,10 @@ public class RegistrationService : IRegistrationService
             Role = role,
             Email = email,
             Phone = phone,
-            Name = name,
+            FirstName = firstName,
+            LastName = lastName,
             State = state,
             PasswordHash = hash,
-            PlainPassword = password,
             ReferrerEmail = referrerEmail,
             Otp = otp,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10),
@@ -306,14 +315,15 @@ public class RegistrationService : IRegistrationService
 
         try
         {
+            var name = $"{pending.FirstName} {pending.LastName}".Trim();
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["name"] = pending.Name,
+                ["name"] = name,
                 ["otp"] = pending.Otp,
                 ["host"] = _app.PublicHost,
             };
             var rendered = await _templates.TryRenderAsync("registration_otp", vars, ct);
-            var (subject, html) = rendered ?? RegistrationEmailTemplates.OtpEmail(pending.Name, pending.Otp, _app.PublicHost);
+            var (subject, html) = rendered ?? RegistrationEmailTemplates.OtpEmail(name, pending.Otp, _app.PublicHost);
             await _email.SendAsync(email, subject, html, ct);
         }
         catch
@@ -346,12 +356,12 @@ public class RegistrationService : IRegistrationService
         var byEmail = await _db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && !u.IsDeleted, ct);
         if (byEmail != null)
-            return $"This email address is already registered as a {RoleLabel(byEmail.Role)}. Please use a different email.";
+            return $"This email address is already registered as a {RoleLabel(byEmail.LoginRole)}. Please use a different email.";
 
         var byPhone = await _db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Phone == phone && !u.IsDeleted, ct);
         if (byPhone != null)
-            return $"This mobile number is already registered as a {RoleLabel(byPhone.Role)}. Please use a different mobile number.";
+            return $"This mobile number is already registered as a {RoleLabel(byPhone.LoginRole)}. Please use a different mobile number.";
 
         return null;
     }
@@ -361,7 +371,7 @@ public class RegistrationService : IRegistrationService
         if (string.IsNullOrWhiteSpace(referralCode)) return null;
         var code = referralCode.Trim().ToUpperInvariant();
         var referrer = await _db.Users
-            .FirstOrDefaultAsync(u => u.ReferralCode != null && u.ReferralCode.ToUpper() == code, ct);
+            .FirstOrDefaultAsync(u => u.Referral.ReferralCode != null && u.Referral.ReferralCode.ToUpper() == code, ct);
         return referrer?.Email;
     }
 

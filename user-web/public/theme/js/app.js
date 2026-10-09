@@ -598,7 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = `Hello 😊
 This is ${businessName} from ${areaCity}.
 
-We have created a MiniWebsite of our business.
+We have created a ShareBizz of our business.
 Now you can easily check our products/services and offers online here:
 👉 ${shareUrl}
 
@@ -700,7 +700,7 @@ Thanks a lot for your support 🙏`;
         const lines = [
             'BEGIN:VCARD',
             'VERSION:3.0',
-            'PRODID:-//MiniWebsite//EN'
+            'PRODID:-//ShareBizz//EN'
         ];
 
         const seenUrls = new Set();
@@ -813,7 +813,7 @@ Thanks a lot for your support 🙏`;
                 lines = [
                     'BEGIN:VCARD',
                     'VERSION:3.0',
-                    'PRODID:-//MiniWebsite//EN',
+                    'PRODID:-//ShareBizz//EN',
                     `N:;${e(hero)};;;`,
                     `FN:${e(hero)}`,
                     phone ? `TEL;TYPE=CELL;TYPE=VOICE:${phone.replace(/\s/g, '')}` : '',

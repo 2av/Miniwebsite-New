@@ -28,7 +28,7 @@ export function AgreementPage({ contentType, paymentPath, agreeLabel = 'Agree & 
         setTitle(String(raw.title ?? raw.Title ?? 'Agreement'))
         setHtml(String(raw.contentHtml ?? raw.ContentHtml ?? raw.content ?? raw.Content ?? ''))
         setUpdated((raw.lastUpdatedDisplay ?? raw.LastUpdatedDisplay) as string | null)
-        document.title = `${String(raw.title ?? raw.Title ?? 'Agreement')} - MiniWebsite`
+        document.title = `${String(raw.title ?? raw.Title ?? 'Agreement')} - ShareBizz`
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load')
       }

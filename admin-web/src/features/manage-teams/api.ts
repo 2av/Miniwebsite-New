@@ -18,7 +18,8 @@ export function fetchManageTeams(query: {
 }
 
 export function createTeamMember(payload: {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   phone?: string
   district?: string
@@ -31,7 +32,8 @@ export function createTeamMember(payload: {
 export function updateTeamMember(
   id: number,
   payload: {
-    name: string
+    firstName: string
+    lastName: string
     email: string
     phone?: string
     district?: string

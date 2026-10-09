@@ -5,6 +5,8 @@ public record UserDto(
     string Role,
     string Email,
     string? Phone,
+    string FirstName,
+    string LastName,
     string Name,
     string Status,
     DateTime CreatedAt,
@@ -24,7 +26,8 @@ public record UserDto(
     int? SenderUserId);
 
 public record UpdateUserRequest(
-    string? Name,
+    string? FirstName,
+    string? LastName,
     string? Phone,
     string? State,
     string? District,
@@ -32,7 +35,8 @@ public record UpdateUserRequest(
     string? Department);
 
 public record CreateUserRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string Phone,
     string Password,

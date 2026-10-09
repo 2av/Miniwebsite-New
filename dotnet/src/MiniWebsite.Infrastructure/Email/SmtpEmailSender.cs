@@ -29,7 +29,7 @@ public class SmtpEmailSender : IEmailSender
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(
-            string.IsNullOrWhiteSpace(_options.FromName) ? "MiniWebsite Support" : _options.FromName,
+            string.IsNullOrWhiteSpace(_options.FromName) ? "ShareBizz Support" : _options.FromName,
             string.IsNullOrWhiteSpace(_options.FromEmail) ? _options.Username : _options.FromEmail));
         message.To.Add(MailboxAddress.Parse(toEmail));
         message.Subject = subject;

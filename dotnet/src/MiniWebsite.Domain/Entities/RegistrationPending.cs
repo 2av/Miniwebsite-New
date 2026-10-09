@@ -8,11 +8,10 @@ public class RegistrationPending : BaseEntity
     public required string Role { get; set; } // CUSTOMER | FRANCHISEE
     public required string Email { get; set; }
     public required string Phone { get; set; }
-    public required string Name { get; set; }
+    public required string FirstName { get; set; }
+    public string LastName { get; set; } = "";
     public string? State { get; set; }
     public required string PasswordHash { get; set; }
-    /// <summary>Temporary — used only for welcome email copy (same as PHP session).</summary>
-    public required string PlainPassword { get; set; }
     public string? ReferrerEmail { get; set; }
     public required string Otp { get; set; }
     public DateTime ExpiresAt { get; set; }

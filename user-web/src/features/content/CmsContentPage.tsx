@@ -35,7 +35,7 @@ export function CmsContentPage({ contentType }: { contentType: string }) {
         if (!cancelled) {
           const c = normalize(raw)
           setData(c)
-          document.title = `${c.title} - MiniWebsite`
+          document.title = `${c.title} - ShareBizz`
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load content')

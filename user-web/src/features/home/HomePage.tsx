@@ -15,20 +15,20 @@ const DEMOS = [
 ]
 
 const FEATURES = [
-  { img: '01Clickcall.png', title: 'Click to Call', text: 'Your customers can contact you instantly by simply tapping on the call icon on your Mini Website.' },
-  { img: '02Clickwhatsapp.png', title: 'Click To WhatsApp', text: 'Through this Mini Website, your customers can WhatsApp you directly without saving your number.' },
-  { img: '03Clickemail.png', title: 'Click to Email', text: 'Your customers can send you an email with just one click directly from the Mini Website.' },
-  { img: '04GetDirection.png', title: 'Get Directions', text: 'People can navigate to your store using Google Maps from the Mini Website.' },
+  { img: '01Clickcall.png', title: 'Click to Call', text: 'Your customers can contact you instantly by simply tapping on the call icon on your ShareBizz.' },
+  { img: '02Clickwhatsapp.png', title: 'Click To WhatsApp', text: 'Through this ShareBizz, your customers can WhatsApp you directly without saving your number.' },
+  { img: '03Clickemail.png', title: 'Click to Email', text: 'Your customers can send you an email with just one click directly from the ShareBizz.' },
+  { img: '04GetDirection.png', title: 'Get Directions', text: 'People can navigate to your store using Google Maps from the ShareBizz.' },
   { img: '05savecontact.png', title: 'Save to Contacts', text: 'People can store all your contact information in their phone.' },
-  { img: '06website.png', title: 'Website & Social Links', text: 'Customers can visit your website and social media pages through the Mini Website.' },
-  { img: '07share.png', title: 'Unlimited Share', text: 'You can share your Mini Website as many times as you like on social media and WhatsApp.' },
+  { img: '06website.png', title: 'Website & Social Links', text: 'Customers can visit your website and social media pages through the ShareBizz.' },
+  { img: '07share.png', title: 'Unlimited Share', text: 'You can share your ShareBizz as many times as you like on social media and WhatsApp.' },
   { img: '08easy.png', title: 'Easy To Update', text: 'You can change your details anytime as many times as you want.' },
   { img: '09photogallery.png', title: 'Photo Gallery', text: 'You can display your business realted images to your customers.' },
-  { img: '10Youtubevideos.png', title: 'Youtube Videos', text: "Capture your customers' attention by featuring your business YouTube videos on your Mini Website." },
+  { img: '10Youtubevideos.png', title: 'Youtube Videos', text: "Capture your customers' attention by featuring your business YouTube videos on your ShareBizz." },
   { img: '11Payment.png', title: 'Payment Info', text: 'Display your payment options to customers, such as Paytm, PhonePe, Google Pay, and bank account details (including QR code).' },
-  { img: '12E-commerce.png', title: 'E-commerce', text: 'List your products or services with price in your Mini Website.' },
-  { img: '13qr-code-scan.png', title: 'QR Scan', text: 'Get a QR scan code of your Mini Website to enhance your online presence.' },
-  { img: '14visits.png', title: 'Visitation', text: 'You can track the number of unique visitors on your Mini Website.' },
+  { img: '12E-commerce.png', title: 'E-commerce', text: 'List your products or services with price in your ShareBizz.' },
+  { img: '13qr-code-scan.png', title: 'QR Scan', text: 'Get a QR scan code of your ShareBizz to enhance your online presence.' },
+  { img: '14visits.png', title: 'Visitation', text: 'You can track the number of unique visitors on your ShareBizz.' },
 ]
 
 const WHY = [
@@ -48,7 +48,7 @@ const PLAN_FEATURES = [
   'Click to Email',
   'Click to WhatsApp',
   'Connect all Social Links',
-  'Share Mini Website QR Code',
+  'Share ShareBizz QR Code',
   'Add Products with Prices',
   'Add Services',
   'Add Videos',
@@ -58,10 +58,10 @@ const PLAN_FEATURES = [
 ]
 
 const TESTIMONIALS = [
-  { img: '01.png', name: 'Rahul Mehra', company: 'Mehra Consulting', text: '"Mini Website transformed our online presence effortlessly! Their design and speed are unmatched!"' },
+  { img: '01.png', name: 'Rahul Mehra', company: 'Mehra Consulting', text: '"ShareBizz transformed our online presence effortlessly! Their design and speed are unmatched!"' },
   { img: '02.png', name: 'Priya Sharma', company: 'Art Haven', text: '"Incredible service! The team delivered a stunning website that perfectly fits our brand."' },
-  { img: '03.png', name: 'Amit Gupta', company: 'Gupta Groceries', text: '"Highly professional and efficient. Mini Website made creating a website hassle-free and affordable for our small business."' },
-  { img: '04.png', name: 'Sneha Kapoor', company: 'Eventify Solutions', text: '"Mini Website delivered a sleek, user-friendly website in no time! Truly a game-changer for our business."' },
+  { img: '03.png', name: 'Amit Gupta', company: 'Gupta Groceries', text: '"Highly professional and efficient. ShareBizz made creating a website hassle-free and affordable for our small business."' },
+  { img: '04.png', name: 'Sneha Kapoor', company: 'Eventify Solutions', text: '"ShareBizz delivered a sleek, user-friendly website in no time! Truly a game-changer for our business."' },
   { img: '05.jpg', name: 'Riya Ahuja', company: 'Riya beauty parlour', text: '"No fluff, just results. Got exactly what I needed-fast, good-looking, and reliable."' },
   { img: '06.jpg', name: 'Ajay Gupta', company: 'Ajay electronics', text: '"Perfect for small businesses like mine. Fast, affordable, and user-friendly-everything I needed in one place."' },
 ]
@@ -87,7 +87,7 @@ export function HomePage() {
           <div className="banner-wrap">
             <div className="banner-content">
               <h1 className="heading">
-                Create your <span>MINI WEBSITE</span>
+                Create your <span>SHAREBIZZ</span>
               </h1>
               <p>
                 Your business deserves a powerful online presence that captures attention, drives engagement, and
@@ -98,7 +98,7 @@ export function HomePage() {
                 <li>Do you still use paper visiting cards?</li>
               </ul>
               <Link className="btn btn-primary d-lg-block d-none" to="/login/customer" style={{ textDecoration: 'none' }}>
-                CREATE YOUR MINI WEBSITE
+                CREATE YOUR SHAREBIZZ
               </Link>
             </div>
             <div className="banner-img">
@@ -106,7 +106,7 @@ export function HomePage() {
             </div>
             <div className="banner-content d-lg-none d-md-block">
               <Link className="btn btn-primary" to="/login/customer" style={{ textDecoration: 'none', color: '#002169' }}>
-                CREATE YOUR MINI WEBSITE
+                CREATE YOUR SHAREBIZZ
               </Link>
             </div>
           </div>
@@ -116,28 +116,28 @@ export function HomePage() {
       <section className="how-web-works">
         <div className="container">
           <div className="web-works">
-            <h2 className="heading">How Mini Website Works ?</h2>
+            <h2 className="heading">How ShareBizz Works ?</h2>
             <div className="web-works-card">
               <div className="cards">
                 <img className="img-fluid" src={assetUrl('images/02HowMiniWebsiteWork/create_01.png')} alt="" />
                 <h3 className="card-heading">
-                  CREATE YOUR <span>MINI WEBSITE</span>
+                  CREATE YOUR <span>SHAREBIZZ</span>
                 </h3>
-                <p>Create your Mini Website within minutes with impressive rich content &amp; design.</p>
+                <p>Create your ShareBizz within minutes with impressive rich content &amp; design.</p>
               </div>
               <div className="cards">
                 <img className="img-fluid" src={assetUrl('images/02HowMiniWebsiteWork/share_02.png')} alt="" />
                 <h3 className="card-heading">
-                  SHARE YOUR <span>MINI WEBSITE</span>
+                  SHARE YOUR <span>SHAREBIZZ</span>
                 </h3>
-                <p>You can share your Mini Website from anywhere &amp; anytime.</p>
+                <p>You can share your ShareBizz from anywhere &amp; anytime.</p>
               </div>
               <div className="cards">
                 <img className="img-fluid" src={assetUrl('images/02HowMiniWebsiteWork/growth_11462571.png')} alt="" />
                 <h3 className="card-heading">
-                  SUCCEED WITH <span>MINI WEBSITE</span>
+                  SUCCEED WITH <span>SHAREBIZZ</span>
                 </h3>
-                <p>Attract more customers and boost your online presence with a professional Mini Website.</p>
+                <p>Attract more customers and boost your online presence with a professional ShareBizz.</p>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@ export function HomePage() {
           <div className="demo-samples-wrap">
             <div className="demo-heading-wrap">
               <img className="img-fluid" src={assetUrl('images/03Miniwebsitesamples/phone.png')} alt="" />
-              <h2 className="heading"> Mini Website Samples </h2>
+              <h2 className="heading"> ShareBizz Samples </h2>
             </div>
             <div className="screenshots-carousel owl-carousel owl-theme">
               {DEMOS.map((d) => (
@@ -168,7 +168,7 @@ export function HomePage() {
       <section className="Website-Features">
         <div className="container">
           <div className="Website-FeaturesWrap">
-            <h2 className="heading">Our Mini Website Features</h2>
+            <h2 className="heading">Our ShareBizz Features</h2>
             <div className="WebsiteFeatures">
               {FEATURES.map((f) => (
                 <div className="cards" key={f.title}>
@@ -197,9 +197,9 @@ export function HomePage() {
                 <img className="img-fluid" src={assetUrl('images/05GoDigital/01.png')} alt="Trash bin" />
               </div>
               <div className="info-card red">
-                <img className="img-fluid" src={assetUrl('images/05GoDigital/02.png')} alt="Mini Website" />
+                <img className="img-fluid" src={assetUrl('images/05GoDigital/02.png')} alt="ShareBizz" />
                 <div>
-                  <h3>Use Mini Website</h3>
+                  <h3>Use ShareBizz</h3>
                   <p>It’s convenient, super affordable, and hassle-free.</p>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export function HomePage() {
 
       <section className="why-miniweb">
         <div className="container">
-          <h2 className="heading">Why MiniWebsite.in?</h2>
+          <h2 className="heading">Why ShareBizz?</h2>
           <div className="features-container">
             {WHY.map((w) => (
               <div className={`feature-box ${w.box ?? ''}`} key={w.img}>
@@ -262,7 +262,7 @@ export function HomePage() {
                 <p className="old-price">Rs 2000/-</p>
                 <p className="price">
                   Rs 999/- <sub>per year</sub>
-                  <small>(For Each MiniWebsite)</small>
+                  <small>(For Each ShareBizz)</small>
                 </p>
                 <Link className="btn-plan btn btn-primary" to="/login/customer" style={{ textDecoration: 'none', color: '#002169' }}>
                   GET PLAN
@@ -309,7 +309,7 @@ export function HomePage() {
                   Looking For New Ways to Earn? <span />
                 </h2>
               </div>
-              <h5>Partner with us and launch your own Mini Website business with our trusted Franchise model.</h5>
+              <h5>Partner with us and launch your own ShareBizz business with our trusted Franchise model.</h5>
               <br />
               <Link to="/franchisee" className="btn btn-primary">
                 GET YOUR FRANCHISE

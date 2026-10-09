@@ -142,7 +142,7 @@ export function ManageCardsPage() {
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold text-slate-900">
-            Miniwebsite Details
+            ShareBizz Details
           </h1>
           <p className="mt-1 text-sm text-slate-500">{data?.totalCount ?? '—'} websites</p>
         </div>

@@ -42,7 +42,7 @@ export function PublicFooter() {
                 <img
                   className="mb-8 w-[300px] max-w-full"
                   src={assetUrl('images/09Footer/Miniwebsite logo_1800x.png')}
-                  alt="miniwebsite.in"
+                  alt="ShareBizz"
                 />
                 <p className="mb-3 text-base">
                   <a href="tel:+91-9429693574" className="inline-flex items-center gap-2 hover:underline">
@@ -127,7 +127,7 @@ export function PublicFooter() {
 
         <div className="border-t border-white/10 py-4">
           <div className="mx-auto flex max-w-[1140px] flex-wrap items-center justify-between gap-3 px-4 text-sm">
-            <p className="m-0">© {new Date().getFullYear()} miniwebsite.in</p>
+            <p className="m-0">© {new Date().getFullYear()} ShareBizz</p>
             <div className="flex gap-4">
               <Link to="/privacy-policy" className="hover:underline">
                 Privacy Policy

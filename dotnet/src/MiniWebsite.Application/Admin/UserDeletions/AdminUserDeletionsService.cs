@@ -3,6 +3,7 @@ using MiniWebsite.Application.Admin.UserDeletions.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.UserDeletions;
 
@@ -25,7 +26,7 @@ public class AdminUserDeletionsService : IAdminUserDeletionsService
 
         var role = ParseRole(query.Role);
         if (role != null)
-            baseQ = baseQ.Where(u => u.Role == role.Value);
+            baseQ = baseQ.WhereRole(role.Value);
 
         var activeCount = await baseQ.CountAsync(u => !u.IsDeleted, ct);
         var deletedCount = await baseQ.CountAsync(u => u.IsDeleted, ct);
@@ -41,7 +42,7 @@ public class AdminUserDeletionsService : IAdminUserDeletionsService
         {
             var s = query.Search.Trim().ToLower();
             q = q.Where(u =>
-                u.Name.ToLower().Contains(s)
+                (u.FirstName + " " + u.LastName).ToLower().Contains(s)
                 || u.Email.ToLower().Contains(s));
         }
 
@@ -56,8 +57,8 @@ public class AdminUserDeletionsService : IAdminUserDeletionsService
         var rows = users.Select(u => new UserDeletionRowDto(
             u.Id,
             u.Email,
-            u.Name,
-            RoleToString(u.Role),
+            u.FullName,
+            RoleToString(u.LoginRole),
             u.Status,
             u.IsDeleted,
             u.CreatedAt,

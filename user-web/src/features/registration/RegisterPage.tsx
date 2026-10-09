@@ -26,7 +26,7 @@ export function RegisterPage({ kind }: Props) {
       kind === 'customer'
         ? {
             title: 'Create An Account',
-            subtitle: 'Create an account to create your Mini Website',
+            subtitle: 'Create an account to create your ShareBizz',
             backTo: '/login/customer',
             successPath: '/registration/customer/success',
             role: 'CUSTOMER' as UserRole,
@@ -44,7 +44,8 @@ export function RegisterPage({ kind }: Props) {
   )
 
   const [step, setStep] = useState<'form' | 'otp'>('form')
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [state, setState] = useState('')
@@ -62,7 +63,7 @@ export function RegisterPage({ kind }: Props) {
     setInfo(null)
 
     const errs: string[] = []
-    if (!name.trim()) errs.push('Name is required.')
+    if (!firstName.trim()) errs.push('First Name is required.')
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errs.push('Valid email is required.')
     if (!/^[0-9]{10}$/.test(phone.trim())) errs.push('Valid 10-digit mobile number is required.')
     if (kind === 'customer' && !INDIAN_STATES.includes(state as (typeof INDIAN_STATES)[number])) {
@@ -77,7 +78,8 @@ export function RegisterPage({ kind }: Props) {
     setBusy(true)
     try {
       const body: Record<string, unknown> = {
-        name: name.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim(),
         password,
@@ -122,7 +124,7 @@ export function RegisterPage({ kind }: Props) {
       }
       sessionStorage.setItem(
         'mw_registration_success',
-        JSON.stringify({ kind, email: data?.email || email, name: data?.name || name }),
+        JSON.stringify({ kind, email: data?.email || email, name: data?.name || `${firstName} ${lastName}`.trim() }),
       )
       navigate(meta.successPath, { replace: true })
     } catch (err) {
@@ -175,14 +177,21 @@ export function RegisterPage({ kind }: Props) {
           </form>
         ) : (
           <form onSubmit={onRegister} autoComplete="off">
-            <div className="mb-3">
+            <div className="mb-3" style={{ display: 'flex', gap: 10 }}>
               <input
                 type="text"
                 className="form-control"
-                placeholder="Full Name*"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                placeholder="First Name*"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
                 required
+              />
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
               />
             </div>
             <div className="mb-3">

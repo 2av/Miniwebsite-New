@@ -6,11 +6,8 @@ import {
   LogOut,
   Menu,
   CreditCard,
-  Delete as DeleteIcon,
   ChevronDown,
-  UserRound,
   Briefcase,
-  UsersRound,
   Share2,
   Tag,
   BatteryCharging,
@@ -203,18 +200,6 @@ const nav: NavNode[] = [
           },
         ],
       },
-    ],
-  },
-  {
-    kind: 'group',
-    id: 'user-deletion',
-    label: 'User Deletion',
-    icon: DeleteIcon,
-    matchPrefixes: ['/user-deletion'],
-    children: [
-      { kind: 'link', to: '/user-deletion/customer', label: 'Customer', icon: UserRound },
-      { kind: 'link', to: '/user-deletion/franchise', label: 'Franchise Partner', icon: Briefcase },
-      { kind: 'link', to: '/user-deletion/team', label: 'Team', icon: UsersRound },
     ],
   },
   { kind: 'link', to: '/manage-referrals', label: 'Manage Referrals', icon: Share2 },
@@ -439,7 +424,7 @@ export function AdminLayout() {
         )}
       >
         <div className="border-b border-white/10 px-5 py-6">
-          <div className="text-xs tracking-[0.2em] text-rose-300 uppercase">MiniWebsite</div>
+          <div className="text-xs tracking-[0.2em] text-rose-300 uppercase">ShareBizz</div>
         </div>
 
         <div className="border-b border-white/10 px-3 py-3">

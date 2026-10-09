@@ -88,7 +88,7 @@ public partial class WebsiteService : IWebsiteService
 
         return ApiResult<BusinessNameDto>.Ok(
             new BusinessNameDto(card.Id, card.DCompName, card.DDisplayName, card.CardId, card.DNameChangeCount),
-            "Mini Website created.");
+            "ShareBizz created.");
     }
 
     public async Task<ApiResult<BusinessNameDto>> UpdateBusinessNameAsync(int cardId, UpsertBusinessNameRequest request, CancellationToken ct = default)

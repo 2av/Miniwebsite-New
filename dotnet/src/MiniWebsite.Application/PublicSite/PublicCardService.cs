@@ -56,7 +56,7 @@ public class PublicCardService : IPublicCardService
                         var redirectUrl = BuildShareUrl(newSlug);
                         return ApiResult<PublicCardViewerDto>.Ok(new PublicCardViewerDto(
                             "redirect",
-                            "MiniWebsite URL updated.",
+                            "ShareBizz URL updated.",
                             label,
                             newSlug,
                             redirectUrl,

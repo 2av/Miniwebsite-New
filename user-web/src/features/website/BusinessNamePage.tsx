@@ -109,7 +109,7 @@ export function BusinessNamePage() {
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb mw-breadcrumb">
             <li className="breadcrumb-item mw-breadcrumb-item">
-              <a href="#">Mini Website</a>
+              <a href="#">ShareBizz</a>
             </li>
             <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
               Website Builder

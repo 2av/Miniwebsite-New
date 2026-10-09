@@ -59,7 +59,7 @@ export function InvoiceHistoryPage() {
         </nav>
       </div>
 
-      {!cardId && <div className="alert alert-warning">Open invoices from a Mini Website row (card id required).</div>}
+      {!cardId && <div className="alert alert-warning">Open invoices from a ShareBizz row (card id required).</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="card">

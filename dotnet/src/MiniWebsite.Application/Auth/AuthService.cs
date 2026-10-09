@@ -9,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
+using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Auth;
 
@@ -55,7 +57,7 @@ public class AuthService : IAuthService
         if (!string.IsNullOrWhiteSpace(request.ReferralCode))
         {
             var code = request.ReferralCode.Trim().ToUpperInvariant();
-            var referrer = await _db.Users.FirstOrDefaultAsync(u => u.ReferralCode == code, ct);
+            var referrer = await _db.Users.FirstOrDefaultAsync(u => u.Referral.ReferralCode == code, ct);
             if (referrer != null)
                 referredBy = referrer.Email;
         }
@@ -63,19 +65,25 @@ public class AuthService : IAuthService
         var hash = _passwordHasher.Hash(request.Password);
         var user = new User
         {
-            Name = request.Name.Trim(),
+            FirstName = request.FirstName.Trim(),
+            LastName = (request.LastName ?? "").Trim(),
             Email = email,
             Phone = phone,
             Password = hash,
-            PasswordHash = hash,
-            Role = UserRole.Customer,
+            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.ShareBizzUser, ct),
             Status = "ACTIVE",
-            CollaborationEnabled = false,
-            SaleskitEnabled = false,
-            Influencer = false,
-            State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
-            ReferralCode = GenerateReferralCode(email),
-            ReferredBy = referredBy,
+            Address = new UserAddress
+            {
+                State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
+            },
+            Referral = new UserReferralSettings
+            {
+                CollaborationEnabled = false,
+                SaleskitEnabled = false,
+                Influencer = false,
+                ReferralCode = GenerateReferralCode(email),
+                ReferredBy = referredBy,
+            },
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,
             IsDeleted = false
@@ -88,16 +96,16 @@ public class AuthService : IAuthService
         {
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["name"] = user.Name,
+                ["name"] = user.FullName,
                 ["email"] = user.Email,
                 ["password"] = request.Password,
                 ["host"] = _app.PublicHost,
                 ["dashboard_url"] = _app.CustomerDashboardUrl,
             };
             var rendered = await _templates.TryRenderAsync("customer_welcome", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to MiniWebsite";
+            var subject = rendered?.Subject ?? "Welcome to ShareBizz";
             var html = rendered?.Html
-                ?? $"Hi {user.Name},<br/><br/>Your account has been created successfully.<br/>Email: {user.Email}";
+                ?? $"Hi {user.FullName},<br/><br/>Your account has been created successfully.<br/>Email: {user.Email}";
             await _email.SendAsync(user.Email, subject, html, ct);
         }
         catch
@@ -118,7 +126,7 @@ public class AuthService : IAuthService
         var roleFilter = NormalizeRole(request.Role);
 
         // Role-scoped logins mirror PHP: wrong portal → "user does not exist"
-        if (user == null || (roleFilter != null && user.Role != roleFilter.Value))
+        if (user == null || (roleFilter != null && user.LoginRole != roleFilter.Value))
         {
             if (roleFilter != null)
                 return ApiResult<AuthResponse>.Fail("User does not exist. Please create an account.");
@@ -183,14 +191,14 @@ public class AuthService : IAuthService
 
         var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = user.Name,
+            ["name"] = user.FullName,
             ["otp"] = rawToken,
-            ["host"] = "MiniWebsite",
+            ["host"] = "ShareBizz",
         };
         var rendered = await _templates.TryRenderAsync("password_reset", vars, ct);
         var subject = rendered?.Subject ?? "Password reset code";
         var html = rendered?.Html
-            ?? $"Hi {user.Name},<br/><br/>Your password reset code is: <b>{rawToken}</b><br/>Valid for 30 minutes.";
+            ?? $"Hi {user.FullName},<br/><br/>Your password reset code is: <b>{rawToken}</b><br/>Valid for 30 minutes.";
         await _email.SendAsync(user.Email, subject, html, ct);
 
         return ApiResult.Ok("If the email exists, a reset code has been sent.");
@@ -214,7 +222,6 @@ public class AuthService : IAuthService
 
         var passwordHash = _passwordHasher.Hash(request.NewPassword);
         user.Password = passwordHash;
-        user.PasswordHash = passwordHash;
         user.UpdatedAt = DateTime.Now;
         token.UsedAt = DateTime.UtcNow;
 
@@ -258,7 +265,6 @@ public class AuthService : IAuthService
 
         var hash = _passwordHasher.Hash(request.NewPassword);
         user.Password = hash;
-        user.PasswordHash = hash;
         user.UpdatedAt = DateTime.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password changed successfully!");
@@ -281,25 +287,27 @@ public class AuthService : IAuthService
         return new AuthResponse(
             user.Id,
             user.Email,
-            user.Name,
-            RoleToApi(user.Role),
+            user.FullName,
+            RoleToApi(user.LoginRole),
             accessToken,
             refreshToken,
             expiresAt,
-            user.CollaborationEnabled ? "YES" : "NO",
-            user.SaleskitEnabled ? "YES" : "NO");
+            user.Referral.CollaborationEnabled ? "YES" : "NO",
+            user.Referral.SaleskitEnabled ? "YES" : "NO");
     }
 
     private bool VerifyPassword(string password, User user)
     {
-        if (!string.IsNullOrWhiteSpace(user.PasswordHash) && _passwordHasher.Verify(password, user.PasswordHash))
-            return true;
-        if (!string.IsNullOrWhiteSpace(user.Password) && _passwordHasher.Verify(password, user.Password))
-            return true;
-        // Legacy plain-text passwords still present in some rows
-        if (!string.IsNullOrWhiteSpace(user.Password) && password == user.Password)
-            return true;
-        return false;
+        if (_passwordHasher.IsHashed(user.Password))
+            return _passwordHasher.Verify(password, user.Password);
+
+        // Plain text written by another system since the last startup (DataSeeder hashes these):
+        // accept once and store it hashed.
+        if (string.IsNullOrEmpty(user.Password) || password != user.Password)
+            return false;
+        user.Password = _passwordHasher.Hash(password);
+        user.UpdatedAt = DateTime.UtcNow;
+        return true;
     }
 
     private static UserRole? NormalizeRole(string? role)

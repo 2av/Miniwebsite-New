@@ -4,6 +4,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Users.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Users;
 
@@ -43,7 +44,7 @@ public class UserService : IUserService
             var roleParsed = ParseRole(role);
             if (roleParsed == null)
                 return ApiResult<PagedResult<UserDto>>.Fail("Invalid role. Use CUSTOMER, FRANCHISEE, TEAM, or ADMIN.");
-            query = query.Where(u => u.Role == roleParsed.Value);
+            query = query.WhereRole(roleParsed.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -51,7 +52,7 @@ public class UserService : IUserService
             var s = search.Trim().ToLowerInvariant();
             query = query.Where(u =>
                 u.Email.ToLower().Contains(s) ||
-                u.Name.ToLower().Contains(s) ||
+                (u.FirstName + " " + u.LastName).ToLower().Contains(s) ||
                 (u.Phone != null && u.Phone.Contains(s)));
         }
 
@@ -88,19 +89,25 @@ public class UserService : IUserService
         var hash = _passwordHasher.Hash(request.Password);
         var user = new User
         {
-            Name = request.Name.Trim(),
+            FirstName = request.FirstName.Trim(),
+            LastName = (request.LastName ?? "").Trim(),
             Email = email,
             Phone = phone,
             Password = hash,
-            PasswordHash = hash,
-            Role = role,
+            AssignedRole = await _db.GetDefaultRoleAsync(role, ct),
             Status = "ACTIVE",
-            CollaborationEnabled = false,
-            SaleskitEnabled = false,
-            Influencer = false,
-            State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
-            District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim(),
-            ReferralCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+            Address = new UserAddress
+            {
+                State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim(),
+                District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim(),
+            },
+            Referral = new UserReferralSettings
+            {
+                CollaborationEnabled = false,
+                SaleskitEnabled = false,
+                Influencer = false,
+                ReferralCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
+            },
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,
             IsDeleted = false
@@ -117,8 +124,10 @@ public class UserService : IUserService
         if (user == null)
             return ApiResult<UserDto>.Fail("User not found.");
 
-        if (!string.IsNullOrWhiteSpace(request.Name))
-            user.Name = request.Name.Trim();
+        if (!string.IsNullOrWhiteSpace(request.FirstName))
+            user.FirstName = request.FirstName.Trim();
+        if (request.LastName != null)
+            user.LastName = request.LastName.Trim();
         if (!string.IsNullOrWhiteSpace(request.Phone))
         {
             var phone = request.Phone.Trim();
@@ -127,9 +136,9 @@ public class UserService : IUserService
             user.Phone = phone;
         }
         if (request.State != null)
-            user.State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim();
+            user.Address.State = string.IsNullOrWhiteSpace(request.State) ? null : request.State.Trim();
         if (request.District != null)
-            user.District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
+            user.Address.District = string.IsNullOrWhiteSpace(request.District) ? null : request.District.Trim();
         if (request.Department != null)
             user.Department = string.IsNullOrWhiteSpace(request.Department) ? null : request.Department.Trim();
         if (!string.IsNullOrWhiteSpace(request.Status))
@@ -159,26 +168,28 @@ public class UserService : IUserService
 
     private static UserDto Map(User u) => new(
         u.Id,
-        ToRoleLabel(u.Role),
+        ToRoleLabel(u.LoginRole),
         u.Email,
         u.Phone,
-        u.Name,
+        u.FirstName,
+        u.LastName,
+        u.FullName,
         u.Status,
         u.CreatedAt,
         u.UpdatedAt,
-        u.ReferralCode,
-        u.ReferredBy,
-        u.District,
-        u.State,
+        u.Referral.ReferralCode,
+        u.Referral.ReferredBy,
+        u.Address.District,
+        u.Address.State,
         u.Department,
         u.ProfileImage,
-        u.CollaborationEnabled ? "YES" : "NO",
-        u.SaleskitEnabled ? "YES" : "NO",
-        u.Influencer ? "YES" : "NO",
+        u.Referral.CollaborationEnabled ? "YES" : "NO",
+        u.Referral.SaleskitEnabled ? "YES" : "NO",
+        u.Referral.Influencer ? "YES" : "NO",
         u.Wallet?.Balance.ToString(System.Globalization.CultureInfo.InvariantCulture),
         u.SelectService,
-        u.MwReferralId,
-        u.SenderUserId);
+        u.Referral.MwReferralId,
+        u.Referral.SenderUserId);
 
     private static UserRole? ParseRole(string role) =>
         TryParseRole(role, out var r) ? r : null;

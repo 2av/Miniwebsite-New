@@ -4,6 +4,7 @@ using MiniWebsite.Application.Admin.AllOrders.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.AllOrders;
 
@@ -63,16 +64,16 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                 ? []
                 : await _db.Users.AsNoTracking()
                     .Where(u => emails.Contains(u.Email.ToLower()))
-                    .Select(u => new { u.Id, Email = u.Email.ToLower(), u.Role })
+                    .Select(u => new { u.Id, Email = u.Email.ToLower(), u.AssignedRole!.Prefix })
                     .ToListAsync(ct);
 
             var customerByEmail = users
-                .Where(u => u.Role == UserRole.Customer)
+                .Where(u => RolePrefixes.ToUserRole(u.Prefix) == UserRole.Customer)
                 .GroupBy(u => u.Email)
                 .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
             var franchiseeByEmail = users
-                .Where(u => u.Role == UserRole.Franchisee)
+                .Where(u => RolePrefixes.ToUserRole(u.Prefix) == UserRole.Franchisee)
                 .GroupBy(u => u.Email)
                 .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 

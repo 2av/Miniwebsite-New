@@ -7,6 +7,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.ManageUsers;
 
@@ -76,18 +77,19 @@ public class AdminManageUsersService : IAdminManageUsersService
 
             rows.Add(new ManageUserRowDto(
                 u.Id,
+                u.UserCode,
                 u.Email,
-                u.Name,
+                u.FullName,
                 u.Phone,
-                u.State,
+                u.Address.State,
                 u.Status,
                 u.CreatedAt,
-                u.CollaborationEnabled ? "YES" : "NO",
-                u.SaleskitEnabled ? "YES" : "NO",
+                u.Referral.CollaborationEnabled ? "YES" : "NO",
+                u.Referral.SaleskitEnabled ? "YES" : "NO",
                 string.IsNullOrWhiteSpace(u.RefundStatus) ? "None" : u.RefundStatus,
                 u.RefundStatusDate,
-                u.ReferredBy,
-                await BuildReferralSourceAsync(u.ReferredBy, u.Email, ct),
+                u.Referral.ReferredBy,
+                await BuildReferralSourceAsync(u.Referral.ReferredBy, u.Email, ct),
                 wc,
                 pending,
                 summary.TotalAmount,
@@ -167,12 +169,12 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (status is not ("YES" or "NO"))
             return ApiResult.Fail("Status must be YES or NO.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+        var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
+            u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
-        user.CollaborationEnabled = status == "YES";
+        user.Referral.CollaborationEnabled = status == "YES";
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -182,7 +184,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             {
                 var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"] = user.Name ?? "",
+                    ["name"] = user.FullName,
                     ["email"] = email,
                 };
                 var rendered = await _templates.TryRenderAsync("collaboration_upgraded", vars, ct);
@@ -208,12 +210,12 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (status is not ("YES" or "NO"))
             return ApiResult.Fail("Status must be YES or NO.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+        var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
+            u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
-        user.SaleskitEnabled = status == "YES";
+        user.Referral.SaleskitEnabled = status == "YES";
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("User sales kit status updated successfully");
@@ -226,8 +228,8 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (!AllowedRefund.Contains(refundStatus, StringComparer.Ordinal))
             return ApiResult.Fail("Invalid refund status.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+        var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
+            u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
@@ -251,14 +253,13 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
             return ApiResult.Fail("Password must be at least 6 characters.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email && u.Role == role.Value, ct);
+        var user = await _db.Users.WhereRole(role.Value).FirstOrDefaultAsync(
+            u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found for this role.");
 
         var hash = _passwordHasher.Hash(request.NewPassword);
         user.Password = hash;
-        user.PasswordHash = hash;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password updated successfully for " + email);
@@ -305,7 +306,8 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult<ReferralDetailsDto>.Fail("Missing referrer email");
 
         var user = await _db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+            .WhereRole(UserRole.Customer)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
             .Where(r => r.ReferrerEmail.ToLower() == email)
@@ -337,11 +339,13 @@ public class AdminManageUsersService : IAdminManageUsersService
         var bank = await GetBankDetailsAsync(email, ct);
 
         var customerMap = await _db.Users.AsNoTracking()
-            .Where(u => u.Role == UserRole.Customer && referredEmails.Contains(u.Email.ToLower()))
+            .WhereRole(UserRole.Customer)
+            .Where(u => referredEmails.Contains(u.Email.ToLower()))
             .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
 
         var franchiseeMap = await _db.Users.AsNoTracking()
-            .Where(u => u.Role == UserRole.Franchisee && referredEmails.Contains(u.Email.ToLower()))
+            .WhereRole(UserRole.Franchisee)
+            .Where(u => referredEmails.Contains(u.Email.ToLower()))
             .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
 
         var allCards = await _db.Cards.AsNoTracking()
@@ -374,7 +378,7 @@ public class AdminManageUsersService : IAdminManageUsersService
                 e.IsCollaboration,
                 cust?.Id,
                 fran?.Id,
-                isCollab ? fran?.Name ?? cust?.Name : cust?.Name ?? fran?.Name,
+                isCollab ? fran?.FullName ?? cust?.FullName : cust?.FullName ?? fran?.FullName,
                 isCollab ? fran?.Phone ?? cust?.Phone : cust?.Phone ?? fran?.Phone,
                 card?.Id,
                 card?.UploadedDate,
@@ -389,9 +393,9 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         return ApiResult<ReferralDetailsDto>.Ok(new ReferralDetailsDto(
             email,
-            user?.Name ?? email,
-            user?.CollaborationEnabled == true ? "YES" : "NO",
-            user?.SaleskitEnabled == true ? "YES" : "NO",
+            user?.FullName ?? email,
+            user?.Referral.CollaborationEnabled == true ? "YES" : "NO",
+            user?.Referral.SaleskitEnabled == true ? "YES" : "NO",
             totalReferral,
             paidAmount,
             pending,
@@ -482,15 +486,16 @@ public class AdminManageUsersService : IAdminManageUsersService
 
     private IQueryable<User> ApplyCustomerFilters(IQueryable<User> query, ManageUsersQuery q)
     {
-        query = query.Where(u => u.Role == UserRole.Customer);
-        query = query.Where(u => !u.CollaborationEnabled);
+        query = query.WhereRole(UserRole.Customer);
+        query = query.Where(u => !u.Referral.CollaborationEnabled);
 
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var s = q.Search.Trim().ToLowerInvariant();
             query = query.Where(u =>
-                u.Name.ToLower().Contains(s)
+                (u.FirstName + " " + u.LastName).ToLower().Contains(s)
                 || u.Email.ToLower().Contains(s)
+                || u.UserCode.ToLower().Contains(s)
                 || (u.Phone != null && u.Phone.ToLower().Contains(s)));
         }
 
@@ -720,7 +725,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
         else
         {
-            display = referrer.Role switch
+            display = referrer.LoginRole switch
             {
                 UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
                 UserRole.Team => "Team - " + referrer.Id,
@@ -838,9 +843,9 @@ public class AdminManageUsersService : IAdminManageUsersService
         """
         <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;">
         <h2>Congratulations!</h2>
-        <p>Your MiniWebsite account has been upgraded with the <strong>Collaborator Feature</strong>.</p>
+        <p>Your ShareBizz account has been upgraded with the <strong>Collaborator Feature</strong>.</p>
         <p><a href="https://miniwebsite.in/login/customer.php">Login to Your Account</a></p>
-        <p>Best regards,<br>MiniWebsite Team</p>
+        <p>Best regards,<br>ShareBizz Team</p>
         </body></html>
         """;
 

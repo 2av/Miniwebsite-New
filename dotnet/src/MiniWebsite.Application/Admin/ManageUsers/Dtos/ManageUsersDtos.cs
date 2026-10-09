@@ -36,6 +36,7 @@ public record DealOptionDto(int Id, string DealName, string? CouponCode, string 
 
 public record ManageUserRowDto(
     int Id,
+    string UserCode,
     string Email,
     string Name,
     string? Phone,

@@ -74,11 +74,11 @@ export function ReferAndEarnPage() {
                   <img
                     className="img-fluid"
                     src={referAsset('03 How refer and earn works/01 create website.gif')}
-                    alt="Create your Mini Website"
+                    alt="Create your ShareBizz"
                   />
                   <h3>
                     Create your <br />
-                    Mini Website
+                    ShareBizz
                   </h3>
                 </div>
                 <div className="testimonial-card">

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Pencil, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { BatteryCharging, KeyRound, Pencil, Plus, Power, PowerOff, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import {
@@ -15,6 +15,10 @@ import {
   findSalesChannelPartner,
   type SalesChannelPartnerType,
 } from '@/features/sales-channel-partners/partners'
+import {
+  RechargeWalletDialog,
+  type RechargeWalletTarget,
+} from '@/features/wallet-recharge/RechargeWalletDialog'
 import type { SalesChannelPartnerRow } from '@/shared/types/api'
 import { ApiError } from '@/shared/api/client'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
@@ -58,7 +62,8 @@ import {
 } from '@/components/ui/table'
 
 type FormState = {
-  name: string
+  firstName: string
+  lastName: string
   email: string
   phone: string
   district: string
@@ -67,7 +72,8 @@ type FormState = {
 }
 
 const emptyForm: FormState = {
-  name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   phone: '',
   district: '',
@@ -75,7 +81,10 @@ const emptyForm: FormState = {
   password: '',
 }
 
-const COLUMNS = ['Partner ID', 'Name', 'Email', 'Mobile', 'District', 'State', 'Status', 'Created', 'Actions']
+const ACTION_BTN =
+  'cursor-pointer transition-transform duration-150 ease-out hover:scale-115 active:scale-95 disabled:cursor-not-allowed disabled:hover:scale-100'
+
+const COLUMNS = ['User ID', 'Name', 'Email', 'Mobile', 'District', 'State', 'Status', 'Created', 'Actions']
 
 export function SalesChannelPartnerRoute() {
   const { slug } = useParams()
@@ -104,6 +113,8 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const [newPassword, setNewPassword] = useState('')
   const [resetBusy, setResetBusy] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
+  const [rechargeTarget, setRechargeTarget] = useState<RechargeWalletTarget | null>(null)
+  const canRechargeWallet = slug === 'franchisee-partner'
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -158,7 +169,8 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const openEdit = (row: SalesChannelPartnerRow) => {
     setEditing(row)
     setForm({
-      name: row.name,
+      firstName: row.firstName,
+      lastName: row.lastName,
       email: row.email,
       phone: row.phone,
       district: row.district,
@@ -169,13 +181,14 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   }
 
   const submitForm = async () => {
-    if (!form.name.trim()) return toast.push('Name is required', 'error')
+    if (!form.firstName.trim()) return toast.push('First Name is required', 'error')
     if (!form.email.trim() || !form.email.includes('@')) return toast.push('A valid email is required', 'error')
     if (!editing && form.password.trim().length < 6)
       return toast.push('Password must be at least 6 characters', 'error')
 
     const payload = {
-      name: form.name.trim(),
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       district: form.district.trim(),
@@ -265,7 +278,7 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
             <Search size={16} className="pointer-events-none absolute top-2.5 left-3 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
-              placeholder="Name, email, phone, district…"
+              placeholder="User ID, name, email, phone, district…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -338,7 +351,7 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                 )}
                 {partners.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.partnerCode}</TableCell>
+                    <TableCell className="font-mono font-medium">{p.userCode}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="truncate">{p.email}</div>
@@ -352,21 +365,43 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                     <TableCell>{p.createdAtDisplay}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="icon-sm" variant="ghost" title="Edit" onClick={() => openEdit(p)}>
-                          <Pencil size={14} />
-                        </Button>
                         <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={togglingId === p.id}
-                          onClick={() => void runToggle(p)}
+                          size="icon-sm"
+                          variant="ghost"
+                          className={ACTION_BTN}
+                          title="Edit"
+                          aria-label="Edit"
+                          onClick={() => openEdit(p)}
                         >
-                          {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          <Pencil size={14} />
                         </Button>
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          className={
+                            p.status === 'ACTIVE'
+                              ? `${ACTION_BTN} text-red-600 hover:bg-red-50 hover:text-red-700`
+                              : `${ACTION_BTN} text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700`
+                          }
+                          title={p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          aria-label={p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          disabled={togglingId === p.id}
+                          onClick={() => void runToggle(p)}
+                        >
+                          {togglingId === p.id ? (
+                            <RefreshCw size={14} className="animate-spin" />
+                          ) : p.status === 'ACTIVE' ? (
+                            <PowerOff size={14} />
+                          ) : (
+                            <Power size={14} />
+                          )}
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className={ACTION_BTN}
                           title="Reset password"
+                          aria-label="Reset password"
                           onClick={() => {
                             setResetTarget(p)
                             setNewPassword('')
@@ -374,6 +409,18 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                         >
                           <KeyRound size={14} />
                         </Button>
+                        {canRechargeWallet && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            className={`${ACTION_BTN} text-amber-600 hover:bg-amber-50 hover:text-amber-700`}
+                            title="Recharge Wallet"
+                            aria-label="Recharge Wallet"
+                            onClick={() => setRechargeTarget({ id: p.id, email: p.email, name: p.name })}
+                          >
+                            <BatteryCharging size={14} />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -427,9 +474,20 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
             <Field label="Role">
               <Input value={role ? `${role.roleName} (${role.prefix})` : roleName} disabled />
             </Field>
-            <Field label="Name *">
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First Name *">
+                <Input
+                  value={form.firstName}
+                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                />
+              </Field>
+              <Field label="Last Name">
+                <Input
+                  value={form.lastName}
+                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                />
+              </Field>
+            </div>
             <Field label="Email *">
               <Input
                 type="email"
@@ -499,6 +557,8 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RechargeWalletDialog target={rechargeTarget} onClose={() => setRechargeTarget(null)} />
     </div>
   )
 }

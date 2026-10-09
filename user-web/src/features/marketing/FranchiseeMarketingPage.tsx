@@ -19,7 +19,7 @@ const ADVANTAGES = [
 
 const WHATSAPP =
   'https://wa.me/9429693574?text=' +
-  encodeURIComponent('Hi, I am interested to take franchise of miniwebsite.in, Please provide more details.')
+  encodeURIComponent('Hi, I am interested to take franchise of ShareBizz, Please provide more details.')
 
 export function FranchiseeMarketingPage() {
   useSiteStyles()
@@ -86,9 +86,9 @@ export function FranchiseeMarketingPage() {
           <div className="banner-wrap">
             <div className="banner-content">
               <h3>Start Earning with</h3>
-              <h1 className="heading">MiniWebsite.in</h1>
+              <h1 className="heading">ShareBizz</h1>
               <p>
-                &quot;Every Business needs an online presence, and we make the easier than ever. As a miniwebsite.in
+                &quot;Every Business needs an online presence, and we make the easier than ever. As a ShareBizz
                 franchisee you&apos;ll be part of a rapidly growing network that is transforming how a small businesses
                 and enterprenures establish their digital footprints.&quot;
               </p>
@@ -201,7 +201,7 @@ export function FranchiseeMarketingPage() {
       <section className="why-miniweb">
         <div className="container">
           <h2 className="heading">
-            <span className="theme-color">Mini Website Franchise</span> - Advantages
+            <span className="theme-color">ShareBizz Franchise</span> - Advantages
           </h2>
           <div className="features-container">
             {ADVANTAGES.map((a) => (

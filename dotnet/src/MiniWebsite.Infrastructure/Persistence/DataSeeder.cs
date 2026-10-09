@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Domain.Entities;
 
 namespace MiniWebsite.Infrastructure.Persistence;
@@ -13,11 +14,13 @@ public interface IDataSeeder
 public sealed class DataSeeder : IDataSeeder
 {
     private readonly ApplicationDbContext _db;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<DataSeeder> _logger;
 
-    public DataSeeder(ApplicationDbContext db, ILogger<DataSeeder> logger)
+    public DataSeeder(ApplicationDbContext db, IPasswordHasher passwordHasher, ILogger<DataSeeder> logger)
     {
         _db = db;
+        _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
@@ -29,6 +32,32 @@ public sealed class DataSeeder : IDataSeeder
         await SeedEmailTemplatesAsync(ct);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Reference data seed completed.");
+
+        await HashPlainTextPasswordsAsync(ct);
+    }
+
+    /// <summary>users.Password must only hold hashes; legacy plain-text rows are hashed in place.</summary>
+    private async Task HashPlainTextPasswordsAsync(CancellationToken ct)
+    {
+        var stored = await _db.Users.IgnoreQueryFilters().AsNoTracking()
+            .Select(u => new { u.Id, u.Password })
+            .ToListAsync(ct);
+        var plainIds = stored
+            .Where(u => !string.IsNullOrEmpty(u.Password) && !_passwordHasher.IsHashed(u.Password))
+            .Select(u => u.Id)
+            .ToList();
+        if (plainIds.Count == 0) return;
+
+        var users = await _db.Users.IgnoreQueryFilters()
+            .Where(u => plainIds.Contains(u.Id))
+            .ToListAsync(ct);
+        foreach (var user in users)
+        {
+            user.Password = _passwordHasher.Hash(user.Password);
+            user.UpdatedAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Hashed {Count} plain-text user passwords.", users.Count);
     }
 
     private async Task SeedEmailTemplatesAsync(CancellationToken ct)
@@ -71,16 +100,16 @@ public sealed class DataSeeder : IDataSeeder
     <p><strong>Password:</strong> {{password}}</p>
     <p><a href=""{{dashboard_url}}"">Click here to access your dashboard</a></p>
   </div>
-  <p>You can now start creating your Mini Website from your dashboard.</p>
+  <p>You can now start creating your ShareBizz from your dashboard.</p>
   <p>Thanks,<br>{{host}} Team</p>
 </div>",
                 "name,email,password,host,dashboard_url", "Welcome email after customer registration."),
 
             T("franchisee_welcome", "Franchisee Welcome (with payment)", "franchise",
-                "Welcome to MiniWebsite.in – Your Franchise Account is Ready!",
+                "Welcome to ShareBizz – Your Franchise Account is Ready!",
                 @"<div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
   <p>Hi <strong>{{name}}</strong>,</p>
-  <p>Thank you for registering as a franchise with MiniWebsite.in.</p>
+  <p>Thank you for registering as a franchise with ShareBizz.</p>
   <p>Your franchise account has been successfully created.</p>
   <div style=""background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:20px;margin:20px 0;"">
     <h3 style=""margin-top:0;"">Your Login Details</h3>
@@ -91,15 +120,15 @@ public sealed class DataSeeder : IDataSeeder
   <p><strong>1. Pay the One-Time Franchise Fee</strong><br>Amount: ₹30,000 + 18% GST = ₹35,400<br><a href=""{{payment_url}}"">Click to Pay</a></p>
   <p><strong>2.</strong> Complete document verification from your Dashboard.</p>
   <p><strong>3.</strong> After verification, access your Marketing Kit from the dashboard.</p>
-  <p>Best regards,<br>Team MiniWebsite.in</p>
+  <p>Best regards,<br>Team ShareBizz</p>
 </div>",
                 "name,email,password,login_url,payment_url", "Franchisee welcome including payment step."),
 
             T("franchisee_welcome_no_payment", "Franchisee Welcome (no payment)", "franchise",
-                "Welcome to MiniWebsite.in – Your Franchise Account is Ready!",
+                "Welcome to ShareBizz – Your Franchise Account is Ready!",
                 @"<div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
   <p>Hi <strong>{{name}}</strong>,</p>
-  <p>Thank you for registering as a franchise with MiniWebsite.in.</p>
+  <p>Thank you for registering as a franchise with ShareBizz.</p>
   <div style=""background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:20px;margin:20px 0;"">
     <h3 style=""margin-top:0;"">Your Login Details</h3>
     <p><strong>Email ID:</strong> {{email}}</p>
@@ -108,7 +137,7 @@ public sealed class DataSeeder : IDataSeeder
   </div>
   <p><strong>1.</strong> Complete document verification from your Dashboard.</p>
   <p><strong>2.</strong> After verification, access your Marketing Kit from the dashboard.</p>
-  <p>Best regards,<br>Team MiniWebsite.in</p>
+  <p>Best regards,<br>Team ShareBizz</p>
 </div>",
                 "name,email,password,login_url", "Franchisee welcome without payment step."),
 
@@ -118,30 +147,30 @@ public sealed class DataSeeder : IDataSeeder
                 "name,otp,host", "Forgot-password OTP email."),
 
             T("team_member_welcome", "Team Member Welcome", "team",
-                "Welcome to MiniWebsite Team",
+                "Welcome to ShareBizz Team",
                 @"<div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
   <p>Hi <strong>{{name}}</strong>,</p>
-  <p>Your team account has been created on MiniWebsite.</p>
+  <p>Your team account has been created on ShareBizz.</p>
   <p><strong>Email:</strong> {{email}}<br><strong>Password:</strong> {{password}}</p>
   <p><a href=""{{login_url}}"">Login here</a></p>
-  <p>Thanks,<br>MiniWebsite Team</p>
+  <p>Thanks,<br>ShareBizz Team</p>
 </div>",
                 "name,email,password,login_url", "Sent when a team member is created."),
 
             T("franchisee_admin_created", "Franchisee Created by Admin", "franchise",
-                "Welcome to MiniWebsite Franchisee",
+                "Welcome to ShareBizz Franchisee",
                 @"<div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;"">
   <p>Hi <strong>{{name}}</strong>,</p>
-  <p>Your franchisee account has been created by the MiniWebsite admin team.</p>
+  <p>Your franchisee account has been created by the ShareBizz admin team.</p>
   <p><strong>Email:</strong> {{email}}<br><strong>Password:</strong> {{password}}</p>
   <p><a href=""{{login_url}}"">Login here</a></p>
-  <p>Thanks,<br>MiniWebsite Team</p>
+  <p>Thanks,<br>ShareBizz Team</p>
 </div>",
                 "name,email,password,login_url", "Admin-created franchisee welcome."),
 
             T("collaboration_upgraded", "Collaboration Feature Enabled", "admin",
                 "Congratulations! Your Account Has Been Upgraded with Collaborator Feature",
-                @"Hi {{name}},<br><br>Congratulations! The Collaborator feature has been enabled on your MiniWebsite account.<br><br>You can now collaborate and grow with MiniWebsite.<br><br>Thanks,<br>MiniWebsite Team",
+                @"Hi {{name}},<br><br>Congratulations! The Collaborator feature has been enabled on your ShareBizz account.<br><br>You can now collaborate and grow with ShareBizz.<br><br>Thanks,<br>ShareBizz Team",
                 "name,email", "Sent when collaboration is enabled for a user."),
 
             T("franchise_enquiry_admin", "Franchise Enquiry (to support)", "admin",

@@ -5,6 +5,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.ManageReferrals;
 
@@ -53,12 +54,12 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             .ToListAsync(ct);
 
         var customers = users
-            .Where(u => u.Role == UserRole.Customer)
+            .Where(u => u.LoginRole == UserRole.Customer)
             .GroupBy(u => Normalize(u.Email))
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var franchisees = users
-            .Where(u => u.Role == UserRole.Franchisee)
+            .Where(u => u.LoginRole == UserRole.Franchisee)
             .GroupBy(u => Normalize(u.Email))
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
@@ -101,7 +102,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                 e.Id,
                 e.ReferrerEmail,
                 referrer != null ? referrer.Id.ToString("D5", CultureInfo.InvariantCulture) : "-",
-                referrer?.Name ?? "-",
+                referrer?.FullName ?? "-",
                 referrer?.Phone ?? "-",
                 referredTo,
                 "₹" + e.Amount.ToString("N0", CultureInfo.InvariantCulture),
@@ -126,7 +127,8 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             return ApiResult<ReferrerPaymentDetailsDto>.Fail("Missing referrer email");
 
         var referrer = await _db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+            .WhereRole(UserRole.Customer)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
             .Where(r => r.ReferrerEmail.ToLower() == email)
@@ -139,7 +141,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         var nameMap = await _db.Users.AsNoTracking()
             .Where(u => referredEmails.Contains(u.Email.ToLower()))
             .GroupBy(u => u.Email.ToLower())
-            .Select(g => new { Email = g.Key, Name = g.First().Name })
+            .Select(g => new { Email = g.Key, Name = (g.First().FirstName + " " + g.First().LastName).Trim() })
             .ToDictionaryAsync(x => x.Email, x => x.Name, ct);
 
         var cards = await _db.Cards.AsNoTracking()
@@ -213,7 +215,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         return ApiResult<ReferrerPaymentDetailsDto>.Ok(new ReferrerPaymentDetailsDto(
             email,
-            referrer?.Name ?? email,
+            referrer?.FullName ?? email,
             lines));
     }
 
@@ -227,8 +229,8 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             return ApiResult<ReferralPaymentHistoryDto>.Fail("Referral not found");
 
         var referrer = await _db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u =>
-                u.Email.ToLower() == Normalize(earning.ReferrerEmail) && u.Role == UserRole.Customer, ct);
+            .WhereRole(UserRole.Customer)
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == Normalize(earning.ReferrerEmail), ct);
         var referred = await _db.Users.AsNoTracking()
             .FirstOrDefaultAsync(u =>
                 u.Email.ToLower() == Normalize(earning.ReferredEmail), ct);
@@ -237,8 +239,8 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         return ApiResult<ReferralPaymentHistoryDto>.Ok(new ReferralPaymentHistoryDto(
             referralId,
-            referrer?.Name ?? earning.ReferrerEmail,
-            referred?.Name ?? earning.ReferredEmail,
+            referrer?.FullName ?? earning.ReferrerEmail,
+            referred?.FullName ?? earning.ReferredEmail,
             earning.Amount,
             items));
     }

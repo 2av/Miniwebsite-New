@@ -258,7 +258,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
     }
   }, [card])
 
-  const heroName = pick(card?.heroName, card?.HeroName) || 'MiniWebsite'
+  const heroName = pick(card?.heroName, card?.HeroName) || 'ShareBizz'
   useEffect(() => {
     if (status === 'ok' && heroName) document.title = heroName
   }, [status, heroName])
@@ -283,7 +283,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
       window.alert('Enter a valid WhatsApp number')
       return
     }
-    const text = encodeURIComponent(`Check out this MiniWebsite: ${shareUrl}`)
+    const text = encodeURIComponent(`Check out this ShareBizz: ${shareUrl}`)
     window.open(`https://wa.me/${digits}?text=${text}`, '_blank')
   }, [waShare, shareUrl])
 
@@ -301,7 +301,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 text-slate-800">
         <div className="max-w-md text-center space-y-4">
           <p>{error}</p>
-          <Link to="/">Go to MiniWebsite</Link>
+          <Link to="/">Go to ShareBizz</Link>
         </div>
       </div>
     )
@@ -327,7 +327,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
             to="/"
             className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium"
           >
-            Go to MiniWebsite
+            Go to ShareBizz
           </Link>
         </div>
       </div>
@@ -342,7 +342,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 text-slate-800">
         <div className="max-w-lg w-full text-center space-y-6">
           <p className="text-lg text-slate-700 leading-relaxed">
-            {label} MiniWebsite URL changed to new URL.{' '}
+            {label} ShareBizz URL changed to new URL.{' '}
             <Link
               to={demo ? `/demo/${newSlug}` : `/n/${newSlug}`}
               className="text-slate-900 font-medium underline underline-offset-2"
@@ -362,10 +362,10 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20 text-red-300">
             <i className="fas fa-calendar-xmark text-2xl" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">MiniWebsite is expired</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">ShareBizz is expired</h1>
           <p className="mt-3 text-sm md:text-base text-[#9ca3af]">
             {pick(viewer.message, viewer.Message) ||
-              'This miniwebsite has reached its validity end date and is no longer available.'}
+              'This ShareBizz has reached its validity end date and is no longer available.'}
           </p>
           {pick(viewer.expiryDateDisplay, viewer.ExpiryDateDisplay) && (
             <p className="mt-4 inline-flex items-center rounded-full border border-red-300/30 bg-red-500/10 px-4 py-1.5 text-sm text-red-200">
@@ -780,7 +780,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
             &copy; {new Date().getFullYear()} {heroName}. All rights reserved.
           </p>
           <p className="text-[10px] uppercase tracking-widest text-textmain/50">
-            Powered by <span className="text-primary">MiniWebsite.in</span>
+            Powered by <span className="text-primary">ShareBizz</span>
             {demo ? ' · Demo' : ''}
           </p>
         </footer>

@@ -7,6 +7,7 @@ using MiniWebsite.Application.Admin.SalesChannelPartners.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 
@@ -14,17 +15,15 @@ namespace MiniWebsite.Application.Admin.SalesChannelPartners;
 
 public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersService
 {
-    /// <summary>
-    /// Sidebar slug → roles.Prefix. LoginRole is the legacy users.Role that decides which portal the partner signs into.
-    /// </summary>
-    private static readonly (string Slug, string Prefix, UserRole LoginRole)[] Partners =
+    /// <summary>Sidebar slug → roles.Prefix.</summary>
+    private static readonly (string Slug, string Prefix)[] Partners =
     [
-        ("franchisee-partner", "FRP", UserRole.Franchisee),
-        ("print-shop-partner", "PSP", UserRole.Team),
-        ("digital-marketing-partner", "DMP", UserRole.Team),
-        ("social-media-partner", "SMP", UserRole.Team),
-        ("field-sales-partner", "FSP", UserRole.Team),
-        ("field-sales-team", "FST", UserRole.Team),
+        ("franchisee-partner", RolePrefixes.FranchisePartner),
+        ("print-shop-partner", RolePrefixes.PrintShopPartner),
+        ("digital-marketing-partner", RolePrefixes.DigitalMarketingPartner),
+        ("social-media-partner", RolePrefixes.SocialMediaPartner),
+        ("field-sales-partner", RolePrefixes.FieldSalesPartner),
+        ("field-sales-team", RolePrefixes.FieldSalesTeam),
     ];
 
     private readonly IApplicationDbContext _db;
@@ -78,10 +77,11 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 var s = query.Search.Trim().ToLower();
                 q = q.Where(u =>
                     u.Email.ToLower().Contains(s)
-                    || u.Name.ToLower().Contains(s)
+                    || (u.FirstName + " " + u.LastName).ToLower().Contains(s)
+                    || u.UserCode.ToLower().Contains(s)
                     || (u.Phone != null && u.Phone.Contains(s))
-                    || (u.District != null && u.District.ToLower().Contains(s))
-                    || (u.State != null && u.State.ToLower().Contains(s)));
+                    || (u.Address.District != null && u.Address.District.ToLower().Contains(s))
+                    || (u.Address.State != null && u.Address.State.ToLower().Contains(s)));
             }
 
             var status = NormalizeStatusFilter(query.Status);
@@ -115,12 +115,13 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var (partner, role, error) = await ResolveAsync(slug, ct);
         if (error != null) return ApiResult<SalesChannelPartnerRowDto>.Fail(error);
 
-        var name = (request.Name ?? "").Trim();
+        var firstName = (request.FirstName ?? "").Trim();
+        var lastName = (request.LastName ?? "").Trim();
         var email = NormalizeEmail(request.Email);
         var phone = (request.Phone ?? "").Trim();
         var password = request.Password ?? "";
 
-        if (name.Length == 0) return ApiResult<SalesChannelPartnerRowDto>.Fail("Name is required.");
+        if (firstName.Length == 0) return ApiResult<SalesChannelPartnerRowDto>.Fail("First name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<SalesChannelPartnerRowDto>.Fail("A valid email address is required.");
         if (password.Length < 6) return ApiResult<SalesChannelPartnerRowDto>.Fail("Password must be at least 6 characters long.");
 
@@ -130,15 +131,17 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var hash = _passwordHasher.Hash(password);
         var user = new User
         {
-            Role = partner.LoginRole,
             RoleId = role!.RoleId,
             Email = email,
             Phone = phone,
-            Name = name,
-            District = (request.District ?? "").Trim(),
-            State = (request.State ?? "").Trim(),
+            FirstName = firstName,
+            LastName = lastName,
+            Address = new UserAddress
+            {
+                District = (request.District ?? "").Trim(),
+                State = (request.State ?? "").Trim(),
+            },
             Password = hash,
-            PasswordHash = hash,
             Status = "ACTIVE",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
@@ -149,7 +152,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var message = $"{role.RoleName} added successfully.";
         try
         {
-            await SendWelcomeAsync(partner.LoginRole, role, name, email, password, ct);
+            await SendWelcomeAsync(RolePrefixes.ToUserRole(partner.Prefix), role, user.FullName, email, password, ct);
         }
         catch
         {
@@ -168,21 +171,23 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id && u.RoleId == role!.RoleId, ct);
         if (user == null) return ApiResult<SalesChannelPartnerRowDto>.Fail($"{role!.RoleName} not found");
 
-        var name = (request.Name ?? "").Trim();
+        var firstName = (request.FirstName ?? "").Trim();
+        var lastName = (request.LastName ?? "").Trim();
         var email = NormalizeEmail(request.Email);
         var phone = (request.Phone ?? "").Trim();
 
-        if (name.Length == 0) return ApiResult<SalesChannelPartnerRowDto>.Fail("Name is required.");
+        if (firstName.Length == 0) return ApiResult<SalesChannelPartnerRowDto>.Fail("First name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<SalesChannelPartnerRowDto>.Fail("A valid email address is required.");
 
         var conflict = await FindConflictAsync(user.Id, email, phone, ct);
         if (conflict != null) return ApiResult<SalesChannelPartnerRowDto>.Fail(conflict);
 
-        user.Name = name;
+        user.FirstName = firstName;
+        user.LastName = lastName;
         user.Email = email;
         user.Phone = phone;
-        user.District = (request.District ?? "").Trim();
-        user.State = (request.State ?? "").Trim();
+        user.Address.District = (request.District ?? "").Trim();
+        user.Address.State = (request.State ?? "").Trim();
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
@@ -223,13 +228,12 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
 
         var hash = _passwordHasher.Hash(password);
         user.Password = hash;
-        user.PasswordHash = hash;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password reset successfully.");
     }
 
-    private async Task<((string Slug, string Prefix, UserRole LoginRole) Partner, Role? Role, string? Error)> ResolveAsync(
+    private async Task<((string Slug, string Prefix) Partner, Role? Role, string? Error)> ResolveAsync(
         string slug, CancellationToken ct)
     {
         var key = (slug ?? "").Trim().ToLowerInvariant();
@@ -305,12 +309,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var status = (u.Status ?? "ACTIVE").ToUpperInvariant();
         return new SalesChannelPartnerRowDto(
             u.Id,
-            $"{role.Prefix}-{u.Id.ToString("D4", CultureInfo.InvariantCulture)}",
-            u.Name,
+            u.UserCode,
+            u.FirstName,
+            u.LastName,
+            u.FullName,
             u.Email,
             u.Phone ?? "",
-            u.District ?? "",
-            u.State ?? "",
+            u.Address.District ?? "",
+            u.Address.State ?? "",
             status,
             status == "ACTIVE" ? "ok" : "danger",
             u.CreatedAt.Year < 2 ? "—" : u.CreatedAt.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));

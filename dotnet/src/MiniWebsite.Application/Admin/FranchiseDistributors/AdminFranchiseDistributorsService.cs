@@ -5,6 +5,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.FranchiseDistributors;
 
@@ -24,13 +25,14 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
 
         var q = _db.Users.AsNoTracking()
-            .Where(u => u.Role == UserRole.Customer && u.CollaborationEnabled);
+            .WhereRole(UserRole.Customer)
+            .Where(u => u.Referral.CollaborationEnabled);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var s = query.Search.Trim().ToLowerInvariant();
             q = q.Where(u =>
-                u.Name.ToLower().Contains(s)
+                (u.FirstName + " " + u.LastName).ToLower().Contains(s)
                 || u.Email.ToLower().Contains(s)
                 || (u.Phone != null && u.Phone.ToLower().Contains(s)));
         }
@@ -62,7 +64,7 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
         }
 
         var referrerEmails = users
-            .Select(u => Normalize(u.ReferredBy))
+            .Select(u => Normalize(u.Referral.ReferredBy))
             .Where(e => e.Length > 0)
             .Distinct()
             .ToList();
@@ -106,14 +108,14 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
             return new FranchiseDistributorRowDto(
                 u.Id,
                 u.Email,
-                u.Name,
+                u.FullName,
                 u.Phone,
                 u.CreatedAt,
                 BuildReferralSource(u, referrers, frdSet),
                 string.IsNullOrWhiteSpace(card?.DCompName) ? "-" : card!.DCompName!,
-                u.CollaborationEnabled ? "YES" : "NO",
-                u.Influencer ? "YES" : "NO",
-                u.CollaborationEnabled ? "Active" : "Inactive",
+                u.Referral.CollaborationEnabled ? "YES" : "NO",
+                u.Referral.Influencer ? "YES" : "NO",
+                u.Referral.CollaborationEnabled ? "Active" : "Inactive",
                 string.IsNullOrWhiteSpace(card?.DPaymentStatus) ? "-" : card!.DPaymentStatus!,
                 feeDisplay,
                 inv.FranchiseInvoiceId,
@@ -135,12 +137,12 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
         if (status is not ("YES" or "NO"))
             return ApiResult.Fail("Status must be YES or NO.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email && u.Role == UserRole.Customer, ct);
+        var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
+            u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
-        user.Influencer = status == "YES";
+        user.Referral.Influencer = status == "YES";
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Influencer status updated successfully");
@@ -277,14 +279,14 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
     private static string BuildReferralSource(
         User user, Dictionary<string, User> referrers, HashSet<string> frdSet)
     {
-        if (string.IsNullOrWhiteSpace(user.ReferredBy))
+        if (string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             return "Direct";
 
-        var refEmail = Normalize(user.ReferredBy);
+        var refEmail = Normalize(user.Referral.ReferredBy);
         if (!referrers.TryGetValue(refEmail, out var referrer))
-            return "Ref: " + user.ReferredBy.Trim();
+            return "Ref: " + user.Referral.ReferredBy.Trim();
 
-        var display = referrer.Role switch
+        var display = referrer.LoginRole switch
         {
             UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
             UserRole.Team => "Team - " + referrer.Id,

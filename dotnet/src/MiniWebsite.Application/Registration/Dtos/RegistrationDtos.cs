@@ -1,7 +1,8 @@
 namespace MiniWebsite.Application.Registration.Dtos;
 
 public record CustomerRegisterRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string Phone,
     string Password,
@@ -9,7 +10,8 @@ public record CustomerRegisterRequest(
     string? ReferralCode = null);
 
 public record FranchiseeRegisterRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string Phone,
     string Password,

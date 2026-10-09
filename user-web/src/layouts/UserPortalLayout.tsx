@@ -342,14 +342,14 @@ export function UserPortalLayout() {
             <img
               src={assetUrl('images/mw_logo_mobile.png')}
               className="mw-logo mw-logo--mobile img-fluid"
-              alt="Mini Website"
+              alt="ShareBizz"
               width={144}
               height={40}
             />
             <img
               src={assetUrl('img/logo.png')}
               className="mw-logo mw-logo--desktop img-fluid"
-              alt="Mini Website — Create Share Succeed"
+              alt="ShareBizz — Create Share Succeed"
               width={270}
               height={73}
             />
@@ -562,12 +562,12 @@ export function UserPortalLayout() {
             <div className="container-fluid px-4">
               <div className="Copyright">
                 <div className="Copyright-left">
-                  <a href="https://www.miniwebsite.in" target="_blank" rel="noopener noreferrer">
-                    <i className="fa fa-globe" aria-hidden /> <span>www.miniwebsite.in</span>
+                  <a href="https://sharebizz.com/" target="_blank" rel="noopener noreferrer">
+                    <i className="fa fa-globe" aria-hidden /> <span>www.sharebizz.com</span>
                   </a>
                 </div>
                 <div className="Copyright-right">
-                  <p>&copy; {new Date().getFullYear()} Mini Website. All Rights Reserved.</p>
+                  <p>&copy; {new Date().getFullYear()} ShareBizz. All Rights Reserved.</p>
                 </div>
               </div>
             </div>

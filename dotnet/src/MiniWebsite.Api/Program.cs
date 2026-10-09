@@ -31,9 +31,9 @@ try
     {
         c.SwaggerDoc("v1", new OpenApiInfo
         {
-            Title = "MiniWebsite API",
+            Title = "ShareBizz API",
             Version = "v1",
-            Description = "Backend API for MiniWebsite — Auth, CRUD, Payments, Email."
+            Description = "Backend API for ShareBizz — Auth, CRUD, Payments, Email."
         });
 
         // Bearer auth temporarily removed from Swagger — re-add AddSecurityDefinition later.

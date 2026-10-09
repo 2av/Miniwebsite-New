@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.DigiCards.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.DigiCards;
 
@@ -58,7 +59,7 @@ public class DigiCardService : IDigiCardService
     {
         var card = await _db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
         if (card == null)
-            return ApiResult<DigiCardDetailDto>.Fail("Mini Website / card not found.");
+            return ApiResult<DigiCardDetailDto>.Fail("ShareBizz / card not found.");
 
         var meta = await _db.CardSlugHistories.AsNoTracking()
             .FirstOrDefaultAsync(m => m.CardId == id, ct);
@@ -94,10 +95,10 @@ public class DigiCardService : IDigiCardService
         if (user == null)
             return ApiResult<CustomerDashboardDto>.Fail("User not found.");
 
-        if (user.Role is not (UserRole.Customer or UserRole.Team))
+        if (user.LoginRole is not (UserRole.Customer or UserRole.Team))
             return ApiResult<CustomerDashboardDto>.Fail("Use franchisee dashboard for this role.");
 
-        var referralCode = user.ReferralCode;
+        var referralCode = user.Referral.ReferralCode;
         if (string.IsNullOrWhiteSpace(referralCode))
         {
             referralCode = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(
@@ -105,7 +106,7 @@ public class DigiCardService : IDigiCardService
             var tracked = await _db.Users.FirstOrDefaultAsync(u => u.Id == user.Id, ct);
             if (tracked != null)
             {
-                tracked.ReferralCode = referralCode;
+                tracked.Referral.ReferralCode = referralCode;
                 tracked.UpdatedAt = DateTime.Now;
                 await _db.SaveChangesAsync(ct);
             }
@@ -120,13 +121,13 @@ public class DigiCardService : IDigiCardService
 
         return ApiResult<CustomerDashboardDto>.Ok(new CustomerDashboardDto(
             user.Email,
-            user.Role == UserRole.Team ? "TEAM" : "CUSTOMER",
+            user.LoginRole == UserRole.Team ? "TEAM" : "CUSTOMER",
             referralCode!,
             user.RefundStatus,
             user.RefundStatusDate,
             showInvoice,
-            user.MwReferralId,
-            user.Influencer ? "YES" : "NO",
+            user.Referral.MwReferralId,
+            user.Referral.Influencer ? "YES" : "NO",
             cards.Select(MapListItem).ToList()));
     }
 
@@ -137,7 +138,7 @@ public class DigiCardService : IDigiCardService
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult<FranchiseeDashboardDto>.Fail("User not found.");
-        if (user.Role != UserRole.Franchisee)
+        if (user.LoginRole != UserRole.Franchisee)
             return ApiResult<FranchiseeDashboardDto>.Fail("User is not a franchisee.");
 
         var totalCards = await _db.Cards.AsNoTracking()
@@ -147,11 +148,10 @@ public class DigiCardService : IDigiCardService
 
         // Same join as PHP manage-users query
         var managed = await (
-            from ud in _db.Users.AsNoTracking()
+            from ud in _db.Users.AsNoTracking().WhereRole(UserRole.Customer)
             join dc in _db.Cards.AsNoTracking()
                 on ud.Email equals dc.UserEmail
-            where ud.Role == UserRole.Customer
-                  && dc.FUserEmail != null
+            where dc.FUserEmail != null
                   && dc.FUserEmail.ToLower() == email
             orderby ud.CreatedAt descending
             select new { ud, dc }
@@ -159,12 +159,12 @@ public class DigiCardService : IDigiCardService
 
         var rows = managed.Select(x => new FranchiseeManagedUserDto(
             x.ud.Id,
-            x.ud.Name,
+            x.ud.FullName,
             x.ud.Phone,
             x.ud.Email,
             x.ud.CreatedAt,
-            x.ud.ReferralCode,
-            x.ud.ReferredBy,
+            x.ud.Referral.ReferralCode,
+            x.ud.Referral.ReferredBy,
             x.dc.Id,
             x.dc.DCompName,
             x.dc.DPaymentStatus,

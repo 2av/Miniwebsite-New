@@ -40,7 +40,8 @@ public record FranchiseeRowDto(
     string WalletBalanceDisplay);
 
 public record CreateFranchiseeRequest(
-    string Name,
+    string FirstName,
+    string? LastName,
     string Email,
     string Phone,
     string Password);

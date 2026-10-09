@@ -92,7 +92,7 @@ export function WalletPage() {
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb mw-breadcrumb">
             <li className="breadcrumb-item mw-breadcrumb-item">
-              <Link to="/dashboard">Mini Website</Link>
+              <Link to="/dashboard">ShareBizz</Link>
             </li>
             <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
               Wallet
