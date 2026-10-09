@@ -47,6 +47,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<KitFolder> KitFolders => Set<KitFolder>();
     public DbSet<KitItem> KitItems => Set<KitItem>();
+    public DbSet<Role> Roles => Set<Role>();
     public DbSet<RoleAccessProfile> RoleAccessProfiles => Set<RoleAccessProfile>();
     public DbSet<RoleAccessFeature> RoleAccessFeatures => Set<RoleAccessFeature>();
     public DbSet<RoleAccessSetting> RoleAccessSettings => Set<RoleAccessSetting>();

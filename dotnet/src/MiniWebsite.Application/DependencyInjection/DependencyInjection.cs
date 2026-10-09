@@ -14,6 +14,7 @@ using MiniWebsite.Application.Admin.ManageTeams;
 using MiniWebsite.Application.Admin.GrowWithMw;
 using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.RoleAccessSettings;
+using MiniWebsite.Application.Admin.RoleManagement;
 using MiniWebsite.Application.Admin.ManageDeals;
 using MiniWebsite.Application.Admin.ManagePricing;
 using MiniWebsite.Application.Admin.ManageReferrals;
@@ -60,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminGrowWithMwService, AdminGrowWithMwService>();
         services.AddScoped<IAdminKitManagementService, AdminKitManagementService>();
         services.AddScoped<IAdminRoleAccessSettingsService, AdminRoleAccessSettingsService>();
+        services.AddScoped<IAdminRoleManagementService, AdminRoleManagementService>();
         services.AddScoped<IPublicSiteService, PublicSiteService>();
         services.AddScoped<IPublicCardService, PublicCardService>();
         services.AddScoped<IPortalService, PortalService>();

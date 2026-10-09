@@ -928,6 +928,37 @@ export type MoveKitItemPayload = {
   folderId?: number | null
 }
 
+export type ManageRoleRow = {
+  roleId: number
+  roleName: string
+  roleDescription: string
+  prefix: string
+  salesType: string
+}
+
+export type ManageRolesPage = {
+  roles: ManageRoleRow[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
+export type RoleSalesTypeOption = {
+  value: string
+  label: string
+}
+
+export type ManageRolesMeta = {
+  salesTypes: RoleSalesTypeOption[]
+}
+
+export type UpsertRolePayload = {
+  roleName: string
+  roleDescription?: string | null
+  prefix?: string | null
+  salesType?: string | null
+}
+
 export type RoleAccessProfile = {
   id: number
   profileKey: string

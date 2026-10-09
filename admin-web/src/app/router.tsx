@@ -22,6 +22,7 @@ import { GrowWithMwMediaPage } from '@/features/grow-with-mw/GrowWithMwMediaPage
 import { GrowWithMwPageEditorPage } from '@/features/grow-with-mw/GrowWithMwPageEditorPage'
 import { KitManagementInvalidCategory, KitManagementRedirect } from '@/features/kit-management/KitManagementPage'
 import { RoleAccessSettingsPage } from '@/features/role-access-settings/RoleAccessSettingsPage'
+import { RoleManagementPage } from '@/features/role-management/RoleManagementPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { PlaceholderPage } from '@/features/common/PlaceholderPage'
 
@@ -57,6 +58,8 @@ export function AppRouter() {
         <Route path="manage-categories" element={<ManageCategoriesPage />} />
         <Route path="role-access-settings" element={<RoleAccessSettingsPage />} />
         <Route path="manage-role-access-settings" element={<Navigate to="/role-access-settings" replace />} />
+        <Route path="role-management" element={<RoleManagementPage />} />
+        <Route path="manage-roles" element={<Navigate to="/role-management" replace />} />
         <Route path="category-list" element={<Navigate to="/manage-categories" replace />} />
         <Route path="manage-teams" element={<ManageTeamsPage />} />
         <Route path="teams-management" element={<Navigate to="/manage-teams" replace />} />

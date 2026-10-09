@@ -42,6 +42,7 @@ public interface IApplicationDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<KitFolder> KitFolders { get; }
     DbSet<KitItem> KitItems { get; }
+    DbSet<Role> Roles { get; }
     DbSet<RoleAccessProfile> RoleAccessProfiles { get; }
     DbSet<RoleAccessFeature> RoleAccessFeatures { get; }
     DbSet<RoleAccessSetting> RoleAccessSettings { get; }
