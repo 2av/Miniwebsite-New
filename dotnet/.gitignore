@@ -15,3 +15,4 @@ logs/
 *.log
 .env
 .env.*
+publish.zip
