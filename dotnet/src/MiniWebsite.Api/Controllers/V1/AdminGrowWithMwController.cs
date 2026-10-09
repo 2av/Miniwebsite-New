@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/grow-with-mw")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminGrowWithMwController : ControllerBase
 {
     private readonly IAdminGrowWithMwService _service;

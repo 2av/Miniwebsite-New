@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/user-deletions")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminUserDeletionsController : ControllerBase
 {
     private readonly IAdminUserDeletionsService _service;

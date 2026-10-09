@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/manage-content")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminManageContentController : ControllerBase
 {
     private readonly IAdminManageContentService _service;

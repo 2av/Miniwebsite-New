@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/manage-cards")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminManageCardsController : ControllerBase
 {
     private readonly IAdminManageCardsService _service;

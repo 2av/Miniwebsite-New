@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/franchise-distributors")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminFranchiseDistributorsController : ControllerBase
 {
     private readonly IAdminFranchiseDistributorsService _service;

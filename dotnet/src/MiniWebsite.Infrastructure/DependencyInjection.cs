@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<RazorpayOptions>(configuration.GetSection(RazorpayOptions.SectionName));
         services.Configure<AppOptions>(configuration.GetSection(AppOptions.SectionName));
+        services.Configure<AdminSeedOptions>(configuration.GetSection(AdminSeedOptions.SectionName));
 
         var connectionString = configuration.GetConnectionString("Default")
             ?? "Server=localhost;Port=3306;Database=miniwebsite_api;User=root;Password=;";

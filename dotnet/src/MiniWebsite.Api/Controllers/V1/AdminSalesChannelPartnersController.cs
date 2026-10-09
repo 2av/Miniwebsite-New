@@ -9,7 +9,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/sales-channel-partners")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminSalesChannelPartnersController : ControllerBase
 {
     private readonly IAdminSalesChannelPartnersService _service;

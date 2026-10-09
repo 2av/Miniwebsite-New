@@ -24,6 +24,7 @@ import { RoleAccessSettingsPage } from '@/features/role-access-settings/RoleAcce
 import { RoleManagementPage } from '@/features/role-management/RoleManagementPage'
 import { SalesChannelPartnerRoute } from '@/features/sales-channel-partners/SalesChannelPartnerPage'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { RequireAuth } from '@/features/auth/RequireAuth'
 import { PlaceholderPage } from '@/features/common/PlaceholderPage'
 
 function RedirectWithSearch({ to }: { to: string }) {
@@ -35,7 +36,13 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<AdminLayout />}>
+      <Route
+        element={
+          <RequireAuth>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<DashboardPage />} />
         <Route path="sb-user-details" element={<ManageUsersPage />} />
         <Route path="user-details" element={<Navigate to="/sb-user-details" replace />} />

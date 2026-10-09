@@ -1,5 +1,6 @@
-import axios, { type AxiosError } from 'axios'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type { ApiResult } from '@/shared/types/api'
+import { getSession, setSession, type AdminSession } from '@/features/auth/session'
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -9,6 +10,64 @@ export const api = axios.create({
     Accept: 'application/json',
     'Content-Type': 'application/json',
   },
+})
+
+api.interceptors.request.use((config) => {
+  const session = getSession()
+  if (session && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${session.accessToken}`
+  }
+  return config
+})
+
+let refreshing: Promise<AdminSession | null> | null = null
+
+function refreshSession(): Promise<AdminSession | null> {
+  const session = getSession()
+  if (!session) return Promise.resolve(null)
+  refreshing ??= axios
+    .post<ApiResult<AdminSession>>(`${baseURL}/api/v1/auth/refresh`, {
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+    })
+    .then((res) => {
+      const d = res.data.data
+      if (!res.data.success || !d) return null
+      const next: AdminSession = {
+        userId: d.userId,
+        email: d.email,
+        name: d.name,
+        accessToken: d.accessToken,
+        refreshToken: d.refreshToken,
+      }
+      setSession(next)
+      return next
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
+
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const config = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined
+  const status = error.response?.status
+  if (!config || (status !== 401 && status !== 403) || config.url?.includes('/api/v1/auth/')) {
+    throw error
+  }
+
+  if (status === 401 && !config._retried) {
+    const next = await refreshSession()
+    if (next) {
+      config._retried = true
+      config.headers.Authorization = `Bearer ${next.accessToken}`
+      return api.request(config)
+    }
+  }
+
+  setSession(null)
+  throw error
 })
 
 export class ApiError extends Error {
@@ -63,7 +122,7 @@ export async function apiSend<T = unknown>(
   }
 }
 
-function toApiError(e: unknown): ApiError {
+export function toApiError(e: unknown): ApiError {
   const ax = e as AxiosError<ApiResult>
   if (ax?.response?.data) {
     const d = ax.response.data

@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Common.Interfaces;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Infrastructure.Options;
 
 namespace MiniWebsite.Infrastructure.Persistence;
 
@@ -15,12 +18,18 @@ public sealed class DataSeeder : IDataSeeder
 {
     private readonly ApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly AdminSeedOptions _adminSeed;
     private readonly ILogger<DataSeeder> _logger;
 
-    public DataSeeder(ApplicationDbContext db, IPasswordHasher passwordHasher, ILogger<DataSeeder> logger)
+    public DataSeeder(
+        ApplicationDbContext db,
+        IPasswordHasher passwordHasher,
+        IOptions<AdminSeedOptions> adminSeed,
+        ILogger<DataSeeder> logger)
     {
         _db = db;
         _passwordHasher = passwordHasher;
+        _adminSeed = adminSeed.Value;
         _logger = logger;
     }
 
@@ -34,6 +43,37 @@ public sealed class DataSeeder : IDataSeeder
         _logger.LogInformation("Reference data seed completed.");
 
         await HashPlainTextPasswordsAsync(ct);
+        await SeedAdminUserAsync(ct);
+    }
+
+    private async Task SeedAdminUserAsync(CancellationToken ct)
+    {
+        var email = _adminSeed.Email.Trim().ToLowerInvariant();
+        if (email.Length == 0 || string.IsNullOrEmpty(_adminSeed.Password)) return;
+
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == email, ct)) return;
+
+        var role = await _db.Roles.Where(r => r.Prefix == RolePrefixes.Administrator).OrderBy(r => r.RoleId).FirstOrDefaultAsync(ct);
+        if (role == null)
+        {
+            _logger.LogWarning("Admin user not seeded: no role with prefix {Prefix}.", RolePrefixes.Administrator);
+            return;
+        }
+
+        _db.Users.Add(new User
+        {
+            AssignedRole = role,
+            FirstName = _adminSeed.FirstName.Trim(),
+            LastName = _adminSeed.LastName.Trim(),
+            Email = email,
+            Phone = "",
+            Password = _passwordHasher.Hash(_adminSeed.Password),
+            Status = "ACTIVE",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Seeded admin user {Email}.", email);
     }
 
     /// <summary>users.Password must only hold hashes; legacy plain-text rows are hashed in place.</summary>

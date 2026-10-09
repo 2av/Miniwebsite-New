@@ -36,7 +36,10 @@ import {
   BadgeIndianRupee,
 } from 'lucide-react'
 import { useMemo, useState, type ComponentType } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
+import { logout } from '@/features/auth/api'
+import { useSession } from '@/features/auth/session'
 import { Input } from '@/components/ui/input'
 import {
   SALES_CHANNEL_PARTNER_BASE,
@@ -382,6 +385,8 @@ export function AdminLayout() {
   const [menuSearch, setMenuSearch] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const session = useSession()
   const groupIds = useMemo(() => collectGroupIds(nav), [])
   const flatNav = useMemo(() => flattenNavLinks(nav), [])
   const searchQuery = menuSearch.trim().toLowerCase()
@@ -408,6 +413,12 @@ export function AdminLayout() {
   }
 
   const closeMobile = () => setOpen(false)
+
+  const signOut = () => {
+    logout()
+    queryClient.clear()
+    navigate('/login', { replace: true })
+  }
 
   const goToMenuItem = (to: string) => {
     navigate(to)
@@ -494,12 +505,20 @@ export function AdminLayout() {
         </nav>
 
         <div className="border-t border-white/10 p-4">
+          {session && (
+            <div className="mb-2 px-3">
+              <div className="truncate text-sm font-medium text-white">{session.name || 'Admin'}</div>
+              <div className="truncate text-xs text-slate-400">{session.email}</div>
+            </div>
+          )}
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 hover:bg-white/5"
+            onClick={signOut}
+            title="Sign out of the admin panel"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white"
           >
             <LogOut size={16} />
-            Sign out (soon)
+            Sign out
           </button>
         </div>
       </aside>

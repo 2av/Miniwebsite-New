@@ -7,7 +7,7 @@ namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
 [Route(ApiConstants.ApiRoutePrefix + "/admin/invoices")]
-[AllowAnonymous]
+[Authorize(Roles = ApiConstants.AdminRole)]
 public class AdminInvoicesController : ControllerBase
 {
     private readonly IAdminInvoiceAccessService _service;
