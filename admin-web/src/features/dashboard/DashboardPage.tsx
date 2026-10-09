@@ -26,7 +26,7 @@ export function DashboardPage() {
             </div>
           </div>
           <Link
-            to="/user-details"
+            to="/sb-user-details"
             className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-rose-600 hover:text-rose-500"
           >
             Open module <ArrowRight size={16} />

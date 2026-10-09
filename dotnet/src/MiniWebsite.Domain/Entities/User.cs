@@ -7,6 +7,8 @@ namespace MiniWebsite.Domain.Entities;
 public class User : BaseEntity
 {
     public UserRole Role { get; set; } = UserRole.Customer;
+    public int? RoleId { get; set; }
+    public MiniWebsite.Domain.Entities.Role? AssignedRole { get; set; }
     public required string Email { get; set; }
     public string? Phone { get; set; }
     public required string Name { get; set; }

@@ -121,7 +121,7 @@ export function GrowWithMwPagesPage() {
         <div>
           <h1 className="font-[family-name:var(--font-display)] flex items-center gap-2 text-3xl font-semibold tracking-tight">
             <BookOpen size={28} className="text-rose-600" />
-            Grow with MW
+            Grow with SB
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Documentation pages · {data?.totalCount ?? '—'} total

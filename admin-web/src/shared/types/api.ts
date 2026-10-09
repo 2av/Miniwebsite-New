@@ -959,6 +959,44 @@ export type UpsertRolePayload = {
   salesType?: string | null
 }
 
+export type SalesChannelPartnerRole = {
+  slug: string
+  roleId: number
+  roleName: string
+  roleDescription: string
+  prefix: string
+  salesType: string
+}
+
+export type SalesChannelPartnerRow = {
+  id: number
+  partnerCode: string
+  name: string
+  email: string
+  phone: string
+  district: string
+  state: string
+  status: string
+  statusTone: string
+  createdAtDisplay: string
+}
+
+export type SalesChannelPartnersPage = {
+  role: SalesChannelPartnerRole
+  partners: SalesChannelPartnerRow[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
+export type UpsertSalesChannelPartnerPayload = {
+  name: string
+  email: string
+  phone?: string
+  district?: string
+  state?: string
+}
+
 export type RoleAccessProfile = {
   id: number
   profileKey: string

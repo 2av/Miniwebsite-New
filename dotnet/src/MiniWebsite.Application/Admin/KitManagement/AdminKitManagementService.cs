@@ -852,7 +852,7 @@ public class AdminKitManagementService : IAdminKitManagementService
 
     private static string CategoryLabel(string key) => key switch
     {
-        "sales" => "MW Sales Kit",
+        "sales" => "SB Sales Kit",
         "marketing" => "Creator Kit",
         "franchise_sales" => "Franchise Sales Kit",
         _ => key

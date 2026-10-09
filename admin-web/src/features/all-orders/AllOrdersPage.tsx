@@ -108,7 +108,7 @@ export function AllOrdersPage() {
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
-                  {['USER ID / FR ID', 'MW ID', 'Payment Status', 'Payment Date', 'Total Order Value', 'Invoice'].map(
+                  {['USER ID / FR ID', 'SB ID', 'Payment Status', 'Payment Date', 'Total Order Value', 'Invoice'].map(
                     (h) => (
                       <TableHead key={h} className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
                         {h}

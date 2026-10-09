@@ -191,7 +191,7 @@ export function FranchiseesPage() {
                     'Payment',
                     'Franchise Fee',
                     'Invoice',
-                    'MW',
+                    'SB',
                     'Documents',
                     'Wallet',
                     'Dashboard',
@@ -347,7 +347,7 @@ export function FranchiseesPage() {
                 <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>MW ID</TableHead>
+                    <TableHead>SB ID</TableHead>
                     <TableHead>Company</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Validity</TableHead>

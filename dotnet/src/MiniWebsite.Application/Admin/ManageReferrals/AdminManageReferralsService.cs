@@ -91,7 +91,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             if (isCollab)
                 referredTo = "FR - " + (fran?.Id.ToString(CultureInfo.InvariantCulture) ?? e.ReferredEmail);
             else
-                referredTo = "MW - " + (card != null
+                referredTo = "SB - " + (card != null
                     ? card.Id.ToString(CultureInfo.InvariantCulture)
                     : e.ReferredEmail);
 

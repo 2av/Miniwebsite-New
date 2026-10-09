@@ -64,7 +64,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const KIT_TABS = [
-  { slug: 'sales', key: 'sales', label: 'MW Sales Kit', icon: Briefcase },
+  { slug: 'sales', key: 'sales', label: 'SB Sales Kit', icon: Briefcase },
   { slug: 'marketing', key: 'marketing', label: 'Creator Kit', icon: Megaphone },
   { slug: 'franchise-sales', key: 'franchise_sales', label: 'Franchise Sales Kit', icon: Handshake },
 ] as const

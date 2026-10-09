@@ -271,9 +271,9 @@ export function ManageReferralsPage() {
                     'Referral Details',
                     'Referral Amt.',
                     'Refund',
-                    'MW Payment Status',
+                    'SB Payment Status',
                     'Bank Details',
-                    'MW Payment Details',
+                    'SB Payment Details',
                   ].map((h) => (
                     <TableHead key={h} className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
                       {h}

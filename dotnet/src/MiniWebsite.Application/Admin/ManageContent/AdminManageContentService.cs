@@ -15,8 +15,8 @@ public class AdminManageContentService : IAdminManageContentService
         new("privacy_policy", "Privacy Policy", "Privacy"),
         new("franchisee_agreement", "Franchisee Agreement", "Partnership"),
         new("franchisee_distributer", "Franchisee Distributer", "Program"),
-        new("mw_full_franchise_agreement", "MW Full Franchise Agreement", "Franchise"),
-        new("mw_franchisee_operation_policy", "MW Franchisee Operation Policy", "Policy"),
+        new("mw_full_franchise_agreement", "SB Full Franchise Agreement", "Franchise"),
+        new("mw_franchisee_operation_policy", "SB Franchisee Operation Policy", "Policy"),
     ];
 
     private readonly IApplicationDbContext _db;

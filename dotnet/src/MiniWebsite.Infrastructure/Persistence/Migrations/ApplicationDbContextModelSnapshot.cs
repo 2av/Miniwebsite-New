@@ -2458,6 +2458,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("int");
+
                     b.Property<string>("RzPay")
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
@@ -2498,6 +2501,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("ReferralCode");
+
+                    b.HasIndex("RoleId");
 
                     b.ToTable("users", (string)null);
                 });
@@ -3064,6 +3069,16 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Feature");
 
                     b.Navigation("Profile");
+                });
+
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.Role", "AssignedRole")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedRole");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.UserBankDetails", b =>

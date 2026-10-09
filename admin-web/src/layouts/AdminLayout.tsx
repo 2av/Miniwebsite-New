@@ -41,6 +41,10 @@ import {
 import { useMemo, useState, type ComponentType } from 'react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
+import {
+  SALES_CHANNEL_PARTNER_BASE,
+  SALES_CHANNEL_PARTNERS,
+} from '@/features/sales-channel-partners/partners'
 
 type NavIcon = ComponentType<{ size?: number; className?: string }>
 
@@ -91,29 +95,23 @@ function flattenNavLinks(nodes: NavNode[], ancestors: string[] = []): FlatNavIte
 
 const nav: NavNode[] = [
   { kind: 'link', to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { kind: 'link', to: '/user-details', label: 'User Details', icon: Users },
-  { kind: 'link', to: '/miniwebsite-details', label: 'Miniwebsite Details', icon: Globe2 },
-  { kind: 'link', to: '/all-orders', label: 'All Orders', icon: CreditCard },
+  { kind: 'link', to: '/sb-user-details', label: 'SB User Details', icon: Users },
+  { kind: 'link', to: '/sb-profile-details', label: 'SB Profile Details', icon: Globe2 },
+  
   {
     kind: 'group',
-    id: 'sales-channel-details',
-    label: 'Sales Channel Details',
+    id: 'sales-channel-partner',
+    label: 'Sales Channel Partner',
     icon: Network,
-    matchPrefixes: [
-      '/franchisee-details',
-      '/franchise-details',
-      '/franchisee-distributor-details',
-      '/sales-channel/influencer-partner',
-      '/manage-teams',
-      '/teams-management',
-    ],
-    children: [
-      { kind: 'link', to: '/franchisee-details', label: 'Franchise Partner', icon: Handshake },
-      { kind: 'link', to: '/franchisee-distributor-details', label: 'Freelance Sales Partner', icon: Store },
-      { kind: 'link', to: '/sales-channel/influencer-partner', label: 'Influencer Partner', icon: Sparkles },
-      { kind: 'link', to: '/manage-teams', label: 'Digital Marketing Partner', icon: Monitor },
-    ],
+    matchPrefixes: [SALES_CHANNEL_PARTNER_BASE],
+    children: SALES_CHANNEL_PARTNERS.map((p) => ({
+      kind: 'link' as const,
+      to: `${SALES_CHANNEL_PARTNER_BASE}/${p.slug}`,
+      label: p.label,
+      icon: p.icon,
+    })),
   },
+  { kind: 'link', to: '/all-orders', label: 'All Orders', icon: CreditCard },
   {
     kind: 'group',
     id: 'marketing-management',
@@ -124,7 +122,7 @@ const nav: NavNode[] = [
       {
         kind: 'group',
         id: 'grow-with-mw',
-        label: 'Grow with MW',
+        label: 'Grow with SB',
         icon: BookOpen,
         matchPrefixes: ['/grow-with-mw', '/documentation'],
         children: [
@@ -140,7 +138,7 @@ const nav: NavNode[] = [
         icon: Wrench,
         matchPrefixes: ['/kit-management'],
         children: [
-          { kind: 'link', to: '/kit-management/sales', label: 'MW Sales Kit', icon: Briefcase },
+          { kind: 'link', to: '/kit-management/sales', label: 'SB Sales Kit', icon: Briefcase },
           { kind: 'link', to: '/kit-management/marketing', label: 'Creator Kit', icon: Megaphone },
           { kind: 'link', to: '/kit-management/franchise-sales', label: 'Franchise Sales Kit', icon: Handshake },
         ],

@@ -20,13 +20,13 @@ export const CONTENT_TYPES = [
   {
     value: 'mw_full_franchise_agreement',
     slug: 'mw-full-franchise-agreement',
-    label: 'MW Full Franchise Agreement',
+    label: 'SB Full Franchise Agreement',
     badge: 'Franchise',
   },
   {
     value: 'mw_franchisee_operation_policy',
     slug: 'mw-franchisee-operation-policy',
-    label: 'MW Franchisee Operation Policy',
+    label: 'SB Franchisee Operation Policy',
     badge: 'Policy',
   },
 ] as const

@@ -64,7 +64,7 @@ function formatDate(value?: string | null) {
 }
 
 function cardsSearchUrl(email: string) {
-  return `/miniwebsite-details?search=${encodeURIComponent(email)}`
+  return `/sb-profile-details?search=${encodeURIComponent(email)}`
 }
 
 type ConfirmState = {
@@ -224,11 +224,11 @@ export function FranchiseDistributorsPage() {
                   'Card Pay',
                   'FRD Fee',
                   'Invoice',
-                  'MW',
+                  'SB',
                   'Pending ₹',
                   'Dashboard',
                   'Referrals',
-                  'Deal MW',
+                  'Deal SB',
                   'Deal FR',
                   'Collab',
                   'Password',
@@ -319,7 +319,7 @@ export function FranchiseDistributorsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {['MW ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
+                      {['SB ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
                         <TableHead key={heading}>{heading}</TableHead>
                       ))}
                     </TableRow>
@@ -675,7 +675,7 @@ function ReferralPanel({
         {[
           ['Pending', `₹${Math.round(data.pendingAmount).toLocaleString('en-IN')}`],
           ['Total Earning', `₹${Math.round(data.totalReferralAmount).toLocaleString('en-IN')}`],
-          ['Referred MW', String(data.regularReferrals)],
+          ['Referred SB', String(data.regularReferrals)],
           ['Referred Franchise', String(data.collaborationReferrals)],
         ].map(([k, v]) => (
           <Card key={k} size="sm">
@@ -734,7 +734,7 @@ function ReferralPanel({
         <Table className="min-w-[1000px]">
           <TableHeader>
             <TableRow>
-              {['User', 'Email', 'Source', 'Joined', 'MW Status', 'Amount', 'Payment'].map((heading) => (
+              {['User', 'Email', 'Source', 'Joined', 'SB Status', 'Amount', 'Payment'].map((heading) => (
                 <TableHead key={heading}>{heading}</TableHead>
               ))}
             </TableRow>

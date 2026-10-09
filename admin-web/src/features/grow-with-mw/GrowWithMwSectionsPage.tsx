@@ -137,7 +137,7 @@ export function GrowWithMwSectionsPage() {
             Documentation sections
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sidebar groups for Grow with MW / public docs
+            Sidebar groups for Grow with SB / public docs
           </p>
         </div>
         <Button variant="outline" onClick={() => listQuery.refetch()} disabled={listQuery.isFetching}>

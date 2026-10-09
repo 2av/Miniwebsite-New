@@ -215,7 +215,7 @@ export function ManageCardsPage() {
                 <TableRow className="border-slate-800 hover:bg-slate-900">
                 {[
                   'User ID',
-                  'MW ID',
+                  'SB ID',
                   'User Email',
                   'User Name',
                   'Phone',
@@ -223,7 +223,7 @@ export function ManageCardsPage() {
                   'Company',
                   'Created',
                   'Validity',
-                  'MW Status',
+                  'SB Status',
                   'View / Edit / Share',
                   'Payment',
                   'Order ₹',
@@ -311,7 +311,7 @@ export function ManageCardsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm complimentary change</AlertDialogTitle>
             <AlertDialogDescription>
-              {complimentaryConfirm?.enable ? 'Enable' : 'Disable'} complimentary access for MW #
+              {complimentaryConfirm?.enable ? 'Enable' : 'Disable'} complimentary access for SB #
               {complimentaryConfirm?.id}?
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -420,7 +420,7 @@ function CardRow({
             if (!c.canToggleComplimentary) return
             onComplimentary(next)
           }}
-          aria-label={`Toggle complimentary for MW #${c.id}`}
+          aria-label={`Toggle complimentary for SB #${c.id}`}
         />
       </TableCell>
     </TableRow>

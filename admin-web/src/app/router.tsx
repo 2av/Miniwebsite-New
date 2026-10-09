@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { ManageUsersPage } from '@/features/manage-users/ManageUsersPage'
@@ -23,8 +23,14 @@ import { GrowWithMwPageEditorPage } from '@/features/grow-with-mw/GrowWithMwPage
 import { KitManagementInvalidCategory, KitManagementRedirect } from '@/features/kit-management/KitManagementPage'
 import { RoleAccessSettingsPage } from '@/features/role-access-settings/RoleAccessSettingsPage'
 import { RoleManagementPage } from '@/features/role-management/RoleManagementPage'
+import { SalesChannelPartnerRoute } from '@/features/sales-channel-partners/SalesChannelPartnerPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { PlaceholderPage } from '@/features/common/PlaceholderPage'
+
+function RedirectWithSearch({ to }: { to: string }) {
+  const { search } = useLocation()
+  return <Navigate to={`${to}${search}`} replace />
+}
 
 export function AppRouter() {
   return (
@@ -32,9 +38,11 @@ export function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AdminLayout />}>
         <Route index element={<DashboardPage />} />
-        <Route path="user-details" element={<ManageUsersPage />} />
-        <Route path="manage-users" element={<Navigate to="/user-details" replace />} />
-        <Route path="miniwebsite-details" element={<ManageCardsPage />} />
+        <Route path="sb-user-details" element={<ManageUsersPage />} />
+        <Route path="user-details" element={<Navigate to="/sb-user-details" replace />} />
+        <Route path="manage-users" element={<Navigate to="/sb-user-details" replace />} />
+        <Route path="sb-profile-details" element={<ManageCardsPage />} />
+        <Route path="miniwebsite-details" element={<RedirectWithSearch to="/sb-profile-details" />} />
         <Route path="franchisee-details" element={<FranchiseesPage />} />
         <Route path="franchise-details" element={<Navigate to="/franchisee-details" replace />} />
         <Route path="franchisee-distributor-details" element={<FranchiseDistributorsPage />} />
@@ -58,6 +66,8 @@ export function AppRouter() {
         <Route path="manage-categories" element={<ManageCategoriesPage />} />
         <Route path="role-access-settings" element={<RoleAccessSettingsPage />} />
         <Route path="manage-role-access-settings" element={<Navigate to="/role-access-settings" replace />} />
+        <Route path="sales-channel-partner" element={<Navigate to="/sales-channel-partner/franchisee-partner" replace />} />
+        <Route path="sales-channel-partner/:slug" element={<SalesChannelPartnerRoute />} />
         <Route path="role-management" element={<RoleManagementPage />} />
         <Route path="manage-roles" element={<Navigate to="/role-management" replace />} />
         <Route path="category-list" element={<Navigate to="/manage-categories" replace />} />

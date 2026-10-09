@@ -335,8 +335,8 @@ export function ManageTeamsPage() {
                     'User ID',
                     'Member',
                     'Mobile',
-                    'MW ID',
-                    'Total MW',
+                    'SB ID',
+                    'Total SB',
                     'Sales',
                     'Dashboard',
                     'Referrals',
@@ -635,7 +635,7 @@ export function ManageTeamsPage() {
             </DialogTitle>
             <DialogDescription>
               {referralsQuery.data
-                ? `Sales: ${referralsQuery.data.totalSales} · MW Created: ${referralsQuery.data.totalMwCreated}`
+                ? `Sales: ${referralsQuery.data.totalSales} · SB Created: ${referralsQuery.data.totalMwCreated}`
                 : null}
             </DialogDescription>
           </DialogHeader>
@@ -656,7 +656,7 @@ export function ManageTeamsPage() {
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
                       <TableHead>Type</TableHead>
-                      <TableHead>MW Payment</TableHead>
+                      <TableHead>SB Payment</TableHead>
                       <TableHead>Paid On</TableHead>
                       <TableHead>Referral Date</TableHead>
                     </TableRow>

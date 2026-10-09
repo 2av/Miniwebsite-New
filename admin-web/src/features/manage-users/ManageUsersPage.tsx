@@ -185,7 +185,7 @@ export function ManageUsersPage() {
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold text-slate-900">Manage Users</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {data?.totalCount ?? '—'} customers · MW deals {data?.mwDealCount ?? 0} · Franchise deals{' '}
+            {data?.totalCount ?? '—'} customers · SB deals {data?.mwDealCount ?? 0} · Franchise deals{' '}
             {data?.franchiseDealCount ?? 0}
           </p>
         </div>
@@ -252,12 +252,12 @@ export function ManageUsersPage() {
                   'State',
                   'Joined',
                   'Referral',
-                  'MW',
+                  'SB',
                   'Pending ₹',
-                  'MW Pay',
+                  'SB Pay',
                   'Dashboard',
                   'Referrals',
-                  'Deal MW',
+                  'Deal SB',
                   'Deal FR',
                   'Sales Kit',
                   'Collab',
@@ -364,7 +364,7 @@ export function ManageUsersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {['MW ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
+                      {['SB ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
                         <TableHead key={heading}>{heading}</TableHead>
                       ))}
                     </TableRow>
@@ -726,7 +726,7 @@ function ReferralPanel({
         {[
           ['Pending', `₹${Math.round(data.pendingAmount).toLocaleString('en-IN')}`],
           ['Total Earning', `₹${Math.round(data.totalReferralAmount).toLocaleString('en-IN')}`],
-          ['Referred MW', String(data.regularReferrals)],
+          ['Referred SB', String(data.regularReferrals)],
           ['Referred Franchise', String(data.collaborationReferrals)],
         ].map(([k, v]) => (
           <Card key={k}>
@@ -783,7 +783,7 @@ function ReferralPanel({
         <Table className="w-full min-w-[1000px]">
           <TableHeader>
             <TableRow>
-              {['User', 'Email', 'Source', 'Joined', 'MW Status', 'Amount', 'Payment'].map((heading) => (
+              {['User', 'Email', 'Source', 'Joined', 'SB Status', 'Amount', 'Payment'].map((heading) => (
                 <TableHead key={heading}>{heading}</TableHead>
               ))}
             </TableRow>

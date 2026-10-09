@@ -41,6 +41,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Gst).HasMaxLength(50);
         builder.HasIndex(x => x.Email).IsUnique();
         builder.HasIndex(x => x.ReferralCode);
+        builder.HasOne(x => x.AssignedRole)
+            .WithMany()
+            .HasForeignKey(x => x.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
