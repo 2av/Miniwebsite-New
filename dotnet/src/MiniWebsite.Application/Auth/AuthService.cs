@@ -293,7 +293,8 @@ public class AuthService : IAuthService
             refreshToken,
             expiresAt,
             user.Referral.CollaborationEnabled ? "YES" : "NO",
-            user.Referral.SaleskitEnabled ? "YES" : "NO");
+            user.Referral.SaleskitEnabled ? "YES" : "NO",
+            user.AssignedRole?.RoleName);
     }
 
     private bool VerifyPassword(string password, User user)

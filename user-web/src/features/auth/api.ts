@@ -6,6 +6,7 @@ export type AuthApiResponse = {
   email: string
   name: string
   role: string
+  roleName?: string | null
   accessToken: string
   refreshToken: string
   accessTokenExpiresAt: string
@@ -24,6 +25,7 @@ export function normalizeAuthResponse(raw: unknown): AuthApiResponse {
     email: String(pick(o, 'email', 'Email') ?? ''),
     name: String(pick(o, 'name', 'Name') ?? ''),
     role: String(pick(o, 'role', 'Role') ?? '').toUpperCase(),
+    roleName: (pick(o, 'roleName', 'RoleName') as string | null) ?? null,
     accessToken: String(pick(o, 'accessToken', 'AccessToken') ?? ''),
     refreshToken: String(pick(o, 'refreshToken', 'RefreshToken') ?? ''),
     accessTokenExpiresAt: String(pick(o, 'accessTokenExpiresAt', 'AccessTokenExpiresAt') ?? ''),

@@ -14,7 +14,8 @@ public record PortalMeDto(
     bool FranchiseVerified,
     string? ProfileImageUrl = null,
     bool FranchiseInvoiceAvailable = false,
-    int? FranchiseInvoiceId = null);
+    int? FranchiseInvoiceId = null,
+    string? RoleName = null);
 
 public record ProfileImageUploadDto(string ImagePath, string ProfileImageUrl);
 

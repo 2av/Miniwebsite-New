@@ -1,0 +1,47 @@
+/* Loaded after legacy public CSS so marketing pages follow the knowledge base. */
+
+body {
+  font-family: Poppins, sans-serif;
+}
+
+header nav a:not(.sb-btn-primary) {
+  color: #1f2937;
+}
+
+header nav a:not(.sb-btn-primary):hover {
+  color: #6c2eff;
+}
+
+header nav a.sb-btn-primary,
+header nav a.sb-btn-primary:hover {
+  color: #fff !important;
+}
+
+.btn-primary,
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:not(:disabled):not(.disabled):active {
+  background: linear-gradient(90deg, #6c2eff 0%, #ff38bd 52%, #ff8a00 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  border-radius: 12px;
+  min-height: 44px;
+}
+
+.heading,
+.banner .banner-wrap .banner-content .heading,
+.banner .banner-wrap .banner-content p,
+.banner .banner-wrap .banner-content ul li {
+  color: #1f2937;
+}
+
+.banner .banner-wrap .banner-content .heading span {
+  background: linear-gradient(90deg, #6c2eff 0%, #ff38bd 55%, #ff8a00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+section .heading::before {
+  border-bottom-color: #6c2eff;
+}

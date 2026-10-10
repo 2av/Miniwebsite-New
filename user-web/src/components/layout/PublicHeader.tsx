@@ -11,14 +11,14 @@ export function PublicHeader() {
     location.pathname === '/franchisee' || location.pathname === '/refer-and-earn'
 
   return (
-    <header className="bg-white">
-      <nav className="border-b border-transparent px-3">
-        <div className="mx-auto flex max-w-[1140px] items-center justify-between gap-3 py-2">
+    <header className="sticky top-0 z-30 border-b border-sb-border bg-white/95 backdrop-blur">
+      <nav className="px-4">
+        <div className="mx-auto flex h-16 max-w-[1140px] items-center justify-between gap-3">
           <Link to="/" className="shrink-0" onClick={() => setOpen(false)}>
             <img
               src={assetUrl('images/main-logo.png')}
               alt="ShareBizz"
-              className="h-auto w-[200px] max-w-full"
+              className="h-10 w-auto max-w-[180px]"
             />
           </Link>
 
@@ -49,7 +49,7 @@ export function PublicHeader() {
                   <li className="lg:mx-2.5">
                     <a
                       href="/#demo-samples"
-                      className="relative block py-2 text-lg font-medium text-[var(--mw-navy)] transition hover:text-[var(--mw-gold)]"
+                      className="relative block py-2 text-[15px] font-medium text-sb-ink transition hover:text-sb-primary"
                       onClick={() => setOpen(false)}
                     >
                       Demo Samples
@@ -58,7 +58,7 @@ export function PublicHeader() {
                   <li className="lg:mx-2.5">
                     <a
                       href="/#our-plans"
-                      className="relative block py-2 text-lg font-medium text-[var(--mw-navy)] transition hover:text-[var(--mw-gold)]"
+                      className="relative block py-2 text-[15px] font-medium text-sb-ink transition hover:text-sb-primary"
                       onClick={() => setOpen(false)}
                     >
                       Our Plans
@@ -70,16 +70,16 @@ export function PublicHeader() {
               <li className="relative lg:mx-2.5">
                 <button
                   type="button"
-                  className="mw-btn-primary inline-flex items-center gap-1 text-lg font-medium"
+                  className="sb-btn-secondary inline-flex items-center gap-1 text-[15px]"
                   onClick={() => setEarnOpen((v) => !v)}
                 >
                   Earn With Us <i className="fa fa-angle-double-down" />
                 </button>
                 {earnOpen && (
-                  <div className="absolute left-0 z-40 mt-1 min-w-[200px] rounded-lg bg-[var(--mw-navy)] py-2 shadow-lg">
+                  <div className="absolute left-0 z-40 mt-1 min-w-[200px] rounded-xl border border-sb-border bg-white py-2 shadow-lg">
                     <NavLink
                       to="/refer-and-earn"
-                      className="block px-4 py-2 text-lg font-medium text-white hover:bg-white/10"
+                      className="block px-4 py-2 text-[15px] font-medium text-sb-ink hover:bg-sb-active hover:text-sb-primary"
                       onClick={() => {
                         setEarnOpen(false)
                         setOpen(false)
@@ -89,7 +89,7 @@ export function PublicHeader() {
                     </NavLink>
                     <NavLink
                       to="/franchisee"
-                      className="block px-4 py-2 text-lg font-medium text-white hover:bg-white/10"
+                      className="block px-4 py-2 text-[15px] font-medium text-sb-ink hover:bg-sb-active hover:text-sb-primary"
                       onClick={() => {
                         setEarnOpen(false)
                         setOpen(false)
@@ -104,13 +104,19 @@ export function PublicHeader() {
               <li className="lg:mx-2.5">
                 <NavLink
                   to="/login"
-                  className="block py-2 text-lg font-medium text-[var(--mw-navy)] transition hover:text-[var(--mw-gold)]"
+                  className="block py-2 text-[15px] font-medium text-sb-ink transition hover:text-sb-primary"
                   onClick={() => {
                     setEarnOpen(false)
                     setOpen(false)
                   }}
                 >
                   Login
+                </NavLink>
+              </li>
+              <li className="lg:ml-2">
+                <NavLink to="/registration" className="sb-btn-primary text-[15px]" onClick={() => setOpen(false)}>
+                  Get Started
+                  <i className="fa fa-arrow-right" aria-hidden />
                 </NavLink>
               </li>
             </ul>

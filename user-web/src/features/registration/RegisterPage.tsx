@@ -110,6 +110,7 @@ export function RegisterPage({ kind }: Props) {
             token: auth.accessToken,
             refreshToken: auth.refreshToken,
             role: (auth.role as UserRole) || meta.role,
+            roleName: auth.roleName || undefined,
             email: auth.email,
             name: auth.name,
             userId: auth.userId,

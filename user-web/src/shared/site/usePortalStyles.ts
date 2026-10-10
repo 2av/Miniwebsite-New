@@ -36,7 +36,7 @@ function ensureScript(src: string, id: string): Promise<void> {
 export function usePortalStyles() {
   useEffect(() => {
     ensureLink(
-      'https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@400..800&family=Barlow:wght@400;500;600;700;800;900&display=swap',
+      'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
       'mw-portal-font',
     )
     ensureLink(
@@ -102,8 +102,8 @@ export function usePortalStyles() {
               border: 'var(--mw-color-border)',
             },
             fontFamily: {
-              sans: ['Barlow', 'system-ui', 'sans-serif'],
-              display: ['Barlow', 'system-ui', 'sans-serif'],
+              sans: ['Poppins', 'system-ui', 'sans-serif'],
+              display: ['Poppins', 'system-ui', 'sans-serif'],
             },
             boxShadow: {
               soft: 'var(--mw-shadow-soft)',

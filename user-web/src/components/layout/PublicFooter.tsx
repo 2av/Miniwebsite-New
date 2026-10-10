@@ -34,7 +34,7 @@ export function PublicFooter() {
         </a>
       </div>
 
-      <footer className="footer bg-[var(--mw-navy)] text-white">
+      <footer className="footer bg-sb-ink text-white">
         <section className="main-foot py-10">
           <div className="mx-auto max-w-[1140px] px-4">
             <div className="grid gap-8 md:grid-cols-2">
@@ -115,7 +115,7 @@ export function PublicFooter() {
                     placeholder="Any Message"
                   />
                   <div className="text-center">
-                    <button type="submit" className="mw-btn-primary px-5 py-2 text-sm font-bold text-[var(--mw-navy)]">
+                    <button type="submit" className="sb-btn-primary px-5 py-2 text-sm font-bold text-white">
                       SEND US MESSAGE
                     </button>
                   </div>

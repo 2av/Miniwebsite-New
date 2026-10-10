@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiGet } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
+import { dashboardTitleForRole } from '@/shared/auth/session'
 import { assetUrl, siteUrl } from '@/lib/utils'
 import { TablePagination, useClientPagination } from '@/components/table'
 
@@ -144,6 +145,16 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [customer, setCustomer] = useState<CustomerDashboard | null>(null)
   const [franchisee, setFranchisee] = useState<FranchiseeDashboard | null>(null)
+  const [portalQuery, setPortalQuery] = useState('')
+  const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
+
+  useEffect(() => {
+    const onSearch = (event: Event) => {
+      setPortalQuery(String((event as CustomEvent<string>).detail ?? ''))
+    }
+    window.addEventListener('sb-portal-search', onSearch)
+    return () => window.removeEventListener('sb-portal-search', onSearch)
+  }, [])
 
   useEffect(() => {
     if (!session?.email) return
@@ -159,6 +170,13 @@ export function DashboardPage() {
           const data = await apiGet<unknown>('/api/v1/dashboard/customer', { email: session.email })
           if (!cancelled) setCustomer(normalizeCustomer(data))
         }
+        try {
+          const me = await apiGet<Record<string, unknown>>('/api/v1/portal/me', { email: session.email })
+          const roleName = String(me.roleName ?? me.RoleName ?? '').trim()
+          if (!cancelled && roleName) setMappedRoleName(roleName)
+        } catch {
+          // title falls back to the login role
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load dashboard')
       } finally {
@@ -172,40 +190,85 @@ export function DashboardPage() {
 
   const managedUsers = franchisee?.managedUsers ?? []
   const cards = customer?.cards ?? []
-  const tableRows = isFranchisee ? managedUsers : cards
+  const query = portalQuery.trim().toLowerCase()
+  const filteredUsers = query
+    ? managedUsers.filter((u) =>
+        [u.name, u.email, u.phone, u.companyName, String(u.userId), String(u.cardDbId ?? '')]
+          .join(' ')
+          .toLowerCase()
+          .includes(query),
+      )
+    : managedUsers
+  const filteredCards = query
+    ? cards.filter((c) =>
+        [c.companyName, c.cardSlug, c.paymentStatus, c.cardStatus, String(c.id)].join(' ').toLowerCase().includes(query),
+      )
+    : cards
+  const tableRows = isFranchisee ? filteredUsers : filteredCards
   const pager = useClientPagination(tableRows.length, { resetKey: session?.email ?? '' })
-  const pagedUsers = pager.slice(managedUsers)
-  const pagedCards = pager.slice(cards)
+  const pagedUsers = pager.slice(filteredUsers)
+  const pagedCards = pager.slice(filteredCards)
 
-  const pageTitle = isFranchisee
-    ? 'Franchisee Dashboard'
-    : session?.role === 'TEAM'
-      ? 'Team Dashboard'
-      : 'Customer Dashboard'
+  const pageTitle = dashboardTitleForRole(mappedRoleName || session?.roleName, session?.role)
   const showRefundCol = Boolean(customer?.refundStatus && customer.refundStatus !== 'None')
 
+  const activeCount = filteredCards.filter((c) => c.paymentStatus === 'Success').length
+  const pendingCount = filteredCards.length - activeCount
+
   return (
-    <>
-        <div className="main-top mw-page-header">
-          <h1 className="heading mw-page-title">{pageTitle}</h1>
-          <nav aria-label="breadcrumb">
-            <ol className="breadcrumb mw-breadcrumb">
-              <li className="breadcrumb-item mw-breadcrumb-item">
-                <a href="#">ShareBizz</a>
-              </li>
-              <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
-                {pageTitle}
-              </li>
-            </ol>
-          </nav>
+    <div className="sb-dash">
+        <div className="sb-dash-head">
+          <div>
+            <h1 className="sb-dash-title">{pageTitle}</h1>
+            <p className="sb-dash-sub">
+              {isFranchisee
+                ? 'Track the ShareBizz websites you created, wallet balance, and managed users.'
+                : 'Manage your ShareBizz websites, payments, and sharing from one place.'}
+            </p>
+          </div>
+          <div>
+            <nav className="sb-crumbs" aria-label="breadcrumb">
+              <Link to="/dashboard">ShareBizz</Link>
+              <span>/</span>
+              <span className="is-current">{pageTitle}</span>
+            </nav>
+            {!isFranchisee ? (
+              <Link className="sb-btn-primary" to="/website/business-name?new=1">
+                <i className="fa fa-plus" aria-hidden /> Create ShareBizz
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         {loading && <p>Loading dashboard...</p>}
         {error && <div className="alert alert-danger">{error}</div>}
 
         {!loading && !error && isFranchisee && franchisee && (
-          <div className="card mb-4">
+          <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
+              <div className="sb-stat-grid">
+                <div className="sb-stat sb-stat--purple">
+                  <i className="fa fa-id-card" aria-hidden />
+                  <div>
+                    <strong>{franchisee.totalCardsCreated}</strong>
+                    <span>Websites created</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--green">
+                  <i className="fa fa-users" aria-hidden />
+                  <div>
+                    <strong>{filteredUsers.length}</strong>
+                    <span>Managed users</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--orange">
+                  <i className="fa fa-inr" aria-hidden />
+                  <div>
+                    <strong>{franchisee.walletBalance.toFixed(0)}</strong>
+                    <span>Wallet balance</span>
+                  </div>
+                </div>
+              </div>
               <div className="FranchiseeDashboard-head">
                 <div className="mw-dash-card-grid">
                   <div className="card_area">
@@ -271,7 +334,7 @@ export function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {managedUsers.length === 0 ? (
+                      {filteredUsers.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="text-center">
                             No users found.
@@ -301,7 +364,7 @@ export function DashboardPage() {
                 </div>
                 {pager.showPager ? (
                   <TablePagination
-                    total={managedUsers.length}
+                    total={filteredUsers.length}
                     page={pager.page}
                     pageSize={pager.pageSize}
                     onPageChange={pager.setPage}
@@ -314,8 +377,45 @@ export function DashboardPage() {
         )}
 
         {!loading && !error && !isFranchisee && customer && (
-          <div className="card mb-4">
+          <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
+              <div className="sb-stat-grid">
+                <div className="sb-stat sb-stat--purple">
+                  <i className="fa fa-th-large" aria-hidden />
+                  <div>
+                    <strong>{filteredCards.length}</strong>
+                    <span>Total websites</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--green">
+                  <i className="fa fa-check-circle" aria-hidden />
+                  <div>
+                    <strong>{activeCount}</strong>
+                    <span>Active</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--orange">
+                  <i className="fa fa-clock-o" aria-hidden />
+                  <div>
+                    <strong>{pendingCount}</strong>
+                    <span>Pending payment</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--pink">
+                  <i className="fa fa-share-alt" aria-hidden />
+                  <div>
+                    <strong>{customer.referralCode ? 1 : 0}</strong>
+                    <span>Referral code</span>
+                  </div>
+                </div>
+                <div className="sb-stat sb-stat--blue">
+                  <i className="fa fa-file-text-o" aria-hidden />
+                  <div>
+                    <strong>{customer.showInvoiceColumn ? activeCount : 0}</strong>
+                    <span>Invoices</span>
+                  </div>
+                </div>
+              </div>
               <div className="CustomerDashboard-head">
                 <div className="mw-dash-card-grid">
                   <div className="card_area top_section">
@@ -353,7 +453,7 @@ export function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cards.length === 0 ? (
+                    {filteredCards.length === 0 ? (
                       <tr>
                         <td colSpan={customer.showInvoiceColumn ? (showRefundCol ? 9 : 8) : showRefundCol ? 8 : 7} className="text-center">
                           No ShareBizz websites found. Create your first one!
@@ -457,7 +557,7 @@ export function DashboardPage() {
                 </table>
                 {pager.showPager ? (
                   <TablePagination
-                    total={cards.length}
+                    total={filteredCards.length}
                     page={pager.page}
                     pageSize={pager.pageSize}
                     onPageChange={pager.setPage}
@@ -566,6 +666,6 @@ export function DashboardPage() {
             </div>
           </div>
         )}
-    </>
+    </div>
   )
 }

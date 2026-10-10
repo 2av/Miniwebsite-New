@@ -37,6 +37,15 @@ export function dashboardPathForRole(_role: string) {
   return '/dashboard'
 }
 
+/** "{mapped role} Dashboard", e.g. "Field Sales Team Dashboard". */
+export function dashboardTitleForRole(roleName?: string | null, role?: string | null) {
+  const mapped = (roleName || '').trim()
+  if (mapped) return `${mapped} Dashboard`
+  const fallback =
+    role === 'FRANCHISEE' ? 'Franchisee' : role === 'TEAM' ? 'Team' : role === 'ADMIN' ? 'Admin' : 'Customer'
+  return `${fallback} Dashboard`
+}
+
 export const LOGIN_PATH = '/login'
 
 /** Read JWT `exp` (seconds) when present. */

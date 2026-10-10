@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     port: 5174,
     watch: {
-      ignored: ['**/dist.zip'],
+      ignored: ['**/dist.zip', '**/*.pdf'],
     },
     proxy: {
       '/api': {

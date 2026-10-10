@@ -11,6 +11,8 @@ export type AuthSession = {
   token: string
   refreshToken: string
   role: UserRole
+  /** Assigned role name from the roles catalog, e.g. "Field Sales Team". */
+  roleName?: string
   email: string
   name: string
   userId?: number

@@ -4,8 +4,9 @@ Public + logged-in user React app for MiniWebsite (home, login, dashboard, porta
 
 ## Rules
 
-- Look & feel must match the existing live site
-- Tailwind for styling only — not a new design system
+- Follow [`docs/ui-design-knowledge-base.md`](docs/ui-design-knowledge-base.md) for marketing pages and the logged-in portal
+- Do not apply that system to customer Digital Business Profile themes in `public/theme`
+- Tailwind for styling. Font is Poppins. Primary actions use the purple–pink–orange gradient
 - Shared .NET API (`VITE_API_BASE_URL`)
 - Static assets live under `public/assets` and `public/theme` (`VITE_ASSETS_BASE_URL=/assets`)
 - Legacy PHP deep links: `VITE_SITE_URL`

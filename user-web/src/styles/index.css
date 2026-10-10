@@ -1,15 +1,43 @@
 @import 'tailwindcss';
 
 /*
-  Brand tokens from the live site stylesheet.
-  Look & feel must match the live site — do not invent a new theme.
+  ShareBizz brand tokens. Full spec: user-web/docs/ui-design-knowledge-base.md
+  Customer Digital Business Profile themes are out of scope.
 */
+@theme {
+  --font-sans: 'Poppins', sans-serif;
+  --color-sb-primary: #6c2eff;
+  --color-sb-pink: #ff38bd;
+  --color-sb-orange: #ff8a00;
+  --color-sb-blue: #007bff;
+  --color-sb-green: #00c853;
+  --color-sb-active: #f3f0ff;
+  --color-sb-ink: #1f2937;
+  --color-sb-bg: #f8fafc;
+  --color-sb-muted: #64748b;
+  --color-sb-border: #e5e7eb;
+  --color-sb-icon: #6b7280;
+}
+
 :root {
-  --mw-navy: #002169;
-  --mw-navy-deep: #00205b;
-  --mw-gold: #ffbe17;
-  --mw-gold-hover: #e0a800;
-  --mw-font: 'Baloo Bhai 2', sans-serif;
+  --sb-primary: #6c2eff;
+  --sb-pink: #ff38bd;
+  --sb-orange: #ff8a00;
+  --sb-blue: #007bff;
+  --sb-green: #00c853;
+  --sb-active: #f3f0ff;
+  --sb-ink: #1f2937;
+  --sb-bg: #f8fafc;
+  --sb-surface: #ffffff;
+  --sb-muted: #64748b;
+  --sb-border: #e5e7eb;
+  --sb-icon: #6b7280;
+  --sb-gradient: linear-gradient(90deg, #6c2eff 0%, #ff38bd 52%, #ff8a00 100%);
+  --mw-navy: var(--sb-ink);
+  --mw-navy-deep: #111827;
+  --mw-gold: var(--sb-primary);
+  --mw-gold-hover: #5418e0;
+  --mw-font: 'Poppins', sans-serif;
 }
 
 html,
@@ -38,25 +66,44 @@ a {
   font-weight: 700;
 }
 
+.sb-btn-primary,
 .mw-btn-primary {
-  background-color: var(--mw-gold);
-  border: 1px solid var(--mw-gold);
-  border-radius: 8px;
-  padding: 4px 14px;
+  background: var(--sb-gradient);
+  border: 0;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 8px 20px;
   color: #fff;
   font-weight: 600;
-  transition: 0.4s;
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 18px rgb(108 46 255 / 0.28);
 }
 
+.sb-btn-primary:hover,
 .mw-btn-primary:hover {
-  background-color: var(--mw-gold);
-  border-color: var(--mw-gold);
-  box-shadow: 1px 3px 3px hsl(0deg 0% 80% / 50%);
+  filter: brightness(1.05);
   color: #fff;
-  transform: scale(1.02);
+}
+
+.sb-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--sb-primary);
+  background: #fff;
+  color: var(--sb-primary);
+  font-weight: 600;
+}
+
+.sb-btn-secondary:hover {
+  background: var(--sb-active);
 }
 
 /* Login password field — eye toggle centered inside the input */
@@ -122,7 +169,7 @@ a {
   bottom: 0;
   width: 150px;
   margin: 0 auto;
-  border-bottom: solid 2px #ffbe17;
+  border-bottom: solid 2px #6c2eff;
 }
 
 .login-container .login-heading-back {
@@ -162,11 +209,11 @@ a {
 }
 
 .sharebizz-maintenance {
-  --sb-ink: #142c2c;
-  --sb-muted: #586d68;
-  --sb-green: #216b58;
-  --sb-lime: #d3e66b;
-  --sb-line: #d8e2d9;
+  --sb-ink: #1f2937;
+  --sb-muted: #64748b;
+  --sb-green: #6c2eff;
+  --sb-lime: #ff8a00;
+  --sb-line: #e5e7eb;
   position: relative;
   display: flex;
   min-height: 100dvh;
@@ -174,8 +221,8 @@ a {
   overflow: hidden;
   padding: 30px clamp(24px, 7vw, 104px) 20px;
   color: var(--sb-ink);
-  background-color: #f7f8f1;
-  background-image: linear-gradient(#e9eee5 1px, transparent 1px), linear-gradient(90deg, #e9eee5 1px, transparent 1px);
+  background-color: #f8fafc;
+  background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
   background-position: center;
   background-size: 48px 48px;
   font-family: var(--mw-font);
@@ -185,7 +232,7 @@ a {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(90deg, #f7f8f1 0%, rgb(247 248 241 / 96%) 42%, rgb(247 248 241 / 78%) 100%);
+  background: linear-gradient(90deg, #f8fafc 0%, rgb(248 250 252 / 96%) 42%, rgb(243 240 255 / 78%) 100%);
   content: '';
   pointer-events: none;
 }

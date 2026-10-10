@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { assetUrl } from '@/lib/utils'
+import brandUrl from '@/styles/sharebizz-brand.css?url'
 
 const LOADED = new Set<string>()
 
@@ -38,6 +39,7 @@ export function useSiteStyles(options?: { owl?: boolean }) {
       ensureLink(assetUrl('css/owl.carousel.min.css'), 'mw-site-owl')
       ensureLink(assetUrl('css/owl.theme.default.css'), 'mw-site-owl-theme')
     }
+    ensureLink(brandUrl, 'mw-sharebizz-brand')
   }, [options?.owl])
 }
 

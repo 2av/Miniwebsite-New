@@ -83,7 +83,8 @@ public class PortalService : IPortalService
             verified,
             ToPublicProfileUrl(user.ProfileImage),
             franchiseInvoiceId.HasValue,
-            franchiseInvoiceId));
+            franchiseInvoiceId,
+            user.AssignedRole?.RoleName));
     }
 
     public async Task<ApiResult<ReferralPageDto>> GetReferralAsync(string email, CancellationToken ct = default)

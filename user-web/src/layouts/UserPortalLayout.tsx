@@ -58,7 +58,9 @@ export function UserPortalLayout() {
   const profileRef = useRef<HTMLLIElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [mwId, setMwId] = useState<number | null>(null)
+  const [portalSearch, setPortalSearch] = useState('')
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const [, setMwId] = useState<number | null>(null)
   const [builderSlug, setBuilderSlug] = useState<string | null>(null)
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
   const [profileUploadMsg, setProfileUploadMsg] = useState<string | null>(null)
@@ -72,6 +74,7 @@ export function UserPortalLayout() {
     mwPaid: false,
   })
   const [franchiseInvoiceAvailable, setFranchiseInvoiceAvailable] = useState(false)
+  const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
 
   const inWebsiteBuilder = location.pathname.startsWith('/website')
 
@@ -105,6 +108,8 @@ export function UserPortalLayout() {
         )
         const img = String(pick(raw, 'profileImageUrl', 'ProfileImageUrl') ?? '')
         if (img) setProfileImageUrl(img)
+        const roleName = String(pick(raw, 'roleName', 'RoleName') ?? '').trim()
+        if (roleName) setMappedRoleName(roleName)
       } catch {
         // keep session flags
       }
@@ -181,13 +186,10 @@ export function UserPortalLayout() {
   }
 
   const displayName = session.name || session.email.split('@')[0] || 'User'
+  const roleLabel =
+    mappedRoleName ||
+    (session.role === 'FRANCHISEE' ? 'Franchisee' : session.role === 'TEAM' ? 'Team' : session.role === 'ADMIN' ? 'Admin' : 'Customer')
   const profileImg = resolveProfileSrc(profileImageUrl)
-  const idLabel =
-    session.role === 'FRANCHISEE'
-      ? null
-      : mwId
-        ? `MW ID: MW${mwId}`
-        : null
 
   const openProfileFilePicker = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -289,8 +291,9 @@ export function UserPortalLayout() {
       <div className="sb-nav-link-icon mw-portal-nav-icon-wrap">
         <i className={`fa fa-${navIconClass(item.icon)} mw-nav-icon`} aria-hidden />
       </div>
-      <span className="flex-1 truncate">{item.label}</span>
-    </NavLink>
+        <span className="flex-1 truncate">{item.label}</span>
+        <i className="fa fa-angle-right sb-nav-chevron" aria-hidden />
+      </NavLink>
   )
 
   const renderWebsiteNavItem = (item: WebsiteNavItem) => {
@@ -305,7 +308,11 @@ export function UserPortalLayout() {
           <i className={`fa fa-${navIconClass(item.icon)} mw-nav-icon`} aria-hidden />
         </div>
         <span className={`flex-1 truncate${item.locked ? ' text-slate-400' : ''}`}>{item.label}</span>
-        {item.locked ? <i className="fa fa-lock text-slate-400 text-xs shrink-0" aria-hidden /> : null}
+        {item.locked ? (
+          <i className="fa fa-lock text-slate-400 text-xs shrink-0" aria-hidden />
+        ) : (
+          <i className="fa fa-angle-right sb-nav-chevron" aria-hidden />
+        )}
       </>
     )
 
@@ -336,22 +343,15 @@ export function UserPortalLayout() {
 
   return (
     <>
-      <nav className="sb-topnav navbar navbar-expand navbar-dark bg-dark !shadow-card">
+      <nav className="sb-topnav navbar navbar-expand sb-topnav--app !shadow-card">
         <div className="head-left flex items-center">
           <Link className="navbar-brand ps-3 inline-flex items-center" to="/dashboard" aria-label="Go to dashboard">
             <img
-              src={assetUrl('images/mw_logo_mobile.png')}
-              className="mw-logo mw-logo--mobile img-fluid"
+              src={assetUrl('images/main-logo.png')}
+              className="mw-logo mw-logo--app img-fluid"
               alt="ShareBizz"
-              width={144}
-              height={40}
-            />
-            <img
-              src={assetUrl('img/logo.png')}
-              className="mw-logo mw-logo--desktop img-fluid"
-              alt="ShareBizz — Create Share Succeed"
-              width={270}
-              height={73}
+              width={148}
+              height={36}
             />
           </Link>
           <button
@@ -365,8 +365,41 @@ export function UserPortalLayout() {
             <i className="fa fa-bars" aria-hidden />
           </button>
         </div>
-        
+
+        <form
+          className="sb-topnav-search"
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault()
+            window.dispatchEvent(new CustomEvent('sb-portal-search', { detail: portalSearch }))
+          }}
+        >
+          <i className="fa fa-search" aria-hidden />
+          <input
+            type="search"
+            placeholder="Search anything..."
+            value={portalSearch}
+            aria-label="Search anything"
+            onChange={(e) => {
+              const value = e.target.value
+              setPortalSearch(value)
+              window.dispatchEvent(new CustomEvent('sb-portal-search', { detail: value }))
+            }}
+          />
+        </form>
+
         <div className="head-right">
+          <button type="button" className="sb-icon-btn" aria-label="Notifications" onClick={() => setAlertsOpen((v) => !v)}>
+            <i className="fa fa-bell-o" aria-hidden />
+          </button>
+          {alertsOpen ? (
+            <div className="sb-alerts-pop" role="status">
+              No new notifications
+            </div>
+          ) : null}
+          <Link to="/docs" className="sb-icon-btn" aria-label="Help">
+            <i className="fa fa-question-circle-o" aria-hidden />
+          </Link>
           <ul className="navbar-nav ms-auto ms-md-0 flex items-center">
             <li className="nav-item upload-profile-wrap relative" ref={profileRef}>
               <div className="nav-link">
@@ -401,9 +434,9 @@ export function UserPortalLayout() {
                     >
                       <div className="profile-name-line">
                         {displayName}
-                        <i className="fa fa-angle-double-down" aria-hidden />
+                        <i className="fa fa-angle-down" aria-hidden />
                       </div>
-                      {idLabel ? <span className="profile-mw-id">{idLabel}</span> : null}
+                      <span className="profile-mw-id">{roleLabel}</span>
                     </div>
                   </div>
                   {/* PHP: camera / .upload-button → file picker → crop modal */}
@@ -562,12 +595,12 @@ export function UserPortalLayout() {
             <div className="container-fluid px-4">
               <div className="Copyright">
                 <div className="Copyright-left">
-                  <a href="https://sharebizz.com/" target="_blank" rel="noopener noreferrer">
-                    <i className="fa fa-globe" aria-hidden /> <span>www.sharebizz.com</span>
-                  </a>
-                </div>
-                <div className="Copyright-right">
                   <p>&copy; {new Date().getFullYear()} ShareBizz. All Rights Reserved.</p>
+                </div>
+                <div className="Copyright-right sb-footer-links">
+                  <Link to="/docs">Help Center</Link>
+                  <Link to="/terms-conditions">Terms</Link>
+                  <Link to="/privacy-policy">Privacy</Link>
                 </div>
               </div>
             </div>

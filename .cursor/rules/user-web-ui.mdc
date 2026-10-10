@@ -1,0 +1,14 @@
+---
+description: ShareBizz UI system for user-web marketing pages and the logged-in portal
+globs: user-web/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# user-web UI
+
+Follow `user-web/docs/ui-design-knowledge-base.md` for marketing pages and the logged-in portal. Open the matching board in `user-web/docs/design-boards/` before building a screen.
+
+- Font: Poppins. Primary `#6C2EFF`, pink `#FF38BD`, orange `#FF8A00`. Page background `#F8FAFC`, text `#1F2937`, borders `#E5E7EB`.
+- Primary actions use the purple → pink → orange gradient (`.sb-btn-primary`). Secondary actions are white with a purple border (`.sb-btn-secondary`). Controls are 44px tall with 9–12px radius.
+- Active sidebar and nav items use that same gradient and white text. Hover wash is `#F3F0FF`.
+- Do not apply this system to customer Digital Business Profile themes (`user-web/public/theme/**` or public card templates).
