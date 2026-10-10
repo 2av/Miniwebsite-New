@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
-import { isSessionValid, redirectToLogin } from '@/shared/auth/session'
+import { isSessionValid, LOGIN_PATH, redirectToLogin } from '@/shared/auth/session'
 import { useCardNumberFromSearch } from '@/features/website/cardContext'
 
 /**
@@ -14,9 +14,9 @@ export function WebsiteBuilderLayout() {
   const location = useLocation()
   const cardId = useCardNumberFromSearch(params)
 
-  if (!session) return <Navigate to="/login/customer" replace />
+  if (!session) return <Navigate to={LOGIN_PATH} replace />
   if (!isSessionValid(session)) {
-    redirectToLogin('expired', session.role)
+    redirectToLogin('expired')
     return null
   }
 

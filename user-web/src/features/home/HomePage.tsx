@@ -97,7 +97,7 @@ export function HomePage() {
                 <li>Are you struggling to have an online presence?</li>
                 <li>Do you still use paper visiting cards?</li>
               </ul>
-              <Link className="btn btn-primary d-lg-block d-none" to="/login/customer" style={{ textDecoration: 'none' }}>
+              <Link className="btn btn-primary d-lg-block d-none" to="/login" style={{ textDecoration: 'none' }}>
                 CREATE YOUR SHAREBIZZ
               </Link>
             </div>
@@ -105,7 +105,7 @@ export function HomePage() {
               <img className="img-fluid" src={assetUrl('images/01Page01/Image.png')} alt="" />
             </div>
             <div className="banner-content d-lg-none d-md-block">
-              <Link className="btn btn-primary" to="/login/customer" style={{ textDecoration: 'none', color: '#002169' }}>
+              <Link className="btn btn-primary" to="/login" style={{ textDecoration: 'none', color: '#002169' }}>
                 CREATE YOUR SHAREBIZZ
               </Link>
             </div>
@@ -243,7 +243,7 @@ export function HomePage() {
                 <p className="price">
                   <small>(For Each User)</small>
                 </p>
-                <Link className="btn-plan btn btn-primary" to="/login/customer" style={{ textDecoration: 'none', color: '#002169' }}>
+                <Link className="btn-plan btn btn-primary" to="/login" style={{ textDecoration: 'none', color: '#002169' }}>
                   GET PLAN
                 </Link>
               </div>
@@ -264,7 +264,7 @@ export function HomePage() {
                   Rs 999/- <sub>per year</sub>
                   <small>(For Each ShareBizz)</small>
                 </p>
-                <Link className="btn-plan btn btn-primary" to="/login/customer" style={{ textDecoration: 'none', color: '#002169' }}>
+                <Link className="btn-plan btn btn-primary" to="/login" style={{ textDecoration: 'none', color: '#002169' }}>
                   GET PLAN
                 </Link>
               </div>

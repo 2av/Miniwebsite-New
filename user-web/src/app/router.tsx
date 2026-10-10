@@ -41,20 +41,11 @@ import { VideosPage, PaymentDetailsPage, SocialLinksPage } from '@/features/webs
 import { PaymentBridgePage } from '@/features/payment/PaymentBridgePage'
 import { PaymentSuccessPage } from '@/features/payment/PaymentSuccessPage'
 import { PublicCardPage } from '@/features/public-card/PublicCardPage'
-import { clearAuthSession, loginPathForRole } from '@/shared/auth/session'
+import { clearAuthSession, LOGIN_PATH } from '@/shared/auth/session'
 
 function LogoutPage() {
-  const role = (() => {
-    try {
-      const raw = localStorage.getItem('mw_user_session')
-      if (!raw) return null
-      return (JSON.parse(raw) as { role?: string }).role
-    } catch {
-      return null
-    }
-  })()
   clearAuthSession()
-  return <Navigate to={loginPathForRole(role)} replace />
+  return <Navigate to={LOGIN_PATH} replace />
 }
 
 function DocsSlugPage() {
@@ -89,17 +80,18 @@ export function AppRouter() {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
-      <Route path="login/customer" element={<LoginPage portal="customer" />} />
-      <Route path="login/franchisee" element={<LoginPage portal="franchisee" />} />
-      <Route path="login/team" element={<LoginPage portal="team" />} />
+      <Route path="login" element={<LoginPage />} />
+      <Route path="login/customer" element={<Navigate to={LOGIN_PATH} replace />} />
+      <Route path="login/franchisee" element={<Navigate to={LOGIN_PATH} replace />} />
+      <Route path="login/team" element={<Navigate to={LOGIN_PATH} replace />} />
       <Route path="login/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="logout" element={<LogoutPage />} />
 
       <Route path="registration" element={<RegistrationHubPage />} />
       <Route path="registration/customer" element={<RegisterPage kind="customer" />} />
-      <Route path="registration/customer/success" element={<RegistrationSuccessPage kind="customer" />} />
+      <Route path="registration/customer/success" element={<RegistrationSuccessPage />} />
       <Route path="registration/franchisee" element={<RegisterPage kind="franchisee" />} />
-      <Route path="registration/franchisee/success" element={<RegistrationSuccessPage kind="franchisee" />} />
+      <Route path="registration/franchisee/success" element={<RegistrationSuccessPage />} />
 
       <Route path="privacy-policy" element={<CmsContentPage contentType="privacy_policy" />} />
       <Route path="terms-conditions" element={<CmsContentPage contentType="terms_conditions" />} />

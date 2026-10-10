@@ -52,7 +52,7 @@ api.interceptors.response.use(
   (error: AxiosError<ApiResult>) => {
     const status = error.response?.status
     if (status === 401 || status === 403) {
-      redirectToLogin('unauthorized', getAuthSession()?.role)
+      redirectToLogin('unauthorized')
     }
     return Promise.reject(error)
   },

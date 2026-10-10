@@ -6,34 +6,8 @@ import { setAuthSession, getAuthSession, dashboardPathForRole, isSessionValid, c
 import type { UserRole } from '@/shared/types/api'
 import { useSiteStyles } from '@/shared/site/useSiteStyles'
 
-const ROLE_META: Record<
-  'customer' | 'franchisee' | 'team',
-  { role: UserRole; title: string; showCreateAccount: boolean; registerPath?: string }
-> = {
-  customer: {
-    role: 'CUSTOMER',
-    title: 'Customer Login',
-    showCreateAccount: true,
-    registerPath: '/registration/customer',
-  },
-  franchisee: {
-    role: 'FRANCHISEE',
-    title: 'Franchisee Login',
-    showCreateAccount: true,
-    registerPath: '/registration/franchisee',
-  },
-  team: {
-    role: 'TEAM',
-    title: 'Team Login',
-    showCreateAccount: false,
-  },
-}
-
-type Props = { portal: 'customer' | 'franchisee' | 'team' }
-
-export function LoginPage({ portal }: Props) {
+export function LoginPage() {
   useSiteStyles()
-  const meta = ROLE_META[portal]
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const existing = getAuthSession()
@@ -78,11 +52,11 @@ export function LoginPage({ portal }: Props) {
 
     setSubmitting(true)
     try {
-      const auth = await loginApi(id, pwd, meta.role)
+      const auth = await loginApi(id, pwd)
       setAuthSession({
         token: auth.accessToken,
         refreshToken: auth.refreshToken,
-        role: (auth.role as UserRole) || meta.role,
+        role: (auth.role as UserRole) || 'CUSTOMER',
         email: auth.email,
         name: auth.name,
         userId: auth.userId,
@@ -108,7 +82,7 @@ export function LoginPage({ portal }: Props) {
           <Link to="/" className="login-heading-back" aria-label="Back to home">
             <i className="fa fa-angle-left" aria-hidden="true" />
           </Link>
-          <span className="login-heading-text">{meta.title}</span>
+          <span className="login-heading-text">Login</span>
         </h2>
         <p className="text-white">Please enter your details</p>
 
@@ -147,7 +121,7 @@ export function LoginPage({ portal }: Props) {
                 <i className={`fa ${showPassword ? 'fa-eye' : 'fa-eye-slash'}`} aria-hidden="true" />
               </button>
             </div>
-            <Link to={`/login/forgot-password?role=${meta.role}`} className="forgot-password">
+            <Link to="/login/forgot-password" className="forgot-password">
               Forgot Password?
             </Link>
           </div>
@@ -166,16 +140,14 @@ export function LoginPage({ portal }: Props) {
         )}
         {error && <div className="alert danger error-msg">{error}</div>}
 
-        {meta.showCreateAccount && (
-          <div className="CreateAccount-wrap">
-            <span className="text-white">
-              Don&apos;t have an account? &nbsp;
-              <Link to={meta.registerPath!} className="create-account">
-                Create Account
-              </Link>
-            </span>
-          </div>
-        )}
+        <div className="CreateAccount-wrap">
+          <span className="text-white">
+            Don&apos;t have an account? &nbsp;
+            <Link to="/registration" className="create-account">
+              Create Account
+            </Link>
+          </span>
+        </div>
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ export function useAuthSession() {
     const sync = () => {
       const s = getAuthSession()
       if (s && !isSessionValid(s)) {
-        redirectToLogin('expired', s.role)
+        redirectToLogin('expired')
         setSession(null)
         return
       }

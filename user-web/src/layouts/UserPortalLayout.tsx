@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { apiGet, apiUploadForm } from '@/shared/api/client'
-import { clearAuthSession, loginPathForRole, isSessionValid, redirectToLogin } from '@/shared/auth/session'
+import { clearAuthSession, LOGIN_PATH, isSessionValid, redirectToLogin } from '@/shared/auth/session'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { assetUrl, mediaUrl } from '@/lib/utils'
 import { getCardInProcess, setCardInProcess } from '@/features/website/cardContext'
@@ -174,10 +174,10 @@ export function UserPortalLayout() {
 
   if (!session || !isSessionValid(session)) {
     if (session && !isSessionValid(session)) {
-      redirectToLogin('expired', session.role)
+      redirectToLogin('expired')
       return null
     }
-    return <Navigate to={loginPathForRole(session?.role)} replace />
+    return <Navigate to={LOGIN_PATH} replace />
   }
 
   const displayName = session.name || session.email.split('@')[0] || 'User'

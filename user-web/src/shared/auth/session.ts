@@ -1,4 +1,4 @@
-import type { AuthSession, UserRole } from '@/shared/types/api'
+import type { AuthSession } from '@/shared/types/api'
 
 const STORAGE_KEY = 'mw_user_session'
 
@@ -37,12 +37,7 @@ export function dashboardPathForRole(_role: string) {
   return '/dashboard'
 }
 
-export function loginPathForRole(role?: string | null) {
-  const r = String(role || '').toUpperCase()
-  if (r === 'FRANCHISEE') return '/login/franchisee'
-  if (r === 'TEAM') return '/login/team'
-  return '/login/customer'
-}
+export const LOGIN_PATH = '/login'
 
 /** Read JWT `exp` (seconds) when present. */
 function jwtExpiresAtMs(token?: string | null): number | null {
@@ -77,12 +72,10 @@ export function isSessionValid(session: AuthSession | null): boolean {
 }
 
 /**
- * Clear session and send user to the role login page.
+ * Clear session and send user to the login page.
  * Safe to call multiple times (single redirect).
  */
-export function redirectToLogin(reason: 'expired' | 'unauthorized' = 'expired', role?: UserRole | string | null) {
-  const fromSession = getAuthSession()
-  const loginPath = loginPathForRole(role || fromSession?.role)
+export function redirectToLogin(reason: 'expired' | 'unauthorized' = 'expired') {
   clearAuthSession()
 
   if (typeof window === 'undefined') return
@@ -91,13 +84,13 @@ export function redirectToLogin(reason: 'expired' | 'unauthorized' = 'expired', 
 
   redirectingToLogin = true
   const q = reason === 'expired' || reason === 'unauthorized' ? '?session=expired' : ''
-  window.location.assign(`${loginPath}${q}`)
+  window.location.assign(`${LOGIN_PATH}${q}`)
 }
 
 /** If local session is missing/expired, redirect and return true. */
 export function ensureValidSessionOrRedirect(): boolean {
   const session = getAuthSession()
   if (isSessionValid(session)) return true
-  redirectToLogin(session ? 'expired' : 'unauthorized', session?.role)
+  redirectToLogin(session ? 'expired' : 'unauthorized')
   return false
 }

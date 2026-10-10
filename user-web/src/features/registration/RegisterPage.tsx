@@ -27,7 +27,7 @@ export function RegisterPage({ kind }: Props) {
         ? {
             title: 'Create An Account',
             subtitle: 'Create an account to create your ShareBizz',
-            backTo: '/login/customer',
+            backTo: '/login',
             successPath: '/registration/customer/success',
             role: 'CUSTOMER' as UserRole,
             autoLogin: true,
@@ -35,7 +35,7 @@ export function RegisterPage({ kind }: Props) {
         : {
             title: 'Franchisee Registration',
             subtitle: 'Create an account to become a franchise partner',
-            backTo: '/login/franchisee',
+            backTo: '/login',
             successPath: '/registration/franchisee/success',
             role: 'FRANCHISEE' as UserRole,
             autoLogin: false,

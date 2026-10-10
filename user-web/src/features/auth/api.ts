@@ -32,7 +32,7 @@ export function normalizeAuthResponse(raw: unknown): AuthApiResponse {
   }
 }
 
-export async function loginApi(userId: string, password: string, role: UserRole) {
+export async function loginApi(userId: string, password: string, role?: UserRole) {
   const { data } = await apiSend<unknown>('post', '/api/v1/auth/login', {
     userId,
     password,

@@ -6,7 +6,6 @@ export function PublicHeader() {
   const location = useLocation()
   const [open, setOpen] = useState(false)
   const [earnOpen, setEarnOpen] = useState(false)
-  const [loginOpen, setLoginOpen] = useState(false)
 
   const hideHomeAnchors =
     location.pathname === '/franchisee' || location.pathname === '/refer-and-earn'
@@ -72,10 +71,7 @@ export function PublicHeader() {
                 <button
                   type="button"
                   className="mw-btn-primary inline-flex items-center gap-1 text-lg font-medium"
-                  onClick={() => {
-                    setEarnOpen((v) => !v)
-                    setLoginOpen(false)
-                  }}
+                  onClick={() => setEarnOpen((v) => !v)}
                 >
                   Earn With Us <i className="fa fa-angle-double-down" />
                 </button>
@@ -105,51 +101,17 @@ export function PublicHeader() {
                 )}
               </li>
 
-              <li className="relative lg:mx-2.5">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 py-2 text-lg font-medium text-[var(--mw-navy)] transition hover:text-[var(--mw-gold)]"
+              <li className="lg:mx-2.5">
+                <NavLink
+                  to="/login"
+                  className="block py-2 text-lg font-medium text-[var(--mw-navy)] transition hover:text-[var(--mw-gold)]"
                   onClick={() => {
-                    setLoginOpen((v) => !v)
                     setEarnOpen(false)
+                    setOpen(false)
                   }}
                 >
-                  Login <i className="fa fa-angle-double-down" />
-                </button>
-                {loginOpen && (
-                  <div className="absolute right-0 z-40 mt-1 min-w-[200px] rounded-lg bg-[var(--mw-navy)] py-2 shadow-lg">
-                    <NavLink
-                      to="/login/customer"
-                      className="block px-4 py-2 text-lg font-medium text-white hover:bg-white/10"
-                      onClick={() => {
-                        setLoginOpen(false)
-                        setOpen(false)
-                      }}
-                    >
-                      Customer Login
-                    </NavLink>
-                    <NavLink
-                      to="/login/franchisee"
-                      className="block px-4 py-2 text-lg font-medium text-white hover:bg-white/10"
-                      onClick={() => {
-                        setLoginOpen(false)
-                        setOpen(false)
-                      }}
-                    >
-                      Franchise Login
-                    </NavLink>
-                    <NavLink
-                      to="/login/team"
-                      className="block px-4 py-2 text-lg font-medium text-white hover:bg-white/10"
-                      onClick={() => {
-                        setLoginOpen(false)
-                        setOpen(false)
-                      }}
-                    >
-                      Team Login
-                    </NavLink>
-                  </div>
-                )}
+                  Login
+                </NavLink>
               </li>
             </ul>
           </div>

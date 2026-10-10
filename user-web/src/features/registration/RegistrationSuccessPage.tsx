@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { LOGIN_PATH } from '@/shared/auth/session'
 import { useSiteStyles } from '@/shared/site/useSiteStyles'
 
-type Props = { kind: 'customer' | 'franchisee' }
-
-export function RegistrationSuccessPage({ kind }: Props) {
+export function RegistrationSuccessPage() {
   useSiteStyles()
-  const loginPath = kind === 'customer' ? '/login/customer' : '/login/franchisee'
+  const loginPath = LOGIN_PATH
   const [seconds, setSeconds] = useState(3)
   const raw = sessionStorage.getItem('mw_registration_success')
   const ok = Boolean(raw)

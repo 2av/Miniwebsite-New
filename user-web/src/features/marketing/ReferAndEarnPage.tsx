@@ -16,7 +16,7 @@ export function ReferAndEarnPage() {
             <div className="banner-content">
               <h3>Enjoy Unlimited</h3>
               <h1 className="heading Referral_Reward_text">Referral Rewards !</h1>
-              <Link to="/login/customer" className="btn btn-primary" style={{ width: 'max-content', textDecoration: 'none', color: '#0a0a0b' }}>
+              <Link to="/login" className="btn btn-primary" style={{ width: 'max-content', textDecoration: 'none', color: '#0a0a0b' }}>
                 Start Referring
               </Link>
             </div>

@@ -1,24 +1,14 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { forgotPasswordApi, resetPasswordApi } from '@/features/auth/api'
 import { ApiError } from '@/shared/api/client'
+import { LOGIN_PATH } from '@/shared/auth/session'
 import { useSiteStyles } from '@/shared/site/useSiteStyles'
 
 type Step = 'email' | 'reset' | 'done'
 
-const LOGIN_BY_ROLE: Record<string, string> = {
-  CUSTOMER: '/login/customer',
-  FRANCHISEE: '/login/franchisee',
-  TEAM: '/login/team',
-}
-
 export function ForgotPasswordPage() {
   useSiteStyles()
-  const [params] = useSearchParams()
-  const role = (params.get('role') || 'CUSTOMER').toUpperCase()
-  const loginPath = LOGIN_BY_ROLE[role] || '/login/customer'
-  const roleLabel =
-    role === 'FRANCHISEE' ? 'Franchisee' : role === 'TEAM' ? 'Team' : 'Customer'
 
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
@@ -28,8 +18,6 @@ export function ForgotPasswordPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  const heading = useMemo(() => `Reset ${roleLabel} Password`, [roleLabel])
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault()
@@ -84,10 +72,10 @@ export function ForgotPasswordPage() {
     <div className="login-wrap">
       <div className="login-container">
         <h2 className="heading">
-          <Link to={loginPath}>
+          <Link to={LOGIN_PATH}>
             <i className="fa fa-angle-left" aria-hidden="true" />
           </Link>
-          {heading}
+          Reset Password
         </h2>
         <p className="text-white">Enter your registered email to reset your password.</p>
 
@@ -164,7 +152,7 @@ export function ForgotPasswordPage() {
         {step === 'done' && (
           <div className="Reset-foot">
             <p>Your password has been updated. You can now log in.</p>
-            <Link to={loginPath} className="btn btn-login" style={{ display: 'inline-block', textAlign: 'center' }}>
+            <Link to={LOGIN_PATH} className="btn btn-login" style={{ display: 'inline-block', textAlign: 'center' }}>
               Back to Login
             </Link>
           </div>
@@ -174,8 +162,8 @@ export function ForgotPasswordPage() {
         {error && <div className="alert danger error-msg" style={{ marginTop: 16 }}>{error}</div>}
 
         <div className="CreateAccount-wrap">
-          <Link to={loginPath} className="create-account">
-            Back to {roleLabel} Login
+          <Link to={LOGIN_PATH} className="create-account">
+            Back to Login
           </Link>
         </div>
       </div>

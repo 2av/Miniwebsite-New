@@ -13,7 +13,7 @@ export function WebsiteDevelopmentPage() {
         Looking for a full website? Start with a ShareBizz today, or contact support for custom development.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <Link to="/login/customer" className="mw-btn-primary">
+        <Link to="/login" className="mw-btn-primary">
           Create ShareBizz
         </Link>
         <a href={siteUrl('franchisee.php')} className="rounded-lg border px-4 py-2 text-[var(--mw-navy)]">
