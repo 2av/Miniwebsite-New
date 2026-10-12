@@ -943,40 +943,6 @@ CREATE TABLE `registration_pending` (
   `IsDeleted` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE `role_access_features` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `feature_key` varchar(80) NOT NULL,
-  `feature_label` varchar(200) NOT NULL,
-  `feature_group` varchar(80) NOT NULL DEFAULT 'General',
-  `field_type` enum('yes_no','text','textarea') NOT NULL DEFAULT 'text',
-  `sort_order` int(11) NOT NULL DEFAULT 0,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `role_access_profiles` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `profile_key` varchar(50) NOT NULL,
-  `profile_label` varchar(150) NOT NULL,
-  `base_role` enum('ADMIN','CUSTOMER','TEAM','FRANCHISEE') NOT NULL,
-  `requires_collaboration` enum('ANY','YES','NO') NOT NULL DEFAULT 'ANY',
-  `requires_influencer` enum('ANY','YES','NO') NOT NULL DEFAULT 'ANY',
-  `sort_order` int(11) NOT NULL DEFAULT 0,
-  `is_active` tinyint(1) NOT NULL DEFAULT 1,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
-  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `role_access_settings` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `profile_id` int(10) UNSIGNED NOT NULL,
-  `feature_id` int(10) UNSIGNED NOT NULL,
-  `is_not_applicable` tinyint(1) NOT NULL DEFAULT 0,
-  `setting_value` text NOT NULL,
-  `updated_by` varchar(255) DEFAULT NULL,
-  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 CREATE TABLE `team_members` (
   `id` int(10) UNSIGNED NOT NULL,
   `member_name` varchar(150) NOT NULL,

@@ -14,11 +14,10 @@ type MenuItem = {
   url: string
   roles: UserRole[]
   alwaysVisible?: boolean
-  roleAccessFeature?: string
   conditions?: Partial<Record<UserRole, Record<string, boolean>>>
 }
 
-/** Mirrors user/menu_config.json visibility rules (role-access features treated as allowed for now). */
+/** Mirrors user/menu_config.json visibility rules. */
 const MENU: MenuItem[] = [
   {
     id: 'dashboard',

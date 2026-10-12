@@ -37,7 +37,6 @@ public sealed class DataSeeder : IDataSeeder
     {
         await SeedThemesAsync(ct);
         await SeedPricingPlansAsync(ct);
-        await SeedRoleAccessCatalogAsync(ct);
         await SeedEmailTemplatesAsync(ct);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Reference data seed completed.");
@@ -275,29 +274,6 @@ public sealed class DataSeeder : IDataSeeder
         }
     }
 
-    private async Task SeedRoleAccessCatalogAsync(CancellationToken ct)
-    {
-        if (await _db.RoleAccessProfiles.AnyAsync(ct)) return;
-
-        var profiles = new[]
-        {
-            new RoleAccessProfile { ProfileKey = "customer", ProfileLabel = "Customer", BaseRole = "CUSTOMER", SortOrder = 1, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessProfile { ProfileKey = "franchisee", ProfileLabel = "Franchisee", BaseRole = "FRANCHISEE", SortOrder = 2, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessProfile { ProfileKey = "team", ProfileLabel = "Team", BaseRole = "TEAM", SortOrder = 3, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessProfile { ProfileKey = "admin", ProfileLabel = "Admin", BaseRole = "ADMIN", SortOrder = 4, IsActive = true, CreatedAt = DateTime.UtcNow },
-        };
-        _db.RoleAccessProfiles.AddRange(profiles);
-
-        var features = new[]
-        {
-            new RoleAccessFeature { FeatureKey = "website_builder", FeatureLabel = "Website Builder", FeatureGroup = "core", FieldType = "yes_no", SortOrder = 1, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessFeature { FeatureKey = "wallet", FeatureLabel = "Wallet", FeatureGroup = "core", FieldType = "yes_no", SortOrder = 2, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessFeature { FeatureKey = "referral", FeatureLabel = "Referral", FeatureGroup = "core", FieldType = "yes_no", SortOrder = 3, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessFeature { FeatureKey = "kit", FeatureLabel = "Sales Kit", FeatureGroup = "franchise", FieldType = "yes_no", SortOrder = 4, IsActive = true, CreatedAt = DateTime.UtcNow },
-            new RoleAccessFeature { FeatureKey = "customer_manager", FeatureLabel = "Customer Manager", FeatureGroup = "crm", FieldType = "yes_no", SortOrder = 5, IsActive = true, CreatedAt = DateTime.UtcNow },
-        };
-        _db.RoleAccessFeatures.AddRange(features);
-    }
 }
 
 public static class DataSeederExtensions

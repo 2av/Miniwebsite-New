@@ -30,46 +30,6 @@ public class KitItem
     public DateTime? UpdatedAt { get; set; }
 }
 
-public class RoleAccessProfile
-{
-    public int Id { get; set; }
-    public string ProfileKey { get; set; } = "";
-    public string ProfileLabel { get; set; } = "";
-    public string BaseRole { get; set; } = "";
-    public string RequiresCollaboration { get; set; } = "ANY";
-    public string RequiresInfluencer { get; set; } = "ANY";
-    public int SortOrder { get; set; }
-    public bool IsActive { get; set; } = true;
-    public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public ICollection<RoleAccessSetting> Settings { get; set; } = new List<RoleAccessSetting>();
-}
-
-public class RoleAccessFeature
-{
-    public int Id { get; set; }
-    public string FeatureKey { get; set; } = "";
-    public string FeatureLabel { get; set; } = "";
-    public string FeatureGroup { get; set; } = "";
-    public string FieldType { get; set; } = "yes_no";
-    public int SortOrder { get; set; }
-    public bool IsActive { get; set; } = true;
-    public DateTime? CreatedAt { get; set; }
-}
-
-public class RoleAccessSetting
-{
-    public int Id { get; set; }
-    public int ProfileId { get; set; }
-    public RoleAccessProfile Profile { get; set; } = null!;
-    public int FeatureId { get; set; }
-    public RoleAccessFeature Feature { get; set; } = null!;
-    public bool IsNotApplicable { get; set; }
-    public string? SettingValue { get; set; }
-    public string? UpdatedBy { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-}
-
 public class ProductCategory
 {
     public int Id { get; set; }

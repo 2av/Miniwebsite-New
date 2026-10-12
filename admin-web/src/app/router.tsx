@@ -20,7 +20,6 @@ import { GrowWithMwSectionsPage } from '@/features/grow-with-mw/GrowWithMwSectio
 import { GrowWithMwMediaPage } from '@/features/grow-with-mw/GrowWithMwMediaPage'
 import { GrowWithMwPageEditorPage } from '@/features/grow-with-mw/GrowWithMwPageEditorPage'
 import { KitManagementInvalidCategory, KitManagementRedirect } from '@/features/kit-management/KitManagementPage'
-import { RoleAccessSettingsPage } from '@/features/role-access-settings/RoleAccessSettingsPage'
 import { RoleManagementPage } from '@/features/role-management/RoleManagementPage'
 import { SalesChannelPartnerRoute } from '@/features/sales-channel-partners/SalesChannelPartnerPage'
 import { LoginPage } from '@/features/auth/LoginPage'
@@ -66,8 +65,6 @@ export function AppRouter() {
         <Route path="email-templates" element={<ManageEmailTemplatesPage />} />
         <Route path="manage-email-templates" element={<Navigate to="/email-templates" replace />} />
         <Route path="manage-categories" element={<ManageCategoriesPage />} />
-        <Route path="role-access-settings" element={<RoleAccessSettingsPage />} />
-        <Route path="manage-role-access-settings" element={<Navigate to="/role-access-settings" replace />} />
         <Route path="sales-channel-partner" element={<Navigate to="/sales-channel-partner/franchisee-partner" replace />} />
         <Route path="sales-channel-partner/:slug" element={<SalesChannelPartnerRoute />} />
         <Route path="role-management" element={<RoleManagementPage />} />

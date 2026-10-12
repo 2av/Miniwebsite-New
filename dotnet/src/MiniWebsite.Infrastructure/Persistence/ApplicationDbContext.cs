@@ -49,9 +49,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<KitFolder> KitFolders => Set<KitFolder>();
     public DbSet<KitItem> KitItems => Set<KitItem>();
     public DbSet<Role> Roles => Set<Role>();
-    public DbSet<RoleAccessProfile> RoleAccessProfiles => Set<RoleAccessProfile>();
-    public DbSet<RoleAccessFeature> RoleAccessFeatures => Set<RoleAccessFeature>();
-    public DbSet<RoleAccessSetting> RoleAccessSettings => Set<RoleAccessSetting>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<UserCustomCategory> UserCustomCategories => Set<UserCustomCategory>();
     public DbSet<UserBankDetails> UserBankDetails => Set<UserBankDetails>();

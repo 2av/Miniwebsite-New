@@ -1,0 +1,17 @@
+---
+description: ShareBizz From and Reply-To mailbox rules for outgoing mail
+globs: dotnet/**/*Email*.cs,dotnet/**/*Smtp*.cs,dotnet/**/Notifications/**/*.cs,dotnet/**/*Template*.cs
+alwaysApply: false
+---
+
+# Outgoing ShareBizz mail
+
+Follow `dotnet/docs/EMAIL-ADDRESSES.md` when adding or changing a sent email.
+
+- OTP, verification, password reset, security alerts, welcome credentials, payment confirmation, invoice notice, activation, and renewal reminders: From `noreply@sharebizz.com`. Set Reply-To to `support@sharebizz.com`, or `billing@sharebizz.com` when the message is about payment or an invoice.
+- Support replies: `support@sharebizz.com`.
+- Partnerships, franchise enquiries, and acquisition campaigns: `business@sharebizz.com`. Include an unsubscribe path on campaigns.
+- Invoices, payments, and refunds: `billing@sharebizz.com`.
+- Job applications: `careers@sharebizz.com`, and send an auto-reply.
+- Employee HR mail: `hr@sharebizz.com`.
+- Do not send promotional campaigns from `noreply`. Do not add `sales@`, `partners@`, `franchise@`, or `investor@`.

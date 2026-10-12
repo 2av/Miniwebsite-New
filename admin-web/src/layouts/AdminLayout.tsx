@@ -30,7 +30,6 @@ import {
   FileText,
   Mail,
   Network,
-  ShieldCheck,
   Search,
   X,
   BadgeIndianRupee,
@@ -211,7 +210,6 @@ const nav: NavNode[] = [
   { kind: 'link', to: '/recharge-wallet', label: 'Recharge Wallet', icon: BatteryCharging },
   { kind: 'link', to: '/manage-categories', label: 'Category Management', icon: FolderTree },
   { kind: 'link', to: '/role-management', label: 'Role Management', icon: Shield },
-  { kind: 'link', to: '/role-access-settings', label: 'Role Access Settings', icon: ShieldCheck },
 ]
 
 function collectGroupIds(nodes: NavNode[]): string[] {

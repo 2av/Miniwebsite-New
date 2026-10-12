@@ -2180,135 +2180,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("roles", (string)null);
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.RoleAccessFeature", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("FeatureGroup")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("FeatureKey")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("varchar(80)");
-
-                    b.Property<string>("FeatureLabel")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("FieldType")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FeatureKey")
-                        .IsUnique();
-
-                    b.ToTable("role_access_features", (string)null);
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.RoleAccessProfile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("BaseRole")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("ProfileKey")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("ProfileLabel")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("varchar(150)");
-
-                    b.Property<string>("RequiresCollaboration")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("RequiresInfluencer")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProfileKey")
-                        .IsUnique();
-
-                    b.ToTable("role_access_profiles", (string)null);
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.RoleAccessSetting", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("FeatureId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsNotApplicable")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("ProfileId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SettingValue")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FeatureId");
-
-                    b.HasIndex("ProfileId", "FeatureId")
-                        .IsUnique();
-
-                    b.ToTable("role_access_settings", (string)null);
-                });
-
             modelBuilder.Entity("MiniWebsite.Domain.Entities.ThemeCatalog", b =>
                 {
                     b.Property<int>("Id")
@@ -2992,25 +2863,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.RoleAccessSetting", b =>
-                {
-                    b.HasOne("MiniWebsite.Domain.Entities.RoleAccessFeature", "Feature")
-                        .WithMany()
-                        .HasForeignKey("FeatureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MiniWebsite.Domain.Entities.RoleAccessProfile", "Profile")
-                        .WithMany("Settings")
-                        .HasForeignKey("ProfileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Feature");
-
-                    b.Navigation("Profile");
-                });
-
             modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.Role", "AssignedRole")
@@ -3235,11 +3087,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MiniWebsite.Domain.Entities.ReferralEarning", b =>
                 {
                     b.Navigation("Payments");
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.RoleAccessProfile", b =>
-                {
-                    b.Navigation("Settings");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>

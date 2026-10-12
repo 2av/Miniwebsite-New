@@ -151,9 +151,6 @@ public class CrmContentConfigurations :
 public class KitAccessConfigurations :
     IEntityTypeConfiguration<KitFolder>,
     IEntityTypeConfiguration<KitItem>,
-    IEntityTypeConfiguration<RoleAccessProfile>,
-    IEntityTypeConfiguration<RoleAccessFeature>,
-    IEntityTypeConfiguration<RoleAccessSetting>,
     IEntityTypeConfiguration<ProductCategory>,
     IEntityTypeConfiguration<UserCustomCategory>,
     IEntityTypeConfiguration<UserBankDetails>,
@@ -179,33 +176,6 @@ public class KitAccessConfigurations :
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.Category).HasMaxLength(50);
         builder.HasOne(x => x.Folder).WithMany(x => x.Items).HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.SetNull);
-    }
-
-    public void Configure(EntityTypeBuilder<RoleAccessProfile> builder)
-    {
-        builder.ToTable("role_access_profiles");
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.ProfileKey).HasMaxLength(50).IsRequired();
-        builder.Property(x => x.ProfileLabel).HasMaxLength(150);
-        builder.HasIndex(x => x.ProfileKey).IsUnique();
-    }
-
-    public void Configure(EntityTypeBuilder<RoleAccessFeature> builder)
-    {
-        builder.ToTable("role_access_features");
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.FeatureKey).HasMaxLength(80).IsRequired();
-        builder.Property(x => x.FeatureLabel).HasMaxLength(200);
-        builder.HasIndex(x => x.FeatureKey).IsUnique();
-    }
-
-    public void Configure(EntityTypeBuilder<RoleAccessSetting> builder)
-    {
-        builder.ToTable("role_access_settings");
-        builder.HasKey(x => x.Id);
-        builder.HasIndex(x => new { x.ProfileId, x.FeatureId }).IsUnique();
-        builder.HasOne(x => x.Profile).WithMany(x => x.Settings).HasForeignKey(x => x.ProfileId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne(x => x.Feature).WithMany().HasForeignKey(x => x.FeatureId).OnDelete(DeleteBehavior.Cascade);
     }
 
     public void Configure(EntityTypeBuilder<ProductCategory> builder)

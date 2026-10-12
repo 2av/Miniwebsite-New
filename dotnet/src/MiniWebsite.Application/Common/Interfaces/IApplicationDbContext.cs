@@ -43,9 +43,6 @@ public interface IApplicationDbContext
     DbSet<KitFolder> KitFolders { get; }
     DbSet<KitItem> KitItems { get; }
     DbSet<Role> Roles { get; }
-    DbSet<RoleAccessProfile> RoleAccessProfiles { get; }
-    DbSet<RoleAccessFeature> RoleAccessFeatures { get; }
-    DbSet<RoleAccessSetting> RoleAccessSettings { get; }
     DbSet<ProductCategory> ProductCategories { get; }
     DbSet<UserCustomCategory> UserCustomCategories { get; }
     DbSet<UserBankDetails> UserBankDetails { get; }
