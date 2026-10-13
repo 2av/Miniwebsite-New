@@ -3,8 +3,7 @@ using MiniWebsite.Application.Common.Options;
 namespace MiniWebsite.Application.Website;
 
 /// <summary>
-/// Builds public image URLs on the PHP domain.
-/// Upload flow (PHP later): Frontend POSTs file to PHP → gets filename → .NET saves filename only.
+/// Builds public image URLs under <see cref="AppOptions.SiteBaseUrl"/> + <see cref="AppOptions.WebsiteUploadsPath"/>.
 /// </summary>
 public static class WebsiteAssetUrls
 {
@@ -36,17 +35,17 @@ public static class WebsiteAssetUrls
         // If DB already stores a relative path like company_details/x.jpg
         if (name.Contains('/', StringComparison.Ordinal))
         {
-            var baseRoot = Combine(app.PhpSiteBaseUrl, app.WebsiteUploadsPath);
+            var baseRoot = Combine(app.SiteBaseUrl, app.WebsiteUploadsPath);
             return Combine(baseRoot, name.TrimStart('/'));
         }
 
-        return Combine(Combine(app.PhpSiteBaseUrl, app.WebsiteUploadsPath), folder, name);
+        return Combine(Combine(app.SiteBaseUrl, app.WebsiteUploadsPath), folder, name);
     }
 
     public static object DescribeUploadContract(AppOptions app) => new
     {
         strategy = "Upload files to PHP domain; save filename via .NET API",
-        phpSiteBaseUrl = app.PhpSiteBaseUrl.TrimEnd('/'),
+        siteBaseUrl = app.SiteBaseUrl.TrimEnd('/'),
         websiteUploadsPath = app.WebsiteUploadsPath,
         folders = new
         {

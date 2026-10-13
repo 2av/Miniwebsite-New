@@ -377,7 +377,7 @@ public class PublicCardService : IPublicCardService
 
     private string BuildShareUrl(string slug)
     {
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         if (string.IsNullOrEmpty(baseUrl))
             return "/" + slug.TrimStart('/');
         return $"{baseUrl}/{slug.TrimStart('/')}";
@@ -385,7 +385,7 @@ public class PublicCardService : IPublicCardService
 
     private string SiteAsset(string relativePath)
     {
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         return $"{baseUrl}/{relativePath.TrimStart('/')}";
     }
 

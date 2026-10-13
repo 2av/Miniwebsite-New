@@ -626,7 +626,7 @@ public class PortalService : IPortalService
         var prefix = string.IsNullOrWhiteSpace(_app.VerificationUploadsRelativePath)
             ? "assets/upload/verification"
             : _app.VerificationUploadsRelativePath.Trim().Trim('/').Replace('\\', '/');
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl)) return "/" + prefix + "/" + name;
         return baseUrl + "/" + prefix + "/" + name;
     }
@@ -1303,7 +1303,7 @@ public class PortalService : IPortalService
         // Match PHP header.php: only use DB path when the file exists on disk.
         if (!ProfileImageFileExists(path)) return null;
 
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl)) return "/" + path.TrimStart('/');
         return baseUrl + "/" + path.TrimStart('/');
     }
@@ -1327,7 +1327,7 @@ public class PortalService : IPortalService
             var rel = path.StartsWith("user/idcard/", StringComparison.OrdinalIgnoreCase)
                 ? path
                 : "user/idcard/" + path.TrimStart('/');
-            var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+            var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
             if (string.IsNullOrWhiteSpace(baseUrl)) return "/" + rel;
             return baseUrl + "/" + rel;
         }

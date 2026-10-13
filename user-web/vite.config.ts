@@ -22,7 +22,7 @@ export default defineConfig({
       },
       // Same-origin proxy so canvas can use live-site profile photos without tainting
       '/php-site': {
-        target: 'https://miniwebsite.in',
+        target: 'https://sharebizz.com',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/php-site/, ''),
       },

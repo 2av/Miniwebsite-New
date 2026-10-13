@@ -276,9 +276,9 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     private async Task SendWelcomeAsync(
         UserRole loginRole, Role role, string name, string email, string password, CancellationToken ct)
     {
-        var loginUrl = string.IsNullOrWhiteSpace(_app.PhpSiteBaseUrl)
+        var loginUrl = string.IsNullOrWhiteSpace(_app.SiteBaseUrl)
             ? $"https://{_app.PublicHost}"
-            : _app.PhpSiteBaseUrl.TrimEnd('/');
+            : _app.SiteBaseUrl.TrimEnd('/');
         var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["name"] = name,
@@ -508,7 +508,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return path;
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         return string.IsNullOrWhiteSpace(baseUrl) ? path : baseUrl + "/" + path.TrimStart('/');
     }
 

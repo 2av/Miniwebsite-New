@@ -608,18 +608,18 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
     {
         var prefix = _app.DocumentationPublicPrefix;
         if (prefix.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return prefix;
-        return CombineUrl(_app.PhpSiteBaseUrl, prefix);
+        return CombineUrl(_app.SiteBaseUrl, prefix);
     }
 
     private string GrowWithMwPrefix()
     {
         var prefix = _app.GrowWithMwPublicPrefix;
         if (prefix.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return prefix;
-        return CombineUrl(_app.PhpSiteBaseUrl, prefix);
+        return CombineUrl(_app.SiteBaseUrl, prefix);
     }
 
     private string BuildPublicUrl(string relPath) =>
-        CombineUrl(_app.PhpSiteBaseUrl, relPath);
+        CombineUrl(_app.SiteBaseUrl, relPath);
 
     private static string CombineUrl(string baseUrl, string path)
     {

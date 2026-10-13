@@ -891,7 +891,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;">
         <h2>Congratulations!</h2>
         <p>Your ShareBizz account has been upgraded with the <strong>Collaborator Feature</strong>.</p>
-        <p><a href="https://miniwebsite.in/login/customer.php">Login to Your Account</a></p>
+        <p><a href="https://sharebizz.com/login/customer.php">Login to Your Account</a></p>
         <p>Best regards,<br>ShareBizz Team</p>
         </body></html>
         """;

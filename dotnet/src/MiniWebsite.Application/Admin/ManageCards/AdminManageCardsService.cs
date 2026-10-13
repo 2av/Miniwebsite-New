@@ -111,7 +111,7 @@ public class AdminManageCardsService : IAdminManageCardsService
         var cardIds = pageRows.Select(c => c.Id).ToList();
         var invoices = await GetInvoiceSummariesAsync(cardIds, ct);
 
-        var siteBase = (_app.PhpSiteBaseUrl ?? "https://miniwebsite.in").TrimEnd('/');
+        var siteBase = (_app.SiteBaseUrl ?? "https://sharebizz.com").TrimEnd('/');
         var rows = new List<ManageCardRowDto>(pageRows.Count);
 
         foreach (var c in pageRows)

@@ -142,9 +142,9 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         var name = user.FullName;
         try
         {
-            var loginUrl = string.IsNullOrWhiteSpace(_app.PhpSiteBaseUrl)
+            var loginUrl = string.IsNullOrWhiteSpace(_app.SiteBaseUrl)
                 ? $"https://{_app.PublicHost}"
-                : _app.PhpSiteBaseUrl.TrimEnd('/');
+                : _app.SiteBaseUrl.TrimEnd('/');
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["name"] = name,

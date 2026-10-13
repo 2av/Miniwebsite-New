@@ -204,7 +204,7 @@ public partial class WebsiteService : IWebsiteService
 
     private string? CombinePublic(string relative)
     {
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl)) return relative;
         return $"{baseUrl}/{relative.TrimStart('/')}";
     }

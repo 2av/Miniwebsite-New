@@ -95,7 +95,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
 
         var invoices = await GetFranchiseInvoicesAsync(emails, ct);
         var docs = await GetDocumentStatusesAsync(emails, ct);
-        var siteBase = (_configuration["App:PhpSiteBaseUrl"] ?? "https://miniwebsite.in").TrimEnd('/');
+        var siteBase = (_configuration["App:SiteBaseUrl"] ?? "https://sharebizz.com").TrimEnd('/');
         var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
 
         var rows = new List<FranchiseeRowDto>();

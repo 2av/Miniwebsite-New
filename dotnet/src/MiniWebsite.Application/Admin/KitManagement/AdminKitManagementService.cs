@@ -834,7 +834,7 @@ public class AdminKitManagementService : IAdminKitManagementService
             || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return path.TrimEnd('/');
 
-        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        var baseUrl = (_app.SiteBaseUrl ?? "").TrimEnd('/');
         return $"{baseUrl}/{path.TrimStart('/')}".TrimEnd('/');
     }
 
