@@ -43,6 +43,19 @@ public sealed class DataSeeder : IDataSeeder
 
         await HashPlainTextPasswordsAsync(ct);
         await SeedAdminUserAsync(ct);
+        await BackfillCommissionCodesAsync(ct);
+    }
+
+    private async Task BackfillCommissionCodesAsync(CancellationToken ct)
+    {
+        var earnings = await _db.ReferralEarnings
+            .Where(r => r.CommissionCode == null || r.CommissionCode == "")
+            .ToListAsync(ct);
+        if (earnings.Count == 0) return;
+
+        await _db.AssignCommissionCodesAsync(earnings, ct);
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Assigned commission codes to {Count} referral earnings.", earnings.Count);
     }
 
     private async Task SeedAdminUserAsync(CancellationToken ct)
@@ -68,8 +81,8 @@ public sealed class DataSeeder : IDataSeeder
             Phone = "",
             Password = _passwordHasher.Hash(_adminSeed.Password),
             Status = "ACTIVE",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
         });
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Seeded admin user {Email}.", email);
@@ -93,7 +106,7 @@ public sealed class DataSeeder : IDataSeeder
         foreach (var user in users)
         {
             user.Password = _passwordHasher.Hash(user.Password);
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = AppClock.Now;
         }
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Hashed {Count} plain-text user passwords.", users.Count);
@@ -103,7 +116,7 @@ public sealed class DataSeeder : IDataSeeder
     {
         if (await _db.EmailTemplates.AnyAsync(ct)) return;
 
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
         EmailTemplate T(string key, string name, string category, string subject, string body, string vars, string desc) =>
             new()
             {
@@ -236,7 +249,7 @@ public sealed class DataSeeder : IDataSeeder
                 CssValue = $"theme/css/theme{i}.css",
                 IsActive = true,
                 SortOrder = i,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = AppClock.Now,
             });
         }
     }
@@ -269,7 +282,7 @@ public sealed class DataSeeder : IDataSeeder
                 OfferedPrice = price,
                 OfferedPriceGst = gst,
                 Status = "Active",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = AppClock.Now,
             });
         }
     }

@@ -5,6 +5,7 @@ using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.ManageUsers.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
@@ -33,35 +34,35 @@ public class AdminManageUsersService : IAdminManageUsersService
         _templates = templates;
     }
 
-    public async Task<ApiResult<ManageUsersPageDto>> ListAsync(ManageUsersQuery query, CancellationToken ct = default)
+    public Task<ApiResult<ManageUsersPageDto>> ListAsync(ManageUsersQuery query, CancellationToken ct = default)
     {
         query.Page = query.Page < 1 ? 1 : query.Page;
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
+        return LoadPageAsync(query, ct);
+    }
 
-        var customers = await ApplyCustomerFilters(_db.Users.AsNoTracking(), query)
-            .OrderByDescending(u => u.Id)
-            .ToListAsync(ct);
+    private async Task<ApiResult<ManageUsersPageDto>> LoadPageAsync(ManageUsersQuery query, CancellationToken ct)
+    {
+
+        var customers = ApplyPostFilters(ApplyCustomerFilters(_db.Users.AsNoTracking(), query), query);
 
         var totalWebsites = await _db.Cards.AsNoTracking().CountAsync(ct);
-        var dealEmails = await GetMappedCustomerEmailsAsync(ct);
-        var websiteCounts = await GetWebsiteCountsAsync(ct);
+        var totalUsers = await customers.CountAsync(ct);
+        var activeUsers = await customers.CountAsync(u => u.Status == "ACTIVE", ct);
+        var usersWithDeals = await customers.CountAsync(HasDealMapping(), ct);
 
-        customers = ApplyPostFilters(customers, query, dealEmails, websiteCounts);
-
-        var totalUsers = customers.Count;
-        var activeUsers = customers.Count(u =>
-            string.Equals(u.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase));
-        var usersWithDeals = customers.Count(u => dealEmails.Contains(Normalize(u.Email)));
-
-        var pageUsers = customers
+        var pageUsers = await customers
+            .OrderByDescending(u => u.Id)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
-            .ToList();
+            .ToListAsync(ct);
 
         var emails = pageUsers.Select(u => Normalize(u.Email)).ToList();
+        var websiteCounts = await GetWebsiteCountsAsync(emails, ct);
         var mwDealsByEmail = await GetMappedDealsAsync(emails, "MiniWebsite", ct);
         var franchiseDealsByEmail = await GetMappedDealsAsync(emails, "Franchise", ct);
         var refSummaries = await GetReferralSummariesAsync(emails, ct);
+        var referralSources = await BuildReferralSourcesAsync(pageUsers, ct);
 
         var rows = new List<ManageUserRowDto>(pageUsers.Count);
         foreach (var u in pageUsers)
@@ -69,33 +70,36 @@ public class AdminManageUsersService : IAdminManageUsersService
             var email = Normalize(u.Email);
             websiteCounts.TryGetValue(email, out var wc);
             refSummaries.TryGetValue(email, out var summary);
-            summary ??= new ReferralSummary(0, 0, null);
+            summary ??= new ReferralSummary(0, 0, null, 0, 0);
 
             var pending = Math.Max(0, summary.TotalAmount - summary.PaidAmount);
             mwDealsByEmail.TryGetValue(email, out var mwDeal);
             franchiseDealsByEmail.TryGetValue(email, out var frDeal);
+            referralSources.TryGetValue(email, out var referralSource);
 
             rows.Add(new ManageUserRowDto(
                 u.Id,
-                u.UserCode,
+                UserCodeGenerator.FormatDisplay(u.UserCode),
                 u.Email,
                 u.FullName,
                 u.Phone,
                 u.Address.State,
-                u.Status,
+                u.Address.District,
+                FormatUserStatus(u.Status),
                 u.CreatedAt,
                 u.Referral.CollaborationEnabled ? "YES" : "NO",
                 u.Referral.SaleskitEnabled ? "YES" : "NO",
                 string.IsNullOrWhiteSpace(u.RefundStatus) ? "None" : u.RefundStatus,
                 u.RefundStatusDate,
                 u.Referral.ReferredBy,
-                await BuildReferralSourceAsync(u.Referral.ReferredBy, u.Email, ct),
+                referralSource ?? "Direct",
                 wc,
                 pending,
                 summary.TotalAmount,
                 summary.PaidAmount,
                 summary.LastPaymentDate,
                 BuildMwPaymentLabel(summary),
+                BuildCommissionStatus(summary),
                 mwDeal,
                 frDeal));
         }
@@ -124,14 +128,14 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("userEmail and dealId are required.");
 
         var exists = await _db.DealCustomerMappings.AnyAsync(
-            m => m.DealId == request.DealId && m.CustomerEmail.ToLower() == email, ct);
+            m => m.DealId == request.DealId && m.CustomerEmail == email, ct);
 
         if (exists)
             return ApiResult.Fail("Deal already mapped to this user!");
 
         var createdBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? "admin" : request.CreatedBy!.Trim();
         var userId = await _db.Users.AsNoTracking()
-            .Where(u => u.Email.ToLower() == email)
+            .Where(u => u.Email == email)
             .Select(u => (int?)u.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -141,7 +145,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             CustomerEmail = email,
             UserId = userId,
             CreatedBy = createdBy,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
         });
         await _db.SaveChangesAsync(ct);
 
@@ -162,6 +166,23 @@ public class AdminManageUsersService : IAdminManageUsersService
         return ApiResult.Ok("Deal mapping removed successfully!");
     }
 
+    public async Task<ApiResult> SetUserStatusAsync(int id, string? status, CancellationToken ct = default)
+    {
+        var requested = (status ?? "").Trim().ToUpperInvariant();
+        if (requested is not ("ACTIVE" or "INACTIVE"))
+            return ApiResult.Fail("Status must be ACTIVE or INACTIVE.");
+
+        var user = await _db.Users.WhereRole(UserRole.Customer)
+            .FirstOrDefaultAsync(u => u.Id == id && !u.Referral.CollaborationEnabled, ct);
+        if (user == null)
+            return ApiResult.Fail("User not found.");
+
+        user.Status = requested;
+        user.UpdatedAt = AppClock.Now;
+        await _db.SaveChangesAsync(ct);
+        return ApiResult.Ok(requested == "ACTIVE" ? "User set to Active." : "User set to InActive.");
+    }
+
     public async Task<ApiResult> SetCollaborationAsync(ToggleStatusRequest request, CancellationToken ct = default)
     {
         var email = Normalize(request.Email);
@@ -170,12 +191,12 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("Status must be YES or NO.");
 
         var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email, ct);
+            u => u.Email == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
         user.Referral.CollaborationEnabled = status == "YES";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
         if (status == "YES")
@@ -211,12 +232,12 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("Status must be YES or NO.");
 
         var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email, ct);
+            u => u.Email == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
         user.Referral.SaleskitEnabled = status == "YES";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("User sales kit status updated successfully");
     }
@@ -229,7 +250,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("Invalid refund status.");
 
         var user = await _db.Users.WhereRole(UserRole.Customer).FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email, ct);
+            u => u.Email == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found.");
 
@@ -237,9 +258,9 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (refundStatus == "None")
             user.RefundStatusDate = null;
         else if (user.RefundStatusDate == null)
-            user.RefundStatusDate = DateTime.UtcNow;
+            user.RefundStatusDate = AppClock.Now;
 
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("success");
     }
@@ -254,13 +275,13 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("Password must be at least 6 characters.");
 
         var user = await _db.Users.WhereRole(role.Value).FirstOrDefaultAsync(
-            u => u.Email.ToLower() == email, ct);
+            u => u.Email == email, ct);
         if (user == null)
             return ApiResult.Fail("User not found for this role.");
 
         var hash = _passwordHasher.Hash(request.NewPassword);
         user.Password = hash;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password updated successfully for " + email);
     }
@@ -272,8 +293,8 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult<DashboardDetailsDto>.Fail("Invalid user email provided.");
 
         var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && c.UserEmail.ToLower() == email)
-            .OrderByDescending(c => c.UploadedDate)
+            .Where(c => c.UserEmail != null && c.UserEmail == email)
+            .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
 
         var sites = cards.Select(c =>
@@ -307,18 +328,18 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         var user = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+            .FirstOrDefaultAsync(u => u.Email == email, ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => r.ReferrerEmail.ToLower() == email)
+            .Where(r => r.ReferrerEmail == email)
             .OrderByDescending(r => r.ReferralDate)
             .ToListAsync(ct);
 
         var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
         var paidCardEmails = await _db.Cards.AsNoTracking()
             .Where(c => c.UserEmail != null
-                        && referredEmails.Contains(c.UserEmail.ToLower())
-                        && c.DPaymentStatus == "Success")
+                        && referredEmails.Contains(c.UserEmail)
+                        && c.PaymentStatus == "Success")
             .Select(c => c.UserEmail!.ToLower())
             .Distinct()
             .ToListAsync(ct);
@@ -340,17 +361,17 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         var customerMap = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .Where(u => referredEmails.Contains(u.Email.ToLower()))
+            .Where(u => referredEmails.Contains(u.Email))
             .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
 
         var franchiseeMap = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Franchisee)
-            .Where(u => referredEmails.Contains(u.Email.ToLower()))
+            .Where(u => referredEmails.Contains(u.Email))
             .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
 
         var allCards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail.ToLower()))
-            .OrderByDescending(c => c.UploadedDate)
+            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail))
+            .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
         var cardMap = new Dictionary<string, Card>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in allCards)
@@ -411,8 +432,8 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.IsNullOrWhiteSpace(email))
             return ApiResult.Fail("user_email is required.");
 
-        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserEmail.ToLower() == email, ct);
-        var now = DateTime.UtcNow;
+        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserEmail == email, ct);
+        var now = AppClock.Now;
 
         if (entity != null)
         {
@@ -427,13 +448,15 @@ public class AdminManageUsersService : IAdminManageUsersService
         else
         {
             var userId = await _db.Users.AsNoTracking()
-                .Where(u => u.Email.ToLower() == email)
+                .Where(u => u.Email == email)
                 .Select(u => (int?)u.Id)
-                .FirstOrDefaultAsync(ct) ?? 0;
+                .FirstOrDefaultAsync(ct);
+            if (userId == null)
+                return ApiResult.Fail("No account found for this email.");
 
             _db.UserBankDetails.Add(new UserBankDetails
             {
-                UserId = userId,
+                UserId = userId.Value,
                 UserEmail = email,
                 AccountHolderName = request.AccountHolderName ?? "",
                 AccountNumber = request.AccountNumber ?? "",
@@ -453,33 +476,31 @@ public class AdminManageUsersService : IAdminManageUsersService
     public async Task<(byte[] Content, string FileName)> ExportCsvAsync(ManageUsersQuery query, CancellationToken ct = default)
     {
         query.Page = 1;
-        query.PageSize = 10000;
-        var result = await ListAsync(query, ct);
+        query.PageSize = int.MaxValue;
+        var result = await LoadPageAsync(query, ct);
         var rows = result.Data?.Users ?? [];
 
         var sb = new StringBuilder();
-        sb.AppendLine("Id,Email,Name,Phone,State,Status,JoinedOn,ReferralSource,WebsiteCount,PendingReferral,MwPaymentStatus,SalesKit,Collaboration,RefundStatus");
+        sb.AppendLine("User ID,User Email,User Name,User Number,Joined On,State,District,Referral Source,User Status,Total DB Referred,Referral Amt.,Commission Status");
         foreach (var u in rows)
         {
             sb.AppendLine(string.Join(",",
-                u.Id,
+                Csv(u.UserCode),
                 Csv(u.Email),
                 Csv(u.Name),
                 Csv(u.Phone),
+                Csv(u.CreatedAt.ToString("dd-MMM-yy", CultureInfo.InvariantCulture)),
                 Csv(u.State),
-                Csv(u.Status),
-                Csv(u.CreatedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                Csv(u.District),
                 Csv(u.ReferralSourceDisplay),
+                Csv(u.Status),
                 u.WebsiteCount,
-                u.PendingReferralAmount.ToString("0", CultureInfo.InvariantCulture),
-                Csv(u.MwPaymentStatusLabel),
-                Csv(u.SaleskitEnabled),
-                Csv(u.CollaborationEnabled),
-                Csv(u.RefundStatus)));
+                u.TotalReferralAmount.ToString("0", CultureInfo.InvariantCulture),
+                Csv(u.CommissionStatus)));
         }
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-        return (bytes, $"manage_users_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv");
+        return (bytes, $"manage_users_{AppClock.Now:yyyyMMdd_HHmmss}.csv");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -492,11 +513,12 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var s = q.Search.Trim().ToLowerInvariant();
+            var compact = s.Replace(" ", "");
             query = query.Where(u =>
-                (u.FirstName + " " + u.LastName).ToLower().Contains(s)
-                || u.Email.ToLower().Contains(s)
-                || u.UserCode.ToLower().Contains(s)
-                || (u.Phone != null && u.Phone.ToLower().Contains(s)));
+                (u.FirstName + " " + u.LastName).Contains(s)
+                || u.Email.Contains(s)
+                || u.UserCode.Contains(compact)
+                || (u.Phone != null && u.Phone.Contains(s)));
         }
 
         if (!string.IsNullOrWhiteSpace(q.StatusFilter))
@@ -509,7 +531,7 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         if (!string.IsNullOrWhiteSpace(q.DateFilter))
         {
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
             switch (q.DateFilter.ToLowerInvariant())
             {
                 case "today":
@@ -531,63 +553,48 @@ public class AdminManageUsersService : IAdminManageUsersService
         return query;
     }
 
-    private static List<User> ApplyPostFilters(
-        List<User> customers,
-        ManageUsersQuery q,
-        HashSet<string> dealEmails,
-        Dictionary<string, int> websiteCounts)
+    private IQueryable<User> ApplyPostFilters(IQueryable<User> query, ManageUsersQuery q)
     {
-        IEnumerable<User> result = customers;
-
         if (string.Equals(q.DealFilter, "mapped", StringComparison.OrdinalIgnoreCase))
-            result = result.Where(u => dealEmails.Contains(Normalize(u.Email)));
+            query = query.Where(HasDealMapping());
         else if (string.Equals(q.DealFilter, "unmapped", StringComparison.OrdinalIgnoreCase))
-            result = result.Where(u => !dealEmails.Contains(Normalize(u.Email)));
+            query = query.Where(u => !_db.DealCustomerMappings.Any(m =>
+                m.CustomerEmail != null && m.CustomerEmail.Trim() != ""
+                && m.CustomerEmail.Trim() == u.Email.Trim()));
 
-        if (!string.IsNullOrWhiteSpace(q.WebsiteFilter))
+        var (min, max) = q.WebsiteFilter switch
         {
-            result = q.WebsiteFilter switch
+            "0" => (0, 0),
+            "1-5" => (1, 5),
+            "6-10" => (6, 10),
+            "10+" => (11, int.MaxValue),
+            _ => (-1, -1)
+        };
+        if (min < 0) return query;
+
+        return query
+            .Select(u => new
             {
-                "0" => result.Where(u => !websiteCounts.ContainsKey(Normalize(u.Email)) || websiteCounts[Normalize(u.Email)] == 0),
-                "1-5" => result.Where(u =>
-                {
-                    websiteCounts.TryGetValue(Normalize(u.Email), out var c);
-                    return c is >= 1 and <= 5;
-                }),
-                "6-10" => result.Where(u =>
-                {
-                    websiteCounts.TryGetValue(Normalize(u.Email), out var c);
-                    return c is >= 6 and <= 10;
-                }),
-                "10+" => result.Where(u =>
-                {
-                    websiteCounts.TryGetValue(Normalize(u.Email), out var c);
-                    return c > 10;
-                }),
-                _ => result
-            };
-        }
-
-        return result.ToList();
+                User = u,
+                Websites = _db.Cards.Count(c =>
+                    c.UserEmail != null && c.UserEmail == u.Email.Trim())
+            })
+            .Where(x => x.Websites >= min && x.Websites <= max)
+            .Select(x => x.User);
     }
 
-    private async Task<HashSet<string>> GetMappedCustomerEmailsAsync(CancellationToken ct)
-    {
-        var rows = await _db.DealCustomerMappings.AsNoTracking()
-            .Where(m => m.CustomerEmail != null && m.CustomerEmail != "")
-            .Select(m => m.CustomerEmail)
-            .Distinct()
-            .ToListAsync(ct);
-        return rows
-            .Where(r => !string.IsNullOrWhiteSpace(r))
-            .Select(r => Normalize(r))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    }
+    private System.Linq.Expressions.Expression<Func<User, bool>> HasDealMapping() =>
+        u => _db.DealCustomerMappings.Any(m =>
+            m.CustomerEmail != null && m.CustomerEmail.Trim() != ""
+            && m.CustomerEmail.Trim() == u.Email.Trim());
 
-    private async Task<Dictionary<string, int>> GetWebsiteCountsAsync(CancellationToken ct)
+    private async Task<Dictionary<string, int>> GetWebsiteCountsAsync(
+        IReadOnlyList<string> emails, CancellationToken ct)
     {
+        if (emails.Count == 0) return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         var groups = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null)
+            .Where(c => c.UserEmail != null && emails.Contains(c.UserEmail))
             .GroupBy(c => c.UserEmail!.ToLower())
             .Select(g => new { Email = g.Key, Count = g.Count() })
             .ToListAsync(ct);
@@ -605,6 +612,8 @@ public class AdminManageUsersService : IAdminManageUsersService
             from m in _db.DealCustomerMappings.AsNoTracking()
             join d in _db.Deals.AsNoTracking() on m.DealId equals d.Id
             where d.PlanType == planType
+                  && m.CustomerEmail != null
+                  && emails.Contains(m.CustomerEmail.Trim())
             orderby m.Id descending
             select new
             {
@@ -642,17 +651,22 @@ public class AdminManageUsersService : IAdminManageUsersService
         var map = new Dictionary<string, ReferralSummary>(StringComparer.OrdinalIgnoreCase);
         if (emails.Count == 0) return map;
 
-        var totals = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => emails.Contains(r.ReferrerEmail.ToLower()))
-            .GroupBy(r => r.ReferrerEmail.ToLower())
-            .Select(g => new { Email = g.Key, Total = g.Sum(x => x.Amount) })
+        var earnings = await _db.ReferralEarnings.AsNoTracking()
+            .Where(r => emails.Contains(r.ReferrerEmail))
+            .Select(r => new { Email = r.ReferrerEmail.ToLower(), r.Amount, r.Status })
             .ToListAsync(ct);
 
-        foreach (var t in totals)
+        var payments = await GetPaymentTotalsByReferrerAsync(emails, ct);
+
+        foreach (var group in earnings.GroupBy(r => r.Email))
         {
-            var paid = await GetTotalPaidForReferrerAsync(t.Email, ct);
-            var last = await GetLastPaymentDateAsync(t.Email, ct);
-            map[t.Email] = new ReferralSummary(t.Total, paid, last);
+            payments.TryGetValue(Normalize(group.Key), out var pay);
+            map[group.Key] = new ReferralSummary(
+                group.Sum(x => x.Amount),
+                pay.Paid,
+                pay.Last,
+                group.Count(),
+                group.Count(x => string.Equals(x.Status, "Rejected", StringComparison.OrdinalIgnoreCase)));
         }
 
         return map;
@@ -666,7 +680,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             return await (
                 from p in _db.ReferralPayments.AsNoTracking()
                 join e in _db.ReferralEarnings.AsNoTracking() on p.ReferralEarningId equals e.Id
-                where e.ReferrerEmail.ToLower() == email
+                where e.ReferrerEmail == email
                 select (decimal?)p.Amount).SumAsync(ct) ?? 0m;
         }
         catch
@@ -675,21 +689,28 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
     }
 
-    private async Task<DateTime?> GetLastPaymentDateAsync(string referrerEmail, CancellationToken ct)
+    private async Task<Dictionary<string, (decimal Paid, DateTime? Last)>> GetPaymentTotalsByReferrerAsync(
+        IReadOnlyList<string> emails, CancellationToken ct)
     {
+        var map = new Dictionary<string, (decimal Paid, DateTime? Last)>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            var email = Normalize(referrerEmail);
-            return await (
+            var rows = await (
                 from p in _db.ReferralPayments.AsNoTracking()
                 join e in _db.ReferralEarnings.AsNoTracking() on p.ReferralEarningId equals e.Id
-                where e.ReferrerEmail.ToLower() == email
-                select (DateTime?)p.PaymentDate).MaxAsync(ct);
+                where emails.Contains(e.ReferrerEmail)
+                group p by e.ReferrerEmail.ToLower() into g
+                select new { Email = g.Key, Paid = g.Sum(x => x.Amount), Last = g.Max(x => x.PaymentDate) })
+                .ToListAsync(ct);
+            foreach (var row in rows)
+                map[row.Email] = (row.Paid, row.Last);
         }
         catch
         {
-            return null;
+            // referral_payments may be missing in some environments
         }
+
+        return map;
     }
 
     private async Task<BankDetailsDto> GetBankDetailsAsync(string email, CancellationToken ct)
@@ -697,7 +718,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         try
         {
             var row = await _db.UserBankDetails.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.UserEmail.ToLower() == Normalize(email), ct);
+                .FirstOrDefaultAsync(b => b.UserEmail == Normalize(email), ct);
 
             return row == null
                 ? new BankDetailsDto(null, null, null, null, null, null)
@@ -709,40 +730,66 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
     }
 
-    private async Task<string> BuildReferralSourceAsync(string? referredBy, string userEmail, CancellationToken ct)
+    private async Task<Dictionary<string, string>> BuildReferralSourcesAsync(
+        IReadOnlyList<User> users,
+        CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(referredBy))
-            return "Direct";
+        var referrerEmails = users
+            .Select(u => u.Referral.ReferredBy)
+            .Where(email => !string.IsNullOrWhiteSpace(email))
+            .Select(Normalize)
+            .Distinct()
+            .ToList();
 
-        var refEmail = Normalize(referredBy);
-        var referrer = await _db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == refEmail, ct);
-
-        string display;
-        if (referrer == null)
+        var referrerCodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (referrerEmails.Count > 0)
         {
-            display = "Ref: " + referredBy.Trim();
+            var referrers = await _db.Users.AsNoTracking()
+                .Where(u => referrerEmails.Contains(u.Email))
+                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
+                .ToListAsync(ct);
+            foreach (var referrer in referrers)
+                referrerCodes[referrer.Email] = UserCodeGenerator.FormatDisplay(referrer.UserCode);
         }
-        else
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var user in users)
         {
-            display = referrer.LoginRole switch
+            var email = Normalize(user.Email);
+            if (string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             {
-                UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
-                UserRole.Team => "Team - " + referrer.Id,
-                UserRole.Admin => "Admin - " + referrer.Id,
-                _ => "User - " + referrer.Id
-            };
+                map[email] = "Direct";
+                continue;
+            }
+
+            var referrerEmail = Normalize(user.Referral.ReferredBy);
+            map[email] = referrerCodes.TryGetValue(referrerEmail, out var code) && !string.IsNullOrWhiteSpace(code)
+                ? code
+                : "Ref: " + user.Referral.ReferredBy.Trim();
         }
 
-        var hasFrd = await _db.ReferralEarnings.AsNoTracking().AnyAsync(r =>
-            r.ReferrerEmail.ToLower() == refEmail
-            && r.ReferredEmail.ToLower() == Normalize(userEmail)
-            && r.IsCollaboration == "YES", ct);
+        return map;
+    }
 
-        if (hasFrd)
-            display += " (FRD)";
+    private static string FormatUserStatus(string? status)
+    {
+        if (string.Equals(status, "ACTIVE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+            return "Active";
 
-        return display;
+        if (string.Equals(status, "INACTIVE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "InActive", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase))
+            return "InActive";
+
+        return string.IsNullOrWhiteSpace(status) ? "InActive" : status.Trim();
+    }
+
+    private static string BuildCommissionStatus(ReferralSummary s)
+    {
+        if (s.TotalAmount <= 0) return "Not Eligible";
+        if (s.EarningCount > 0 && s.RejectedCount == s.EarningCount) return "Rejected";
+        return "Eligible";
     }
 
     private static string BuildMwPaymentLabel(ReferralSummary s)
@@ -751,7 +798,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (s.PaidAmount >= s.TotalAmount)
         {
             var d = s.LastPaymentDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                    ?? DateTime.UtcNow.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+                    ?? AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             return "Paid on " + d;
         }
         if (s.PaidAmount > 0) return "Partial Payment";
@@ -765,14 +812,14 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         if (string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
         {
-            if (c.ValidityDate.HasValue && c.ValidityDate.Value < DateTime.UtcNow)
+            if (c.ValidityDate.HasValue && c.ValidityDate.Value < AppClock.Now)
                 return ("bg-secondary", "Expired on " + c.ValidityDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture));
             return ("bg-success", "Active");
         }
 
         var uploaded = c.UploadedDate;
         var trialEnd = uploaded?.AddDays(7);
-        var trialExpired = trialEnd.HasValue && trialEnd.Value < DateTime.UtcNow;
+        var trialExpired = trialEnd.HasValue && trialEnd.Value < AppClock.Now;
         var franchiseLinked = !string.IsNullOrWhiteSpace(c.FUserEmail) && c.FUserEmail.Trim().Length >= 3;
 
         if (franchiseLinked)
@@ -849,5 +896,10 @@ public class AdminManageUsersService : IAdminManageUsersService
         </body></html>
         """;
 
-    private sealed record ReferralSummary(decimal TotalAmount, decimal PaidAmount, DateTime? LastPaymentDate);
+    private sealed record ReferralSummary(
+        decimal TotalAmount,
+        decimal PaidAmount,
+        DateTime? LastPaymentDate,
+        int EarningCount,
+        int RejectedCount);
 }

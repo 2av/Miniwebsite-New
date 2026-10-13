@@ -96,8 +96,8 @@ public class RegistrationService : IRegistrationService
                 SaleskitEnabled = false,
                 Influencer = false,
             },
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
             IsDeleted = false
         };
 
@@ -111,9 +111,11 @@ public class RegistrationService : IRegistrationService
             var amount = await _deals.GetBonusAmountAsync(pending.ReferrerEmail, "MiniWebsite", "DMW001", ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
+                ReferrerUserId = await FindUserIdAsync(pending.ReferrerEmail, ct),
+                ReferredUserId = user.Id,
                 ReferrerEmail = pending.ReferrerEmail,
                 ReferredEmail = pending.Email,
-                ReferralDate = DateTime.Now,
+                ReferralDate = AppClock.Now,
                 Status = "Pending",
                 Amount = amount,
                 IsCollaboration = "NO"
@@ -174,8 +176,8 @@ public class RegistrationService : IRegistrationService
                 SaleskitEnabled = false,
                 Influencer = false,
             },
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
             IsDeleted = false
         };
 
@@ -189,9 +191,11 @@ public class RegistrationService : IRegistrationService
             var amount = await _deals.GetBonusAmountAsync(pending.ReferrerEmail, "Franchisee", "DFRAN101", ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
+                ReferrerUserId = await FindUserIdAsync(pending.ReferrerEmail, ct),
+                ReferredUserId = user.Id,
                 ReferrerEmail = pending.ReferrerEmail,
                 ReferredEmail = pending.Email,
-                ReferralDate = DateTime.Now,
+                ReferralDate = AppClock.Now,
                 Status = "Pending",
                 Amount = amount,
                 IsCollaboration = "YES"
@@ -266,7 +270,7 @@ public class RegistrationService : IRegistrationService
             ReferrerEmail = referrerEmail,
             Otp = otp,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10),
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
             IsDeleted = false,
             IsConsumed = false
         };
@@ -310,7 +314,7 @@ public class RegistrationService : IRegistrationService
 
         pending.Otp = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         pending.ExpiresAt = DateTime.UtcNow.AddMinutes(10);
-        pending.UpdatedAt = DateTime.UtcNow;
+        pending.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
         try
@@ -384,6 +388,15 @@ public class RegistrationService : IRegistrationService
         _ => "user"
     };
 
+    private Task<int?> FindUserIdAsync(string email, CancellationToken ct)
+    {
+        var key = email.Trim();
+        return _db.Users.AsNoTracking()
+            .Where(u => u.Email == key)
+            .Select(u => (int?)u.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
     private static string GenerateReferralCode(string email) =>
-        Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(email + DateTime.Now.Ticks)))[..8];
+        Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(email + AppClock.Now.Ticks)))[..8];
 }

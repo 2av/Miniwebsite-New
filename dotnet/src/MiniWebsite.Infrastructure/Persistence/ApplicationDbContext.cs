@@ -63,7 +63,81 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         await AssignUserCodesAsync(cancellationToken);
-        return await base.SaveChangesAsync(cancellationToken);
+        await AssignOrderCodesAsync(cancellationToken);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            var added = ChangeTracker.Entries<ReferralEarning>()
+                .Where(e => e.State == EntityState.Added && string.IsNullOrEmpty(e.Entity.CommissionCode))
+                .Select(e => e.Entity)
+                .ToList();
+            await AssignCommissionCodesAsync(added, cancellationToken);
+            try
+            {
+                return await base.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex) when (attempt < 3 && added.Count > 0 && IsCommissionCodeConflict(ex))
+            {
+                foreach (var earning in added)
+                    earning.CommissionCode = null;
+            }
+        }
+    }
+
+    private static bool IsCommissionCodeConflict(DbUpdateException ex) =>
+        ex.InnerException?.Message.Contains("IX_referral_earnings_CommissionCode", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>
+    /// Numbers commissions per Indian financial year (April–March) of the referral date:
+    /// <c>COM-26-27-00000001</c>, <c>COM-26-27-00000002</c>, …
+    /// </summary>
+    internal async Task AssignCommissionCodesAsync(IEnumerable<ReferralEarning> earnings, CancellationToken ct)
+    {
+        var pending = earnings
+            .Where(e => string.IsNullOrEmpty(e.CommissionCode))
+            .OrderBy(e => e.ReferralDate)
+            .ThenBy(e => e.Id)
+            .ToList();
+        if (pending.Count == 0) return;
+
+        var nextByPrefix = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var earning in pending)
+        {
+            var date = earning.ReferralDate.Year > 1 ? earning.ReferralDate : AppClock.Now;
+            var startYear = date.Month >= 4 ? date.Year : date.Year - 1;
+            var prefix = $"COM-{startYear % 100:D2}-{(startYear + 1) % 100:D2}-";
+
+            if (!nextByPrefix.TryGetValue(prefix, out var next))
+            {
+                var latest = await ReferralEarnings.AsNoTracking()
+                    .Where(r => r.CommissionCode != null && r.CommissionCode.StartsWith(prefix))
+                    .OrderByDescending(r => r.CommissionCode)
+                    .Select(r => r.CommissionCode!)
+                    .FirstOrDefaultAsync(ct);
+                next = (latest != null && int.TryParse(latest[prefix.Length..], out var n) ? n : 0) + 1;
+            }
+
+            earning.CommissionCode = $"{prefix}{next:D8}";
+            nextByPrefix[prefix] = next + 1;
+        }
+    }
+
+    private async Task AssignOrderCodesAsync(CancellationToken ct)
+    {
+        var pending = ChangeTracker.Entries<Invoice>()
+            .Where(e => e.State == EntityState.Added && string.IsNullOrEmpty(e.Entity.OrderCode))
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0) return;
+
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var invoice in pending)
+        {
+            string code;
+            do code = UserCodeGenerator.Generate(UserCodeGenerator.OrderPrefix);
+            while (!claimed.Add(code) || await Invoices.AnyAsync(i => i.OrderCode == code, ct));
+            invoice.OrderCode = code;
+        }
     }
 
     private async Task AssignUserCodesAsync(CancellationToken ct)

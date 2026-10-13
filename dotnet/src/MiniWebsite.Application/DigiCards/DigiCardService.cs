@@ -7,6 +7,7 @@ using MiniWebsite.Application.DigiCards.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.DigiCards;
 
@@ -102,12 +103,12 @@ public class DigiCardService : IDigiCardService
         if (string.IsNullOrWhiteSpace(referralCode))
         {
             referralCode = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(
-                System.Text.Encoding.UTF8.GetBytes(email + DateTime.Now.Ticks)))[..8];
+                System.Text.Encoding.UTF8.GetBytes(email + AppClock.Now.Ticks)))[..8];
             var tracked = await _db.Users.FirstOrDefaultAsync(u => u.Id == user.Id, ct);
             if (tracked != null)
             {
                 tracked.Referral.ReferralCode = referralCode;
-                tracked.UpdatedAt = DateTime.Now;
+                tracked.UpdatedAt = AppClock.Now;
                 await _db.SaveChangesAsync(ct);
             }
         }

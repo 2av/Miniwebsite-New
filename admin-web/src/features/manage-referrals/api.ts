@@ -35,6 +35,10 @@ export function processReferralPayment(payload: {
   return apiSend('post', `${BASE}/payments`, payload)
 }
 
+export function updateReferralComment(referralId: number, comment: string) {
+  return apiSend('patch', `${BASE}/${referralId}/comment`, { comment })
+}
+
 export function fetchReferralBankDetails(userEmail: string) {
   return apiGet<ManageReferralBankDetails>(`${BASE}/bank-details`, { userEmail })
 }

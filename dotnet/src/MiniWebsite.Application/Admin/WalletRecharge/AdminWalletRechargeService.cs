@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.WalletRecharge;
 
@@ -59,7 +60,7 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
         var amount = Math.Round(request.Amount, 2);
         var newBalance = current + amount;
         var txnMsg = string.IsNullOrWhiteSpace(request.TxnMsg) ? "Promotional Amount" : request.TxnMsg.Trim();
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {

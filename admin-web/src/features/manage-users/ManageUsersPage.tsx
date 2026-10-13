@@ -1,32 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, RefreshCw, Search, X } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Download, Power, PowerOff, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   downloadManageUsersCsv,
   fetchDashboardDetails,
   fetchManageUsers,
   fetchReferralDetails,
-  mapDeal,
-  removeDeal,
-  resetPassword,
-  setCollaboration,
-  setRefund,
-  setSaleskit,
+  setUserStatus,
   upsertBankDetails,
 } from '@/features/manage-users/api'
 import type { ManageUserRow, ManageUsersQuery } from '@/shared/types/api'
 import { useToast } from '@/shared/ui/Toast'
 import { ApiError } from '@/shared/api/client'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,19 +19,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -64,10 +40,25 @@ const emptyFilters: ManageUsersQuery = {
   search: '',
 }
 
-function paymentTone(label: string): 'neutral' | 'ok' | 'warn' {
-  if (label.startsWith('Paid')) return 'ok'
-  if (label === 'Not Eligible') return 'neutral'
-  return 'warn'
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function commissionTone(label: string): 'neutral' | 'ok' | 'danger' {
+  if (label === 'Eligible') return 'ok'
+  if (label === 'Rejected') return 'danger'
+  return 'neutral'
+}
+
+function statusTone(label: string): 'neutral' | 'ok' {
+  return label === 'Active' ? 'ok' : 'neutral'
+}
+
+function formatJoined(value?: string | null) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const day = String(d.getDate()).padStart(2, '0')
+  const year = String(d.getFullYear()).slice(-2)
+  return `${day}-${MONTHS[d.getMonth()]}-${year}`
 }
 
 function formatDate(value?: string | null) {
@@ -77,12 +68,8 @@ function formatDate(value?: string | null) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-type ConfirmState = {
-  title: string
-  description: string
-  actionLabel: string
-  action: () => Promise<unknown> | void
-  destructive?: boolean
+function formatRupee(amount: number) {
+  return `₹ ${Math.round(amount).toLocaleString('en-IN')}`
 }
 
 export function ManageUsersPage() {
@@ -92,12 +79,8 @@ export function ManageUsersPage() {
   const [searchInput, setSearchInput] = useState('')
   const [dashboardEmail, setDashboardEmail] = useState<string | null>(null)
   const [referralEmail, setReferralEmail] = useState<string | null>(null)
-  const [resetTarget, setResetTarget] = useState<string | null>(null)
-  const [resetPw, setResetPw] = useState('')
-  const [resetConfirm, setResetConfirm] = useState('')
-  const [confirm, setConfirm] = useState<ConfirmState | null>(null)
-  const [confirmBusy, setConfirmBusy] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [togglingId, setTogglingId] = useState<number | null>(null)
 
   // Debounce search → API (name / email / phone)
   useEffect(() => {
@@ -134,37 +117,17 @@ export function ManageUsersPage() {
     enabled: !!referralEmail,
   })
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['manage-users'] })
-
-  const run = async (fn: () => Promise<unknown>, okMsg: string) => {
+  const setStatus = async (user: ManageUserRow) => {
+    const next = user.status === 'Active' ? 'INACTIVE' : 'ACTIVE'
+    setTogglingId(user.id)
     try {
-      await fn()
-      toast.push(okMsg, 'success')
-      await invalidate()
+      const res = await setUserStatus(user.id, next)
+      toast.push(res.message || 'Status updated', 'success')
+      await qc.invalidateQueries({ queryKey: ['manage-users'] })
     } catch (e) {
-      toast.push(e instanceof ApiError ? e.message : 'Request failed', 'error')
-    }
-  }
-
-  const mapDealMut = useMutation({
-    mutationFn: ({ email, dealId }: { email: string; dealId: number }) => mapDeal(email, dealId),
-    onSuccess: async () => {
-      toast.push('Deal mapped', 'success')
-      await invalidate()
-    },
-    onError: (e: Error) => toast.push(e.message, 'error'),
-  })
-
-  const askConfirm = (next: ConfirmState) => setConfirm(next)
-
-  const runConfirm = async () => {
-    if (!confirm) return
-    setConfirmBusy(true)
-    try {
-      await confirm.action()
-      setConfirm(null)
+      toast.push(e instanceof ApiError ? e.message : 'Status update failed', 'error')
     } finally {
-      setConfirmBusy(false)
+      setTogglingId(null)
     }
   }
 
@@ -183,11 +146,8 @@ export function ManageUsersPage() {
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-col gap-3">
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold text-slate-900">Manage Users</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {data?.totalCount ?? '—'} customers · SB deals {data?.mwDealCount ?? 0} · Franchise deals{' '}
-            {data?.franchiseDealCount ?? 0}
-          </p>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold text-slate-900">SB User Details</h1>
+          <p className="mt-1 text-sm text-slate-500">{data?.totalCount ?? '—'} customers</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <FiltersButton activeCount={activeFilterCount} onClick={() => setFiltersOpen(true)} />
@@ -246,23 +206,19 @@ export function ManageUsersPage() {
                 <TableRow className="border-slate-800 hover:bg-slate-900">
                 {[
                   'User ID',
-                  'Email',
-                  'Name',
-                  'Phone',
+                  'User Email',
+                  'User Name',
+                  'User Number',
+                  'Joined On',
                   'State',
-                  'Joined',
-                  'Referral',
-                  'SB',
-                  'Pending ₹',
-                  'SB Pay',
-                  'Dashboard',
-                  'Referrals',
-                  'Deal SB',
-                  'Deal FR',
-                  'Sales Kit',
-                  'Collab',
-                  'Refund',
-                  'Password',
+                  'District',
+                  'Referral Source',
+                  'User Status',
+                  'Total DB Referred',
+                  'Referral Amt.',
+                  'Commission Status',
+                  'User Dashboard',
+                  'Actions',
                 ].map((h) => (
                   <TableHead key={h} className="px-3 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-200 uppercase">
                     {h}
@@ -273,14 +229,14 @@ export function ManageUsersPage() {
               <TableBody>
               {listQuery.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={18} className="px-4 py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={14} className="px-4 py-10 text-center text-muted-foreground">
                     Loading users…
                   </TableCell>
                 </TableRow>
               )}
               {listQuery.isError && (
                 <TableRow>
-                  <TableCell colSpan={18} className="px-4 py-10 text-center text-destructive">
+                  <TableCell colSpan={14} className="px-4 py-10 text-center text-destructive">
                     {(listQuery.error as Error).message}
                     <div className="mt-1 text-xs text-muted-foreground">Start the .NET API on localhost:5209</div>
                   </TableCell>
@@ -288,7 +244,7 @@ export function ManageUsersPage() {
               )}
               {!listQuery.isLoading && !listQuery.isError && users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={18} className="px-4 py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={14} className="px-4 py-10 text-center text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -297,25 +253,10 @@ export function ManageUsersPage() {
                 <UserRow
                   key={u.id}
                   user={u}
-                  mwDeals={data?.mwDeals ?? []}
-                  franchiseDeals={data?.franchiseDeals ?? []}
-                  onMapDeal={(dealId) => mapDealMut.mutate({ email: u.email, dealId })}
-                  onRemoveDeal={(id) => run(() => removeDeal(id), 'Deal removed')}
-                  onSaleskit={(yes) =>
-                    run(() => setSaleskit(u.email, yes ? 'YES' : 'NO'), 'Sales Kit updated')
-                  }
-                  onCollab={(yes) =>
-                    run(() => setCollaboration(u.email, yes ? 'YES' : 'NO'), 'Collaboration updated')
-                  }
-                  onRefund={(status) => run(() => setRefund(u.email, status), 'Refund updated')}
                   onDashboard={() => setDashboardEmail(u.email)}
-                  onReferral={() => setReferralEmail(u.email)}
-                  onReset={() => {
-                    setResetTarget(u.email)
-                    setResetPw('')
-                    setResetConfirm('')
-                  }}
-                  onConfirm={askConfirm}
+                  onCommission={() => setReferralEmail(u.email)}
+                  toggling={togglingId === u.id}
+                  onToggleStatus={() => void setStatus(u)}
                 />
               ))}
               </TableBody>
@@ -417,275 +358,73 @@ export function ManageUsersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!resetTarget} onOpenChange={(open) => !open && setResetTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset password</DialogTitle>
-            <DialogDescription>
-              Updating password for <strong>{resetTarget}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input type="password" placeholder="New password (min 6)" value={resetPw} onChange={(e) => setResetPw(e.target.value)} />
-            <Input type="password" placeholder="Confirm password" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (!resetTarget) return
-                if (resetPw.length < 6) return toast.push('Password must be at least 6 characters', 'error')
-                if (resetPw !== resetConfirm) return toast.push('Passwords do not match', 'error')
-                const email = resetTarget
-                askConfirm({
-                  title: 'Reset password?',
-                  description: `Reset the password for ${email}?`,
-                  actionLabel: 'Reset Password',
-                  destructive: true,
-                  action: async () => {
-                    await run(() => resetPassword(email, resetPw), 'Password updated')
-                    setResetTarget(null)
-                  },
-                })
-              }}
-            >
-              Update Password
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!confirm} onOpenChange={(open) => !open && !confirmBusy && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm?.description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={confirmBusy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant={confirm?.destructive ? 'destructive' : 'default'}
-              disabled={confirmBusy}
-              onClick={(event) => {
-                event.preventDefault()
-                void runConfirm()
-              }}
-            >
-              {confirmBusy ? 'Please wait…' : confirm?.actionLabel}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
 
 function UserRow({
   user: u,
-  mwDeals,
-  franchiseDeals,
-  onMapDeal,
-  onRemoveDeal,
-  onSaleskit,
-  onCollab,
-  onRefund,
   onDashboard,
-  onReferral,
-  onReset,
-  onConfirm,
+  onCommission,
+  toggling,
+  onToggleStatus,
 }: {
   user: ManageUserRow
-  mwDeals: { id: number; dealName: string }[]
-  franchiseDeals: { id: number; dealName: string }[]
-  onMapDeal: (dealId: number) => Promise<unknown> | void
-  onRemoveDeal: (mappingId: number) => Promise<unknown> | void
-  onSaleskit: (yes: boolean) => Promise<unknown> | void
-  onCollab: (yes: boolean) => Promise<unknown> | void
-  onRefund: (status: string) => Promise<unknown> | void
   onDashboard: () => void
-  onReferral: () => void
-  onReset: () => void
-  onConfirm: (confirm: ConfirmState) => void
+  onCommission: () => void
+  toggling: boolean
+  onToggleStatus: () => void
 }) {
+  const active = u.status === 'Active'
   return (
     <TableRow className="align-middle hover:bg-rose-50/30">
-      <TableCell className="px-3 font-mono font-medium">{u.userCode}</TableCell>
-      <TableCell className="max-w-[180px] truncate px-3">{u.email}</TableCell>
-      <TableCell className="px-3">{u.name}</TableCell>
-      <TableCell className="px-3">{u.phone || '-'}</TableCell>
-      <TableCell className="px-3">{u.state || '-'}</TableCell>
-      <TableCell className="px-3 whitespace-nowrap text-muted-foreground">{formatDate(u.createdAt)}</TableCell>
-      <TableCell className="px-3">{u.referralSourceDisplay}</TableCell>
+      <TableCell className="px-3 font-mono font-medium whitespace-nowrap">{u.userCode}</TableCell>
+      <TableCell className="max-w-[220px] truncate px-3">{u.email}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{u.name}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{u.phone || ''}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{formatJoined(u.createdAt)}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{u.state || ''}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{u.district || ''}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{u.referralSourceDisplay}</TableCell>
+      <TableCell className="px-3">
+        <Badge variant={badgeVariantFromTone(statusTone(u.status))}>{u.status}</Badge>
+      </TableCell>
       <TableCell className="px-3 text-center font-semibold">{u.websiteCount}</TableCell>
-      <TableCell className="px-3">₹{Math.round(u.pendingReferralAmount).toLocaleString('en-IN')}</TableCell>
-      <TableCell className="px-3">
-        <Badge variant={badgeVariantFromTone(paymentTone(u.mwPaymentStatusLabel))}>{u.mwPaymentStatusLabel}</Badge>
+      <TableCell className="px-3 whitespace-nowrap">{formatRupee(u.totalReferralAmount)}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1">
+          <Badge variant={badgeVariantFromTone(commissionTone(u.commissionStatus))}>{u.commissionStatus}</Badge>
+          <Button variant="link" size="sm" className="h-auto px-1" onClick={onCommission}>
+            [View]
+          </Button>
+        </span>
       </TableCell>
       <TableCell className="px-3">
-        <Button variant="ghost" size="sm" onClick={onDashboard}>
+        <Button variant="outline" size="sm" onClick={onDashboard}>
           View
         </Button>
       </TableCell>
       <TableCell className="px-3">
-        <Button variant="ghost" size="sm" onClick={onReferral}>
-          View
-        </Button>
-      </TableCell>
-      <TableCell className="min-w-[160px] px-3">
-        {u.mwDeal ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800">
-            {u.mwDeal.dealName.slice(0, 14)}…
-            <button
-              type="button"
-              className="ml-1 text-rose-500"
-              onClick={() =>
-                onConfirm({
-                  title: 'Remove deal mapping?',
-                  description: `Remove the ShareBizz deal from ${u.email}?`,
-                  actionLabel: 'Remove Deal',
-                  destructive: true,
-                  action: () => onRemoveDeal(u.mwDeal!.mappingId),
-                })
-              }
-              aria-label="Remove ShareBizz deal"
-            >
-              ×
-            </button>
-          </span>
-        ) : (
-          <Select
-            value=""
-            onValueChange={(value) => {
-              const id = Number(value)
-              if (!id) return
-              const name = mwDeals.find((deal) => deal.id === id)?.dealName || 'deal'
-              onConfirm({
-                title: 'Map ShareBizz deal?',
-                description: `Map ${u.email} to "${name}"?`,
-                actionLabel: 'Map Deal',
-                action: () => onMapDeal(id),
-              })
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Deal" />
-            </SelectTrigger>
-            <SelectContent>
-              {mwDeals.map((d) => (
-                <SelectItem key={d.id} value={String(d.id)}>
-                  {d.dealName.slice(0, 24)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </TableCell>
-      <TableCell className="min-w-[160px] px-3">
-        {u.franchiseDeal ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">
-            {u.franchiseDeal.dealName.slice(0, 14)}…
-            <button
-              type="button"
-              className="ml-1 text-sky-500"
-              onClick={() =>
-                onConfirm({
-                  title: 'Remove deal mapping?',
-                  description: `Remove the Franchise deal from ${u.email}?`,
-                  actionLabel: 'Remove Deal',
-                  destructive: true,
-                  action: () => onRemoveDeal(u.franchiseDeal!.mappingId),
-                })
-              }
-              aria-label="Remove Franchise deal"
-            >
-              ×
-            </button>
-          </span>
-        ) : (
-          <Select
-            value=""
-            onValueChange={(value) => {
-              const id = Number(value)
-              if (!id) return
-              const name = franchiseDeals.find((deal) => deal.id === id)?.dealName || 'deal'
-              onConfirm({
-                title: 'Map Franchise deal?',
-                description: `Map ${u.email} to "${name}"?`,
-                actionLabel: 'Map Deal',
-                action: () => onMapDeal(id),
-              })
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Deal" />
-            </SelectTrigger>
-            <SelectContent>
-              {franchiseDeals.map((d) => (
-                <SelectItem key={d.id} value={String(d.id)}>
-                  {d.dealName.slice(0, 24)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </TableCell>
-      <TableCell className="px-3 text-center">
-        <Switch
-          checked={u.saleskitEnabled === 'YES'}
-          onCheckedChange={(next) =>
-            onConfirm({
-              title: `${next ? 'Enable' : 'Disable'} Sales Kit?`,
-              description: `${next ? 'Enable' : 'Disable'} Sales Kit for ${u.email}?`,
-              actionLabel: next ? 'Enable' : 'Disable',
-              action: () => onSaleskit(next),
-            })
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className={
+            active
+              ? 'cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700'
+              : 'cursor-pointer text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'
           }
-          aria-label={`Sales Kit for ${u.email}`}
-        />
-      </TableCell>
-      <TableCell className="px-3 text-center">
-        <Switch
-          checked={u.collaborationEnabled === 'YES'}
-          onCheckedChange={(next) =>
-            onConfirm({
-              title: `${next ? 'Enable' : 'Disable'} collaboration?`,
-              description: `${next ? 'Enable' : 'Disable'} Collaboration for ${u.email}?`,
-              actionLabel: next ? 'Enable' : 'Disable',
-              action: () => onCollab(next),
-            })
-          }
-          aria-label={`Collaboration for ${u.email}`}
-        />
-      </TableCell>
-      <TableCell className="min-w-[160px] px-3">
-        {u.refundStatus === 'Refund Settled' ? (
-          <Badge variant={badgeVariantFromTone('ok')}>Settled {formatDate(u.refundStatusDate)}</Badge>
-        ) : (
-          <Select
-            value={u.refundStatus || 'None'}
-            onValueChange={(value) => {
-              onConfirm({
-                title: 'Update refund status?',
-                description: `Set refund status to "${value}" for ${u.email}?`,
-                actionLabel: 'Update Refund',
-                action: () => onRefund(value),
-              })
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="None">None</SelectItem>
-              <SelectItem value="Refund Claimed">Refund Claimed</SelectItem>
-              <SelectItem value="Refund Settled">Refund Settled</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      </TableCell>
-      <TableCell className="px-3">
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          Reset
+          title={active ? 'Set InActive' : 'Set Active'}
+          aria-label={active ? 'Set InActive' : 'Set Active'}
+          disabled={toggling}
+          onClick={onToggleStatus}
+        >
+          {toggling ? (
+            <RefreshCw size={14} className="animate-spin" />
+          ) : active ? (
+            <PowerOff size={14} />
+          ) : (
+            <Power size={14} />
+          )}
         </Button>
       </TableCell>
     </TableRow>

@@ -59,6 +59,7 @@ public class CommerceConfigurations :
         builder.Property(x => x.CustomerEmail).HasMaxLength(255).IsRequired();
         builder.Property(x => x.CreatedBy).HasMaxLength(255);
         builder.HasIndex(x => x.DealId);
+        builder.HasIndex(x => x.CustomerEmail);
         builder.HasOne(x => x.Deal).WithMany(x => x.CustomerMappings).HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
     }
@@ -90,6 +91,7 @@ public class CommerceConfigurations :
         builder.HasIndex(x => x.UserId);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.JoiningDeal).WithMany().HasForeignKey(x => x.JoiningDealId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Invoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
     }
 
     public void Configure(EntityTypeBuilder<Wallet> builder)
@@ -132,6 +134,9 @@ public class CommerceConfigurations :
         builder.ToTable("invoices");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.InvoiceNumber).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.OrderCode).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.UserEmail).HasMaxLength(255);
+        builder.Property(x => x.AdminComment).HasMaxLength(1000);
         builder.Property(x => x.OriginalAmount).HasPrecision(12, 2);
         builder.Property(x => x.DiscountAmount).HasPrecision(12, 2);
         builder.Property(x => x.FinalAmount).HasPrecision(12, 2);
@@ -145,6 +150,8 @@ public class CommerceConfigurations :
         builder.Property(x => x.SgstAmount).HasPrecision(12, 2);
         builder.Property(x => x.TotalAmount).HasPrecision(12, 2);
         builder.HasIndex(x => x.InvoiceNumber).IsUnique();
+        builder.HasIndex(x => x.OrderCode).IsUnique();
+        builder.HasIndex(x => x.UserEmail);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Card).WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.SetNull);
     }

@@ -15,10 +15,22 @@ public record AllOrdersPageDto(
 
 public record AllOrderRowDto(
     int InvoiceId,
+    string OrderIdDisplay,
+    string OrderDateDisplay,
     string UserIdDisplay,
-    string? MwIdDisplay,
-    string PaymentStatusLabel,
-    string PaymentStatusTone,
-    string? PaidOnDisplay,
+    string UserEmail,
+    int? CardId,
+    string DbIdDisplay,
+    string ReferralSource,
+    string ReferralAmountDisplay,
+    string OrderDescription,
+    string ListPriceDisplay,
+    string PromoDiscountDisplay,
+    string NetPriceDisplay,
+    string GstDisplay,
     decimal TotalAmount,
-    string TotalAmountDisplay);
+    string TotalAmountDisplay,
+    string InvoiceNumber,
+    string Comment);
+
+public record UpdateOrderCommentRequest(string? Comment);

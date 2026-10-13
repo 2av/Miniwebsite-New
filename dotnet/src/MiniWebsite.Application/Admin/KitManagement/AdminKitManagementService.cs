@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.KitManagement;
 
@@ -138,7 +139,7 @@ public class AdminKitManagementService : IAdminKitManagementService
 
         var parentId = await ValidateParentFolderAsync(request.ParentId, category, null, ct);
         var displayOrder = request.DisplayOrder < 0 ? 0 : request.DisplayOrder;
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {
@@ -193,7 +194,7 @@ public class AdminKitManagementService : IAdminKitManagementService
             entity.ParentId = parentId > 0 ? parentId : null;
             entity.DisplayOrder = displayOrder;
             entity.Status = status;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             var itemCount = await _db.KitItems.CountAsync(i => i.FolderId == id, ct);
@@ -258,7 +259,7 @@ public class AdminKitManagementService : IAdminKitManagementService
         var folderId = await ValidateFolderForCategoryAsync(request.FolderId, category, ct);
         var title = (request.Title ?? "").Trim();
         var displayOrder = request.DisplayOrder < 0 ? 0 : request.DisplayOrder;
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {
@@ -345,7 +346,7 @@ public class AdminKitManagementService : IAdminKitManagementService
             entity.Status = status;
             entity.FolderId = folderId > 0 ? folderId : null;
             if (newStoredName != null) entity.FilePath = newStoredName;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<KitItemDto>.Ok(MapItem(entity), "Image updated successfully.");
@@ -381,7 +382,7 @@ public class AdminKitManagementService : IAdminKitManagementService
             entity.Status = status;
             entity.FolderId = folderId > 0 ? folderId : null;
             if (videoUrl.Length > 0) entity.VideoUrl = videoUrl;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<KitItemDto>.Ok(MapItem(entity), "Video updated successfully.");
@@ -425,7 +426,7 @@ public class AdminKitManagementService : IAdminKitManagementService
             entity.Status = status;
             entity.FolderId = folderId > 0 ? folderId : null;
             if (newStoredName != null) entity.FilePath = newStoredName;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<KitItemDto>.Ok(MapItem(entity), "File updated successfully.");
@@ -446,7 +447,7 @@ public class AdminKitManagementService : IAdminKitManagementService
         if (entity == null) return ApiResult.Fail("Item not found.");
 
         entity.Status = status;
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Status updated successfully.");
     }
@@ -463,7 +464,7 @@ public class AdminKitManagementService : IAdminKitManagementService
         if (entity == null) return ApiResult.Fail("Item not found.");
 
         entity.FolderId = folderId > 0 ? folderId : null;
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
         var msg = folderId > 0 ? "Item moved to folder successfully." : "Item removed from folder (uncategorized).";
@@ -510,7 +511,7 @@ public class AdminKitManagementService : IAdminKitManagementService
 
         title = (title ?? "").Trim();
         displayOrder = displayOrder < 0 ? 0 : displayOrder;
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {

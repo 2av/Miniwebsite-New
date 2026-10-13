@@ -35,6 +35,16 @@ public class AdminManageReferralsController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPatch("{referralId:int}/comment")]
+    public async Task<ActionResult<ApiResult>> UpdateComment(
+        int referralId,
+        [FromBody] UpdateReferralCommentRequest request,
+        CancellationToken ct = default)
+    {
+        var result = await _service.UpdateCommentAsync(referralId, request.Comment, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpGet("referrer-details")]
     public async Task<ActionResult<ApiResult<ReferrerPaymentDetailsDto>>> ReferrerDetails(
         [FromQuery] string referrerEmail,

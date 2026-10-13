@@ -15,18 +15,30 @@ public record ManageReferralsPageDto(
 
 public record ManageReferralRowDto(
     int ReferralId,
-    string ReferrerEmail,
+    string CommissionId,
     string UserIdDisplay,
-    string UserName,
-    string UserPhone,
-    string ReferredToDisplay,
-    string ReferralAmountDisplay,
+    string ReferrerEmail,
+    string ReferredCustomer,
+    string ReferredEmail,
+    string OrderDescription,
+    string ListPriceDisplay,
+    string PromoDiscountDisplay,
+    string NetPriceDisplay,
+    string GstDisplay,
+    string TotalAmountDisplay,
     decimal ReferralAmount,
-    string RefundStatus,
-    string MwPaymentStatusLabel,
-    string MwPaymentStatusTone,
-    int? LatestCardId,
-    bool HasInvoice);
+    string ReferralAmountDisplay,
+    string RenewalAmountDisplay,
+    string CommissionStatus,
+    string SbPaymentStatus,
+    string SbPaymentStatusTone,
+    decimal PaidAmount,
+    decimal PendingAmount,
+    bool CanAddPayment,
+    bool HasPaymentHistory,
+    string Comment);
+
+public record UpdateReferralCommentRequest(string? Comment);
 
 public record ReferrerPaymentDetailsDto(
     string ReferrerEmail,

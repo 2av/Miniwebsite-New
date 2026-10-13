@@ -280,6 +280,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FranchiseeEmail");
+
                     b.HasIndex("Slug")
                         .IsUnique();
 
@@ -879,6 +881,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CustomerEmail");
+
                     b.HasIndex("DealId");
 
                     b.HasIndex("UserId");
@@ -1292,6 +1296,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UserEmail");
+
                     b.HasIndex("UserId")
                         .IsUnique();
 
@@ -1305,6 +1311,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdminComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
 
                     b.Property<string>("BillingAddress")
                         .IsRequired()
@@ -1371,6 +1381,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("OrderCode")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
@@ -1459,7 +1474,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("UserEmail")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int?>("UserId")
                         .HasColumnType("int");
@@ -1474,6 +1490,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InvoiceNumber")
                         .IsUnique();
+
+                    b.HasIndex("OrderCode")
+                        .IsUnique();
+
+                    b.HasIndex("UserEmail");
 
                     b.HasIndex("UserId");
 
@@ -1939,11 +1960,22 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AdminComment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
                     b.Property<decimal>("Amount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<string>("CommissionCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
                     b.Property<int?>("DealId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InvoiceId")
                         .HasColumnType("int");
 
                     b.Property<string>("IsCollaboration")
@@ -1980,9 +2012,18 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CommissionCode")
+                        .IsUnique();
+
                     b.HasIndex("DealId");
 
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ReferredEmail");
+
                     b.HasIndex("ReferredUserId");
+
+                    b.HasIndex("ReferrerEmail");
 
                     b.HasIndex("ReferrerUserId");
 
@@ -2315,6 +2356,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserCode")
                         .IsUnique();
 
+                    b.HasIndex("RoleId", "CreatedAt");
+
                     b.ToTable("users", (string)null);
                 });
 
@@ -2359,6 +2402,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserEmail");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -2485,6 +2530,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
 
                     b.HasIndex("JoiningDealId");
 
@@ -2824,6 +2871,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DealId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("MiniWebsite.Domain.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MiniWebsite.Domain.Entities.User", "ReferredUser")
                         .WithMany()
                         .HasForeignKey("ReferredUserId")
@@ -2836,6 +2888,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Deal");
 
+                    b.Navigation("Invoice");
+
                     b.Navigation("ReferredUser");
 
                     b.Navigation("ReferrerUser");
@@ -2846,7 +2900,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasOne("MiniWebsite.Domain.Entities.ReferralEarning", "ReferralEarning")
                         .WithMany("Payments")
                         .HasForeignKey("ReferralEarningId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("ReferralEarning");
@@ -2956,7 +3010,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                                 .HasColumnType("varchar(50)");
 
                             b1.Property<string>("ReferredBy")
-                                .HasColumnType("longtext");
+                                .HasMaxLength(255)
+                                .HasColumnType("varchar(255)");
 
                             b1.Property<bool>("SaleskitEnabled")
                                 .HasColumnType("tinyint(1)");
@@ -2967,6 +3022,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                             b1.HasKey("UserId");
 
                             b1.HasIndex("ReferralCode");
+
+                            b1.HasIndex("ReferredBy");
 
                             b1.ToTable("user_referral_settings", (string)null);
 
@@ -3010,6 +3067,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.UserJoiningDeal", b =>
                 {
+                    b.HasOne("MiniWebsite.Domain.Entities.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MiniWebsite.Domain.Entities.JoiningDeal", "JoiningDeal")
                         .WithMany()
                         .HasForeignKey("JoiningDealId")

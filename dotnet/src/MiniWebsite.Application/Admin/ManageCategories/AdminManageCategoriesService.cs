@@ -6,6 +6,7 @@ using MiniWebsite.Application.Admin.ManageCategories.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageCategories;
 
@@ -98,7 +99,7 @@ public class AdminManageCategoriesService : IAdminManageCategoriesService
         if (validation != null) return ApiResult<ManageCategoryRowDto>.Fail(validation);
 
         var data = Normalize(request);
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {
@@ -162,7 +163,7 @@ public class AdminManageCategoriesService : IAdminManageCategoriesService
             entity.IsActive = data.IsActive;
             entity.Keywords = data.Keywords;
             entity.Tags = data.Tags;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<ManageCategoryRowDto>.Ok(MapEntity(entity), "Category updated successfully!");
@@ -181,7 +182,7 @@ public class AdminManageCategoriesService : IAdminManageCategoriesService
             if (entity == null) return ApiResult<ManageCategoryRowDto>.Fail("Category not found");
 
             entity.IsActive = !entity.IsActive;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<ManageCategoryRowDto>.Ok(MapEntity(entity), "Status updated successfully!");
@@ -240,7 +241,7 @@ public class AdminManageCategoriesService : IAdminManageCategoriesService
         }
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
-        var fileName = $"categories_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.csv";
+        var fileName = $"categories_{AppClock.Now:yyyy-MM-dd_HH-mm-ss}.csv";
         return (bytes, fileName);
     }
 
@@ -276,7 +277,7 @@ public class AdminManageCategoriesService : IAdminManageCategoriesService
             var imported = 0;
             var skipped = 0;
             var lineNo = 1;
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
 
             while (!reader.EndOfStream)
             {

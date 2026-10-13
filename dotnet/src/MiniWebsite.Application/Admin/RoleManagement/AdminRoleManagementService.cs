@@ -72,7 +72,7 @@ public class AdminRoleManagementService : IAdminRoleManagementService
         if (validation != null) return ApiResult<ManageRoleRowDto>.Fail(validation);
 
         var data = Normalize(request);
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {
@@ -121,7 +121,7 @@ public class AdminRoleManagementService : IAdminRoleManagementService
             entity.RoleDescription = data.RoleDescription;
             entity.Prefix = data.Prefix;
             entity.SalesType = data.SalesType;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<ManageRoleRowDto>.Ok(MapEntity(entity), "Role updated successfully!");

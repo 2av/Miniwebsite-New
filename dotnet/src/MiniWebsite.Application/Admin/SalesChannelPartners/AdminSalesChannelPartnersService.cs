@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.SalesChannelPartners.Dtos;
+using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
@@ -75,13 +76,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             if (!string.IsNullOrWhiteSpace(query.Search))
             {
                 var s = query.Search.Trim().ToLower();
+                var compact = s.Replace(" ", "");
                 q = q.Where(u =>
-                    u.Email.ToLower().Contains(s)
-                    || (u.FirstName + " " + u.LastName).ToLower().Contains(s)
-                    || u.UserCode.ToLower().Contains(s)
+                    u.Email.Contains(s)
+                    || (u.FirstName + " " + u.LastName).Contains(s)
+                    || u.UserCode.Contains(compact)
                     || (u.Phone != null && u.Phone.Contains(s))
-                    || (u.Address.District != null && u.Address.District.ToLower().Contains(s))
-                    || (u.Address.State != null && u.Address.State.ToLower().Contains(s)));
+                    || (u.Address.District != null && u.Address.District.Contains(s))
+                    || (u.Address.State != null && u.Address.State.Contains(s)));
             }
 
             var status = NormalizeStatusFilter(query.Status);
@@ -96,9 +98,10 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 .Take(query.PageSize)
                 .ToListAsync(ct);
 
+            var facts = await LoadFactsAsync(users, ct);
             return ApiResult<SalesChannelPartnersPageDto>.Ok(new SalesChannelPartnersPageDto(
                 MapRole(partner.Slug, role!),
-                users.Select(u => MapRow(u, role!)).ToList(),
+                users.Select(u => MapRow(u, facts.GetValueOrDefault(u.Id))).ToList(),
                 total,
                 query.Page,
                 query.PageSize));
@@ -143,8 +146,8 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             },
             Password = hash,
             Status = "ACTIVE",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -159,7 +162,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             message = $"{role.RoleName} created, but welcome email could not be sent.";
         }
 
-        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, role), message);
+        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, null), message);
     }
 
     public async Task<ApiResult<SalesChannelPartnerRowDto>> UpdateAsync(
@@ -182,16 +185,17 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var conflict = await FindConflictAsync(user.Id, email, phone, ct);
         if (conflict != null) return ApiResult<SalesChannelPartnerRowDto>.Fail(conflict);
 
+        await _db.StageUserEmailChangeAsync(user.Email, email, ct);
         user.FirstName = firstName;
         user.LastName = lastName;
         user.Email = email;
         user.Phone = phone;
         user.Address.District = (request.District ?? "").Trim();
         user.Address.State = (request.State ?? "").Trim();
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
-        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, role!), $"{role!.RoleName} updated successfully.");
+        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, null), $"{role!.RoleName} updated successfully.");
     }
 
     public async Task<ApiResult<SalesChannelPartnerRowDto>> ToggleStatusAsync(
@@ -207,10 +211,10 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         user.Status = requested is "ACTIVE" or "INACTIVE"
             ? requested
             : string.Equals(user.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "INACTIVE" : "ACTIVE";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
-        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, role!), "Status updated.");
+        return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, null), "Status updated.");
     }
 
     public async Task<ApiResult> ResetPasswordAsync(
@@ -228,7 +232,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
 
         var hash = _passwordHasher.Hash(password);
         user.Password = hash;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password reset successfully.");
     }
@@ -254,7 +258,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     {
         // Soft-deleted users still hold the unique email index.
         var emailOwner = await _db.Users.IgnoreQueryFilters().AsNoTracking()
-            .Where(u => (excludeId == null || u.Id != excludeId) && u.Email.ToLower() == email)
+            .Where(u => (excludeId == null || u.Id != excludeId) && u.Email == email)
             .Select(u => new { RoleName = u.AssignedRole != null ? u.AssignedRole.RoleName : null })
             .FirstOrDefaultAsync(ct);
         if (emailOwner != null)
@@ -304,12 +308,266 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         role.Prefix ?? "",
         role.SalesType ?? "");
 
-    private static SalesChannelPartnerRowDto MapRow(User u, Role role)
+    private async Task<Dictionary<int, PartnerRowFacts>> LoadFactsAsync(IReadOnlyList<User> users, CancellationToken ct)
+    {
+        var map = users.ToDictionary(u => u.Id, _ => PartnerRowFacts.Empty);
+        if (users.Count == 0) return map;
+
+        var emails = users.Select(u => NormalizeEmail(u.Email)).Distinct().ToList();
+        var userIds = users.Select(u => u.Id).ToList();
+
+        var referrerEmails = users
+            .Select(u => u.Referral.ReferredBy)
+            .Where(email => !string.IsNullOrWhiteSpace(email))
+            .Select(NormalizeEmail)
+            .Distinct()
+            .ToList();
+        var referrerCodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (referrerEmails.Count > 0)
+        {
+            var referrers = await _db.Users.AsNoTracking()
+                .Where(u => referrerEmails.Contains(u.Email))
+                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
+                .ToListAsync(ct);
+            foreach (var referrer in referrers)
+                referrerCodes[referrer.Email] = UserCodeGenerator.FormatDisplay(referrer.UserCode);
+        }
+
+        var referred = await _db.Users.AsNoTracking()
+            .Where(u => u.Referral.ReferredBy != null && emails.Contains(u.Referral.ReferredBy))
+            .Select(u => new { Referrer = u.Referral.ReferredBy!.ToLower(), Email = u.Email.ToLower() })
+            .ToListAsync(ct);
+        var referredByPartner = referred
+            .GroupBy(r => r.Referrer, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Email).Distinct().ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var ownerEmails = emails.Concat(referred.Select(r => r.Email)).Distinct().ToList();
+        var cards = await _db.Cards.AsNoTracking()
+            .Where(c =>
+                (c.UserEmail != null && ownerEmails.Contains(c.UserEmail))
+                || (c.FranchiseeEmail != null && emails.Contains(c.FranchiseeEmail)))
+            .Select(c => new
+            {
+                c.Id,
+                UserEmail = c.UserEmail == null ? "" : c.UserEmail.ToLower(),
+                FranchiseeEmail = c.FranchiseeEmail == null ? "" : c.FranchiseeEmail.ToLower(),
+            })
+            .ToListAsync(ct);
+
+        var earnings = await _db.ReferralEarnings.AsNoTracking()
+            .Where(r => emails.Contains(r.ReferrerEmail))
+            .Select(r => new { Email = r.ReferrerEmail.ToLower(), r.Amount, r.Status })
+            .ToListAsync(ct);
+        var earningsByEmail = earnings.GroupBy(r => r.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var docs = await _db.FranchiseVerifications.AsNoTracking()
+            .Where(v => emails.Contains(v.UserEmail))
+            .OrderByDescending(v => v.Id)
+            .Select(v => new { Email = v.UserEmail.ToLower(), v.Status, v.DocumentPath })
+            .ToListAsync(ct);
+        var docByEmail = new Dictionary<string, (string Status, string? Path)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var doc in docs)
+        {
+            if (!docByEmail.ContainsKey(doc.Email))
+                docByEmail[doc.Email] = (doc.Status, doc.DocumentPath);
+        }
+
+        var deals = await (
+            from d in _db.UserJoiningDeals.AsNoTracking()
+            join j in _db.JoiningDeals.AsNoTracking() on d.JoiningDealId equals j.Id
+            where userIds.Contains(d.UserId)
+            orderby d.Id descending
+            select new
+            {
+                d.UserId,
+                d.StartDate,
+                d.ExpiryDate,
+                d.PaymentStatus,
+                d.PaymentDate,
+                d.InvoiceId,
+                Fees = j.Fees,
+            }).ToListAsync(ct);
+        var dealByUser = new Dictionary<int, (DateTime? Start, DateTime? Expiry, string PaymentStatus, DateTime? PaymentDate, int? InvoiceId, decimal Fees)>();
+        foreach (var deal in deals)
+        {
+            if (!dealByUser.ContainsKey(deal.UserId))
+                dealByUser[deal.UserId] = (deal.StartDate, deal.ExpiryDate, deal.PaymentStatus, deal.PaymentDate, deal.InvoiceId, deal.Fees);
+        }
+
+        var invoiceIds = dealByUser.Values.Where(d => d.InvoiceId != null).Select(d => d.InvoiceId!.Value).Distinct().ToList();
+        var invoices = invoiceIds.Count == 0
+            ? []
+            : await _db.Invoices.AsNoTracking()
+                .Where(i => invoiceIds.Contains(i.Id))
+                .Select(i => new { i.Id, i.OriginalAmount, i.PromoDiscount, i.PromoCode, i.PaymentStatus, i.PaymentDate, i.InvoiceDate })
+                .ToListAsync(ct);
+        var invoiceById = invoices.ToDictionary(i => i.Id);
+
+        foreach (var user in users)
+        {
+            var email = NormalizeEmail(user.Email);
+            var referralSource = "Direct";
+            if (!string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
+            {
+                var referrerEmail = NormalizeEmail(user.Referral.ReferredBy);
+                referralSource = referrerCodes.TryGetValue(referrerEmail, out var code) && !string.IsNullOrWhiteSpace(code)
+                    ? code
+                    : "Ref: " + user.Referral.ReferredBy.Trim();
+            }
+
+            referredByPartner.TryGetValue(email, out var referredEmails);
+            referredEmails ??= [];
+            var dbCount = cards.Count(c =>
+                c.UserEmail == email
+                || c.FranchiseeEmail == email
+                || referredEmails.Contains(c.UserEmail));
+
+            earningsByEmail.TryGetValue(email, out var userEarnings);
+            userEarnings ??= [];
+            var earningTotal = userEarnings.Sum(e => e.Amount);
+            var rejected = userEarnings.Count(e => string.Equals(e.Status, "Rejected", StringComparison.OrdinalIgnoreCase));
+            var commission = earningTotal <= 0
+                ? "Not Eligible"
+                : userEarnings.Count > 0 && rejected == userEarnings.Count
+                    ? "Rejected"
+                    : "Eligible";
+
+            var documentStatus = "Not Submitted";
+            var documentTone = "neutral";
+            string? pan = null, front = null, back = null;
+            if (docByEmail.TryGetValue(email, out var doc))
+            {
+                documentStatus = MapDocumentStatus(doc.Status);
+                documentTone = MapDocumentTone(documentStatus);
+                (pan, front, back) = SplitDocuments(doc.Path);
+            }
+
+            var dateCreated = "";
+            var expiry = "";
+            var payment = "Unpaid";
+            decimal fees = 0;
+            decimal promo = 0;
+            var coupon = "";
+            int? invoiceId = null;
+            if (dealByUser.TryGetValue(user.Id, out var deal))
+            {
+                dateCreated = FormatDay(deal.Start);
+                expiry = FormatDay(deal.Expiry);
+                fees = deal.Fees;
+                invoiceId = deal.InvoiceId;
+                var paid = IsPaid(deal.PaymentStatus);
+                DateTime? paidOn = deal.PaymentDate;
+                if (deal.InvoiceId is int id && invoiceById.TryGetValue(id, out var invoice))
+                {
+                    fees = invoice.OriginalAmount;
+                    promo = invoice.PromoDiscount;
+                    coupon = invoice.PromoCode ?? "";
+                    paid = paid || IsPaid(invoice.PaymentStatus);
+                    paidOn ??= invoice.PaymentDate ?? invoice.InvoiceDate;
+                }
+                if (paid)
+                    payment = "Paid on " + (paidOn ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            }
+
+            var refund = user.RefundStatus;
+            if (string.IsNullOrWhiteSpace(refund) || refund.Equals("None", StringComparison.OrdinalIgnoreCase))
+                refund = "";
+
+            map[user.Id] = new PartnerRowFacts(
+                referralSource,
+                dateCreated,
+                expiry,
+                payment,
+                fees,
+                FormatMoney(fees, true),
+                promo,
+                FormatMoney(promo, true),
+                coupon,
+                invoiceId,
+                dbCount,
+                documentStatus,
+                documentTone,
+                PublicDoc(pan),
+                PublicDoc(front),
+                PublicDoc(back),
+                referredEmails.Count,
+                earningTotal,
+                FormatMoney(earningTotal, false),
+                commission,
+                refund);
+        }
+
+        return map;
+    }
+
+    private string? PublicDoc(string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(stored)) return null;
+        var path = stored.Trim().Replace('\\', '/');
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return path;
+        var baseUrl = (_app.PhpSiteBaseUrl ?? "").TrimEnd('/');
+        return string.IsNullOrWhiteSpace(baseUrl) ? path : baseUrl + "/" + path.TrimStart('/');
+    }
+
+    private static (string? Pan, string? Front, string? Back) SplitDocuments(string? documentPath)
+    {
+        if (string.IsNullOrWhiteSpace(documentPath)) return (null, null, null);
+        var parts = documentPath.Split('|', 3, StringSplitOptions.None);
+        string? At(int i) => parts.Length > i && !string.IsNullOrWhiteSpace(parts[i]) ? parts[i].Trim() : null;
+        return (At(0), At(1), At(2));
+    }
+
+    private static string MapDocumentStatus(string? status) => (status ?? "").Trim().ToLowerInvariant() switch
+    {
+        "submitted" or "pending review" => "Pending Review",
+        "approved" or "verified" => "Approved",
+        "resubmission" or "resubmission required" or "resubmit" => "Resubmission Required",
+        "rejected" => "Rejected",
+        _ => "Not Submitted",
+    };
+
+    private static string MapDocumentTone(string label) => label switch
+    {
+        "Approved" => "ok",
+        "Rejected" => "danger",
+        "Pending Review" or "Resubmission Required" => "warn",
+        _ => "neutral",
+    };
+
+    private static bool IsPaid(string? status) =>
+        status != null && status.Trim().ToLowerInvariant() is "success" or "paid";
+
+    private static string FormatDay(DateTime? value) =>
+        value is { Year: > 1 } date ? date.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) : "";
+
+    private static string FormatMoney(decimal amount, bool decimals)
+    {
+        var culture = CultureInfo.GetCultureInfo("en-IN");
+        var text = decimals
+            ? amount.ToString("N2", culture)
+            : Math.Round(amount, 0).ToString("N0", culture);
+        return "₹ " + text;
+    }
+
+    private static string FormatUserStatus(string? status)
+    {
+        if (string.Equals(status, "ACTIVE", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+            return "Active";
+        return "InActive";
+    }
+
+    private static SalesChannelPartnerRowDto MapRow(User u, PartnerRowFacts? facts)
     {
         var status = (u.Status ?? "ACTIVE").ToUpperInvariant();
+        var extra = facts ?? PartnerRowFacts.Empty;
+        var joined = u.CreatedAt.Year < 2 ? "" : u.CreatedAt.ToString("dd-MMM-yy", CultureInfo.InvariantCulture);
         return new SalesChannelPartnerRowDto(
             u.Id,
-            u.UserCode,
+            UserCodeGenerator.FormatDisplay(u.UserCode),
             u.FirstName,
             u.LastName,
             u.FullName,
@@ -319,7 +577,58 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             u.Address.State ?? "",
             status,
             status == "ACTIVE" ? "ok" : "danger",
-            u.CreatedAt.Year < 2 ? "—" : u.CreatedAt.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
+            u.CreatedAt.Year < 2 ? "—" : u.CreatedAt.ToString("dd MMM yyyy", CultureInfo.InvariantCulture),
+            joined,
+            extra.ReferralSource,
+            extra.DateCreatedDisplay,
+            extra.ExpiryDateDisplay,
+            FormatUserStatus(status),
+            extra.UserPaymentStatus,
+            extra.JoiningFees,
+            extra.JoiningFeesDisplay,
+            extra.PromoDiscount,
+            extra.PromoDiscountDisplay,
+            extra.CouponCode,
+            extra.InvoiceId,
+            extra.DbCount,
+            extra.DocumentStatus,
+            extra.DocumentStatusTone,
+            extra.PanDocumentUrl,
+            extra.FrontDocumentUrl,
+            extra.BackDocumentUrl,
+            extra.TotalReferred,
+            extra.TotalReferralEarning,
+            extra.TotalReferralEarningDisplay,
+            extra.CommissionStatus,
+            extra.RefundStatus);
+    }
+
+    private sealed record PartnerRowFacts(
+        string ReferralSource,
+        string DateCreatedDisplay,
+        string ExpiryDateDisplay,
+        string UserPaymentStatus,
+        decimal JoiningFees,
+        string JoiningFeesDisplay,
+        decimal PromoDiscount,
+        string PromoDiscountDisplay,
+        string CouponCode,
+        int? InvoiceId,
+        int DbCount,
+        string DocumentStatus,
+        string DocumentStatusTone,
+        string? PanDocumentUrl,
+        string? FrontDocumentUrl,
+        string? BackDocumentUrl,
+        int TotalReferred,
+        decimal TotalReferralEarning,
+        string TotalReferralEarningDisplay,
+        string CommissionStatus,
+        string RefundStatus)
+    {
+        public static PartnerRowFacts Empty { get; } = new(
+            "Direct", "", "", "Unpaid", 0, "₹ 0.00", 0, "₹ 0.00", "", null, 0,
+            "Not Submitted", "neutral", null, null, null, 0, 0, "₹ 0", "Not Eligible", "");
     }
 
     private static string? NormalizeStatusFilter(string? value)

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Admin.ManageReferrals.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
@@ -11,6 +12,8 @@ namespace MiniWebsite.Application.Admin.ManageReferrals;
 
 public class AdminManageReferralsService : IAdminManageReferralsService
 {
+    private const int MaxCommentLength = 1000;
+
     private readonly IApplicationDbContext _db;
 
     public AdminManageReferralsService(IApplicationDbContext db)
@@ -27,9 +30,16 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var s = query.Search.Trim().ToLower();
+            var compact = s.Replace(" ", "");
+            var matchedEmails = _db.Users
+                .Where(u => u.UserCode.Contains(compact))
+                .Select(u => u.Email);
             q = q.Where(r =>
-                r.ReferrerEmail.ToLower().Contains(s)
-                || r.ReferredEmail.ToLower().Contains(s));
+                r.ReferrerEmail.Contains(s)
+                || r.ReferredEmail.Contains(s)
+                || (r.CommissionCode != null && r.CommissionCode.Contains(s))
+                || matchedEmails.Contains(r.ReferrerEmail)
+                || matchedEmails.Contains(r.ReferredEmail));
         }
 
         var totalCount = await q.CountAsync(ct);
@@ -45,77 +55,152 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                 [], totalCount, query.Page, query.PageSize));
         }
 
-        var referrerEmails = earnings.Select(e => Normalize(e.ReferrerEmail)).Distinct().ToList();
         var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
-        var allEmails = referrerEmails.Concat(referredEmails).Distinct().ToList();
+        var allEmails = earnings.Select(e => Normalize(e.ReferrerEmail)).Concat(referredEmails).Distinct().ToList();
 
-        var users = await _db.Users.AsNoTracking()
-            .Where(u => allEmails.Contains(u.Email.ToLower()))
+        var codeByEmail = (await _db.Users.AsNoTracking()
+                .Where(u => allEmails.Contains(u.Email))
+                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
+                .ToListAsync(ct))
+            .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => UserCodeGenerator.FormatDisplay(g.First().UserCode), StringComparer.OrdinalIgnoreCase);
+
+        var linkedInvoiceIds = earnings.Where(e => e.InvoiceId != null).Select(e => e.InvoiceId!.Value).Distinct().ToList();
+        var invoices = await _db.Invoices.AsNoTracking()
+                .Where(i => referredEmails.Contains(i.UserEmail) || linkedInvoiceIds.Contains(i.Id))
+                .Select(i => new OrderFacts(
+                    i.Id,
+                    i.UserEmail.ToLower(),
+                    i.InvoiceDate,
+                    i.ServiceName,
+                    i.PlanName,
+                    i.PaymentType,
+                    i.PaymentStatus,
+                    i.OriginalAmount,
+                    i.PromoDiscount,
+                    i.DiscountAmount,
+                    i.SubTotal,
+                    i.IgstAmount + i.CgstAmount + i.SgstAmount,
+                    i.TotalAmount))
+                .ToListAsync(ct);
+        var invoiceById = invoices.ToDictionary(i => i.Id);
+        var invoicesByEmail = invoices
+            .GroupBy(i => i.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var paidCardEmails = (await _db.Cards.AsNoTracking()
+                .Where(c => c.UserEmail != null
+                            && referredEmails.Contains(c.UserEmail)
+                            && c.PaymentStatus == "Success")
+                .Select(c => c.UserEmail!.ToLower())
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var earningIds = earnings.Select(e => e.Id).ToList();
+        var payments = await _db.ReferralPayments.AsNoTracking()
+            .Where(p => earningIds.Contains(p.ReferralEarningId))
+            .Select(p => new { p.ReferralEarningId, p.Amount, p.PaymentDate })
             .ToListAsync(ct);
-
-        var customers = users
-            .Where(u => u.LoginRole == UserRole.Customer)
-            .GroupBy(u => Normalize(u.Email))
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-        var franchisees = users
-            .Where(u => u.LoginRole == UserRole.Franchisee)
-            .GroupBy(u => Normalize(u.Email))
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-        var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail.ToLower()))
-            .OrderByDescending(c => c.Id)
-            .ToListAsync(ct);
-
-        var latestCardByEmail = new Dictionary<string, Card>(StringComparer.OrdinalIgnoreCase);
-        foreach (var c in cards)
-        {
-            var key = Normalize(c.UserEmail);
-            if (!latestCardByEmail.ContainsKey(key))
-                latestCardByEmail[key] = c;
-        }
-
-        var cardIds = latestCardByEmail.Values.Select(c => c.Id).Distinct().ToList();
-        var invoiceCardIds = await GetCardsWithInvoiceAsync(cardIds, ct);
+        var paymentsByEarning = payments
+            .GroupBy(p => p.ReferralEarningId)
+            .ToDictionary(g => g.Key, g => (Paid: g.Sum(x => x.Amount), Last: g.Max(x => x.PaymentDate)));
 
         var rows = earnings.Select(e =>
         {
-            var refEmail = Normalize(e.ReferrerEmail);
+            var referrer = Normalize(e.ReferrerEmail);
             var referred = Normalize(e.ReferredEmail);
-            customers.TryGetValue(refEmail, out var referrer);
-            latestCardByEmail.TryGetValue(referred, out var card);
-            franchisees.TryGetValue(referred, out var fran);
+            invoicesByEmail.TryGetValue(referred, out var candidates);
+            var orderId = ReferralOrderMatching.ResolveInvoiceId(e.InvoiceId, e.ReferralDate, candidates ?? []);
+            var order = orderId is int id ? invoiceById.GetValueOrDefault(id) : null;
 
-            var isCollab = string.Equals(e.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase);
-            string referredTo;
-            if (isCollab)
-                referredTo = "FR - " + (fran?.Id.ToString(CultureInfo.InvariantCulture) ?? e.ReferredEmail);
+            paymentsByEarning.TryGetValue(e.Id, out var pay);
+            var pending = Math.Max(0, e.Amount - pay.Paid);
+            var isRejected = string.Equals(e.Status, "Rejected", StringComparison.OrdinalIgnoreCase);
+            var isPaid = string.Equals(e.Status, "Paid", StringComparison.OrdinalIgnoreCase)
+                         || (e.Amount > 0 && pending <= 0);
+            var customerPaid = paidCardEmails.Contains(referred)
+                               || (order != null && IsPaid(order.PaymentStatus))
+                               || isPaid
+                               || pay.Paid > 0;
+
+            var commission = isRejected
+                ? "Rejected"
+                : e.Amount <= 0 || !customerPaid
+                    ? "Not Eligible"
+                    : "Eligible";
+
+            string sbStatus;
+            string sbTone;
+            if (isRejected)
+            {
+                sbStatus = "Rejected";
+                sbTone = "danger";
+            }
+            else if (isPaid)
+            {
+                var paidOn = e.PaymentDate ?? (pay.Paid > 0 ? pay.Last : (DateTime?)null);
+                sbStatus = paidOn.HasValue
+                    ? "Paid on " + paidOn.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                    : "Paid";
+                sbTone = "ok";
+            }
             else
-                referredTo = "SB - " + (card != null
-                    ? card.Id.ToString(CultureInfo.InvariantCulture)
-                    : e.ReferredEmail);
+            {
+                sbStatus = "Pending";
+                sbTone = "warn";
+            }
 
-            var (label, tone) = ResolveMwPaymentStatus(e.Status, e.PaymentDate, card?.DPaymentStatus);
+            var isRenewal = order?.PaymentType?.Contains("renew", StringComparison.OrdinalIgnoreCase) == true;
+            var net = order == null
+                ? 0
+                : order.SubTotal > 0
+                    ? order.SubTotal
+                    : Math.Max(0, order.OriginalAmount - order.PromoDiscount - order.DiscountAmount);
 
             return new ManageReferralRowDto(
                 e.Id,
+                e.CommissionCode ?? "",
+                codeByEmail.GetValueOrDefault(referrer, ""),
                 e.ReferrerEmail,
-                referrer != null ? referrer.Id.ToString("D5", CultureInfo.InvariantCulture) : "-",
-                referrer?.FullName ?? "-",
-                referrer?.Phone ?? "-",
-                referredTo,
-                "₹" + e.Amount.ToString("N0", CultureInfo.InvariantCulture),
+                codeByEmail.GetValueOrDefault(referred, e.ReferredEmail),
+                e.ReferredEmail,
+                order == null ? "" : Describe(order.ServiceName, order.PlanName),
+                order == null ? "" : FormatNumber(order.OriginalAmount),
+                order == null ? "" : FormatNumber(order.PromoDiscount),
+                order == null ? "" : FormatNumber(net),
+                order == null ? "" : FormatRupees(order.Gst),
+                order == null ? "" : FormatRupees(order.TotalAmount),
                 e.Amount,
-                string.IsNullOrWhiteSpace(referrer?.RefundStatus) ? "None" : referrer.RefundStatus!,
-                label,
-                tone,
-                card?.Id,
-                card != null && invoiceCardIds.Contains(card.Id));
+                FormatRupees(isRenewal ? 0 : e.Amount),
+                isRenewal ? FormatRupees(e.Amount) : "Not Applicable",
+                commission,
+                sbStatus,
+                sbTone,
+                pay.Paid,
+                pending,
+                commission == "Eligible" && pending > 0,
+                pay.Paid > 0,
+                e.AdminComment ?? "");
         }).ToList();
 
         return ApiResult<ManageReferralsPageDto>.Ok(new ManageReferralsPageDto(
             rows, totalCount, query.Page, query.PageSize));
+    }
+
+    public async Task<ApiResult> UpdateCommentAsync(int referralId, string? comment, CancellationToken ct = default)
+    {
+        var text = (comment ?? "").Trim();
+        if (text.Length > MaxCommentLength)
+            return ApiResult.Fail($"Comment must be {MaxCommentLength} characters or fewer.");
+
+        var earning = await _db.ReferralEarnings.FirstOrDefaultAsync(r => r.Id == referralId, ct);
+        if (earning == null)
+            return ApiResult.Fail("Commission not found.");
+
+        earning.AdminComment = text.Length == 0 ? null : text;
+        await _db.SaveChangesAsync(ct);
+        return ApiResult.Ok("Comment saved.");
     }
 
     public async Task<ApiResult<ReferrerPaymentDetailsDto>> GetReferrerDetailsAsync(
@@ -128,10 +213,10 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         var referrer = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
+            .FirstOrDefaultAsync(u => u.Email == email, ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => r.ReferrerEmail.ToLower() == email)
+            .Where(r => r.ReferrerEmail == email)
             .OrderByDescending(r => r.ReferralDate)
             .ToListAsync(ct);
 
@@ -139,13 +224,13 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
 
         var nameMap = await _db.Users.AsNoTracking()
-            .Where(u => referredEmails.Contains(u.Email.ToLower()))
+            .Where(u => referredEmails.Contains(u.Email))
             .GroupBy(u => u.Email.ToLower())
             .Select(g => new { Email = g.Key, Name = (g.First().FirstName + " " + g.First().LastName).Trim() })
             .ToDictionaryAsync(x => x.Email, x => x.Name, ct);
 
         var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail.ToLower()))
+            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail))
             .OrderByDescending(c => c.Id)
             .ToListAsync(ct);
         var cardMap = new Dictionary<string, Card>(StringComparer.OrdinalIgnoreCase);
@@ -230,10 +315,10 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         var referrer = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == Normalize(earning.ReferrerEmail), ct);
+            .FirstOrDefaultAsync(u => u.Email == Normalize(earning.ReferrerEmail), ct);
         var referred = await _db.Users.AsNoTracking()
             .FirstOrDefaultAsync(u =>
-                u.Email.ToLower() == Normalize(earning.ReferredEmail), ct);
+                u.Email == Normalize(earning.ReferredEmail), ct);
 
         var items = await LoadPaymentHistoryItemsAsync(referralId, ct);
 
@@ -264,7 +349,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             return ApiResult.Fail("Referral not found");
 
         var processedBy = string.IsNullOrWhiteSpace(request.ProcessedBy) ? "admin" : request.ProcessedBy.Trim();
-        var now = DateTime.Now;
+        var now = AppClock.Now;
 
         _db.ReferralPayments.Add(new ReferralPayment
         {
@@ -308,7 +393,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         try
         {
             var row = await _db.UserBankDetails.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.UserEmail.ToLower() == email, ct);
+                .FirstOrDefaultAsync(b => b.UserEmail == email, ct);
 
             return ApiResult<ManageReferralBankDetailsDto>.Ok(new ManageReferralBankDetailsDto(
                 email,
@@ -322,24 +407,6 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         catch (Exception ex)
         {
             return ApiResult<ManageReferralBankDetailsDto>.Fail("Unable to load bank details: " + ex.Message);
-        }
-    }
-
-    private async Task<HashSet<int>> GetCardsWithInvoiceAsync(List<int> cardIds, CancellationToken ct)
-    {
-        if (cardIds.Count == 0) return [];
-        try
-        {
-            return (await _db.Invoices.AsNoTracking()
-                    .Where(i => i.CardId != null && cardIds.Contains(i.CardId.Value))
-                    .Select(i => i.CardId!.Value)
-                    .Distinct()
-                    .ToListAsync(ct))
-                .ToHashSet();
-        }
-        catch
-        {
-            return [];
         }
     }
 
@@ -394,24 +461,43 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         }
     }
 
-    private static (string Label, string Tone) ResolveMwPaymentStatus(
-        string? referralStatus,
-        DateTime? paymentDate,
-        string? cardPaymentStatus)
-    {
-        if (string.Equals(referralStatus, "Paid", StringComparison.OrdinalIgnoreCase))
-        {
-            var d = paymentDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) ?? "N/A";
-            return ("Paid on " + d, "ok");
-        }
+    private static bool IsPaid(string? status) =>
+        string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
 
-        var cardOk = string.Equals(cardPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase);
-        if (string.Equals(referralStatus, "Partial", StringComparison.OrdinalIgnoreCase) && cardOk)
-            return ("Partial Payment", "warn");
-        if (string.Equals(referralStatus, "Pending", StringComparison.OrdinalIgnoreCase) && cardOk)
-            return ("Pending", "warn");
-        return ("Not Eligible", "danger");
+    private static string Describe(string? serviceName, string? planName)
+    {
+        var name = (serviceName ?? "").Trim();
+        var plan = (planName ?? "").Trim();
+        if (plan.Length == 0 || name.Contains(plan, StringComparison.OrdinalIgnoreCase))
+            return name;
+        return name.Length == 0 ? plan : $"{name} ({plan})";
     }
 
+    private static string FormatNumber(decimal value)
+    {
+        var rounded = decimal.Round(value, 2);
+        return rounded == decimal.Truncate(rounded)
+            ? decimal.Truncate(rounded).ToString(CultureInfo.InvariantCulture)
+            : rounded.ToString("0.00", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatRupees(decimal value) => "₹ " + FormatNumber(value);
+
     private static string Normalize(string? value) => (value ?? "").Trim().ToLowerInvariant();
+
+    private sealed record OrderFacts(
+        int Id,
+        string Email,
+        DateTime InvoiceDate,
+        string? ServiceName,
+        string? PlanName,
+        string? PaymentType,
+        string? PaymentStatus,
+        decimal OriginalAmount,
+        decimal PromoDiscount,
+        decimal DiscountAmount,
+        decimal SubTotal,
+        decimal Gst,
+        decimal TotalAmount);
 }

@@ -169,7 +169,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             return ApiResult.Fail("Unable to activate this account. It may already be active.");
 
         user.Status = "ACTIVE";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Franchisee account activated successfully.");
     }
@@ -204,8 +204,8 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             LastName = lastName,
             Password = hash,
             Status = "ACTIVE",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now
         });
         await _db.SaveChangesAsync(ct);
 
@@ -348,7 +348,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         {
             var paidOn = inv.InvoiceDate.HasValue && inv.InvoiceDate.Value.Year > 1
                 ? inv.InvoiceDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                : DateTime.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+                : AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             return ("Paid", "ok", paidOn);
         }
 

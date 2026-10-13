@@ -6,6 +6,7 @@ using MiniWebsite.Application.Admin.ManageFaqs.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageFaqs;
 
@@ -77,7 +78,7 @@ public class AdminManageFaqsService : IAdminManageFaqsService
 
         var pageType = request.PageType.Trim();
         var sortOrder = request.SortOrder < 1 ? 1 : request.SortOrder;
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         try
         {
@@ -121,7 +122,7 @@ public class AdminManageFaqsService : IAdminManageFaqsService
             entity.Answer = request.Answer.Trim();
             entity.SortOrder = sortOrder;
             entity.Status = status;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return ApiResult<ManageFaqRowDto>.Ok(MapEntity(entity), "FAQ updated successfully!");

@@ -5,6 +5,7 @@ using MiniWebsite.Application.Users.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Users;
 
@@ -108,8 +109,8 @@ public class UserService : IUserService
                 Influencer = false,
                 ReferralCode = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant(),
             },
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
             IsDeleted = false
         };
 
@@ -149,7 +150,7 @@ public class UserService : IUserService
             user.Status = status;
         }
 
-        user.UpdatedAt = DateTime.Now;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult<UserDto>.Ok(Map(user), "User updated.");
     }
@@ -161,7 +162,7 @@ public class UserService : IUserService
             return ApiResult.Fail("User not found.");
 
         user.IsDeleted = true;
-        user.UpdatedAt = DateTime.Now;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("User deleted.");
     }

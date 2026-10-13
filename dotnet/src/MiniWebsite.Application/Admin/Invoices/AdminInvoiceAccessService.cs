@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.Invoices;
 
@@ -86,7 +87,7 @@ public class AdminInvoiceAccessService : IAdminInvoiceAccessService
 
         var invoiceDate = inv.InvoiceDate.Year > 1
             ? inv.InvoiceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-            : DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            : AppClock.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         var description = ResolveServiceDescription(inv);
         var qty = inv.Quantity <= 0 ? "1" : inv.Quantity.ToString(CultureInfo.InvariantCulture);

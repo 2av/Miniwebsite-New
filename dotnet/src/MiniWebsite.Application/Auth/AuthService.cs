@@ -21,6 +21,7 @@ public class AuthService : IAuthService
     private readonly IJwtTokenService _jwt;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
+    private readonly IDealBonusLookup _deals;
     private readonly JwtOptions _jwtOptions;
     private readonly AppOptions _app;
 
@@ -30,6 +31,7 @@ public class AuthService : IAuthService
         IJwtTokenService jwt,
         IEmailSender email,
         IEmailTemplateRenderer templates,
+        IDealBonusLookup deals,
         IOptions<JwtOptions> jwtOptions,
         IOptions<AppOptions> app)
     {
@@ -38,6 +40,7 @@ public class AuthService : IAuthService
         _jwt = jwt;
         _email = email;
         _templates = templates;
+        _deals = deals;
         _jwtOptions = jwtOptions.Value;
         _app = app.Value;
     }
@@ -54,12 +57,16 @@ public class AuthService : IAuthService
             return ApiResult<AuthResponse>.Fail("Phone number is already registered.");
 
         string? referredBy = null;
+        int? referrerId = null;
         if (!string.IsNullOrWhiteSpace(request.ReferralCode))
         {
             var code = request.ReferralCode.Trim().ToUpperInvariant();
             var referrer = await _db.Users.FirstOrDefaultAsync(u => u.Referral.ReferralCode == code, ct);
             if (referrer != null)
+            {
                 referredBy = referrer.Email;
+                referrerId = referrer.Id;
+            }
         }
 
         var hash = _passwordHasher.Hash(request.Password);
@@ -84,13 +91,30 @@ public class AuthService : IAuthService
                 ReferralCode = GenerateReferralCode(email),
                 ReferredBy = referredBy,
             },
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
             IsDeleted = false
         };
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
+
+        if (referredBy != null)
+        {
+            var amount = await _deals.GetBonusAmountAsync(referredBy, "MiniWebsite", "DMW001", ct);
+            _db.ReferralEarnings.Add(new ReferralEarning
+            {
+                ReferrerUserId = referrerId,
+                ReferredUserId = user.Id,
+                ReferrerEmail = referredBy,
+                ReferredEmail = user.Email,
+                ReferralDate = AppClock.Now,
+                Status = "Pending",
+                Amount = amount,
+                IsCollaboration = "NO"
+            });
+            await _db.SaveChangesAsync(ct);
+        }
 
         try
         {
@@ -222,7 +246,7 @@ public class AuthService : IAuthService
 
         var passwordHash = _passwordHasher.Hash(request.NewPassword);
         user.Password = passwordHash;
-        user.UpdatedAt = DateTime.Now;
+        user.UpdatedAt = AppClock.Now;
         token.UsedAt = DateTime.UtcNow;
 
         var activeRefresh = await _db.RefreshTokens
@@ -265,7 +289,7 @@ public class AuthService : IAuthService
 
         var hash = _passwordHasher.Hash(request.NewPassword);
         user.Password = hash;
-        user.UpdatedAt = DateTime.Now;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password changed successfully!");
     }
@@ -307,7 +331,7 @@ public class AuthService : IAuthService
         if (string.IsNullOrEmpty(user.Password) || password != user.Password)
             return false;
         user.Password = _passwordHasher.Hash(password);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         return true;
     }
 

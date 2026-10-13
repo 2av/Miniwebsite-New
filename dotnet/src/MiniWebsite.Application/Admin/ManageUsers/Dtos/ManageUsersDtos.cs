@@ -41,6 +41,7 @@ public record ManageUserRowDto(
     string Name,
     string? Phone,
     string? State,
+    string? District,
     string Status,
     DateTime CreatedAt,
     string CollaborationEnabled,
@@ -55,6 +56,7 @@ public record ManageUserRowDto(
     decimal TotalPaidAmount,
     DateTime? LastPaymentDate,
     string MwPaymentStatusLabel,
+    string CommissionStatus,
     MappedDealDto? MwDeal,
     MappedDealDto? FranchiseDeal);
 
@@ -63,6 +65,8 @@ public record MappedDealDto(int MappingId, int DealId, string DealName, string? 
 public record MapDealRequest(string UserEmail, int DealId, string? CreatedBy);
 
 public record ToggleStatusRequest(string Email, string Status);
+
+public record SetUserStatusRequest(string? Status);
 
 public record SetRefundRequest(string Email, string RefundStatus);
 

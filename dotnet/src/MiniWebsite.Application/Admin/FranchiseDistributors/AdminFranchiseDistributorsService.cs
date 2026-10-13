@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.FranchiseDistributors;
 
@@ -143,7 +144,7 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
             return ApiResult.Fail("User not found.");
 
         user.Referral.Influencer = status == "YES";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Influencer status updated successfully");
     }

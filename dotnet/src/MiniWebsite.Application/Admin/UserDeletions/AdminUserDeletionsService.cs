@@ -4,6 +4,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.UserDeletions;
 
@@ -84,7 +85,7 @@ public class AdminUserDeletionsService : IAdminUserDeletionsService
         foreach (var u in users)
         {
             u.IsDeleted = true;
-            u.UpdatedAt = DateTime.UtcNow;
+            u.UpdatedAt = AppClock.Now;
         }
 
         await _db.SaveChangesAsync(ct);
@@ -107,7 +108,7 @@ public class AdminUserDeletionsService : IAdminUserDeletionsService
         foreach (var u in users)
         {
             u.IsDeleted = false;
-            u.UpdatedAt = DateTime.UtcNow;
+            u.UpdatedAt = AppClock.Now;
         }
 
         await _db.SaveChangesAsync(ct);

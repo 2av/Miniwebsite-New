@@ -4,6 +4,7 @@ using MiniWebsite.Application.Admin.ManageDeals.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageDeals;
 
@@ -100,7 +101,7 @@ public class AdminManageDealsService : IAdminManageDealsService
                 DealState = string.IsNullOrWhiteSpace(request.DealState) ? "" : request.DealState.Trim(),
                 CreatedBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? "admin" : request.CreatedBy.Trim(),
                 DealStatus = "Active",
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = AppClock.Now,
             };
 
             _db.Deals.Add(entity);
@@ -273,9 +274,9 @@ public class AdminManageDealsService : IAdminManageDealsService
         var renewalBonus = d.RenewalBonusAmount;
         var maxUsage = d.MaxUsage;
         var currentUsage = d.CurrentUsage;
-        var validity = d.ValidityDate?.Date ?? DateTime.Today;
+        var validity = d.ValidityDate?.Date ?? AppClock.Today;
         var uploaded = d.CreatedAt;
-        var expired = validity.Date < DateTime.Today;
+        var expired = validity.Date < AppClock.Today;
         var hasState = !string.IsNullOrWhiteSpace(d.DealState);
 
         string discountDisplay;

@@ -6,4 +6,5 @@ namespace MiniWebsite.Application.Admin.AllOrders;
 public interface IAdminAllOrdersService
 {
     Task<ApiResult<AllOrdersPageDto>> ListAsync(AllOrdersQuery query, CancellationToken ct = default);
+    Task<ApiResult> UpdateCommentAsync(int invoiceId, string? comment, CancellationToken ct = default);
 }

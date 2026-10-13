@@ -5,6 +5,7 @@ using MiniWebsite.Application.Admin.EmailTemplates.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.EmailTemplates;
 
@@ -123,8 +124,8 @@ public class AdminEmailTemplatesService : IAdminEmailTemplatesService
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             IsActive = !string.Equals(request.Status, "inactive", StringComparison.OrdinalIgnoreCase),
             IsSystem = false,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
             UpdatedBy = string.IsNullOrWhiteSpace(request.UpdatedBy) ? "admin" : request.UpdatedBy.Trim(),
         };
 
@@ -159,7 +160,7 @@ public class AdminEmailTemplatesService : IAdminEmailTemplatesService
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         if (!string.IsNullOrWhiteSpace(request.Status))
             entity.IsActive = request.Status.Equals("active", StringComparison.OrdinalIgnoreCase);
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = AppClock.Now;
         entity.UpdatedBy = string.IsNullOrWhiteSpace(request.UpdatedBy) ? "admin" : request.UpdatedBy.Trim();
 
         await _db.SaveChangesAsync(ct);
@@ -171,7 +172,7 @@ public class AdminEmailTemplatesService : IAdminEmailTemplatesService
         var entity = await _db.EmailTemplates.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (entity == null) return ApiResult.Fail("Email template not found.");
         entity.IsActive = !entity.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok(entity.IsActive ? "Template activated." : "Template deactivated.");
     }

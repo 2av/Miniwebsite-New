@@ -9,6 +9,7 @@ using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.PublicSite.Dtos;
 using MiniWebsite.Application.Website;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.PublicSite;
 
@@ -344,7 +345,7 @@ public class PublicCardService : IPublicCardService
 
         if (o.EndDate is null) return true;
         var end = o.EndDate.Value.ToDateTime(o.EndTime ?? new TimeOnly(23, 59, 59));
-        return end >= DateTime.Now;
+        return end >= AppClock.Now;
     }
 
     private static int ResolveThemeNumber(string? dCss)
@@ -369,7 +370,7 @@ public class PublicCardService : IPublicCardService
         if (validity is null) return false;
         var v = validity.Value;
         if (v.Year < 1971) return false;
-        if (v >= DateTime.Now) return false;
+        if (v >= AppClock.Now) return false;
         display = v.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
         return true;
     }

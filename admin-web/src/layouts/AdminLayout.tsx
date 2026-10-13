@@ -95,7 +95,7 @@ function flattenNavLinks(nodes: NavNode[], ancestors: string[] = []): FlatNavIte
 const nav: NavNode[] = [
   { kind: 'link', to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { kind: 'link', to: '/sb-user-details', label: 'SB User Details', icon: Users },
-  { kind: 'link', to: '/sb-profile-details', label: 'SB Profile Details', icon: Globe2 },
+  { kind: 'link', to: '/db-profile-details', label: 'DB Profile Details', icon: Globe2 },
   
   {
     kind: 'group',

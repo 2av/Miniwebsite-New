@@ -15,6 +15,10 @@ export function removeDeal(mappingId: number) {
   return apiSend('delete', `${BASE}/deals/${mappingId}`)
 }
 
+export function setUserStatus(id: number, status: 'ACTIVE' | 'INACTIVE') {
+  return apiSend('patch', `${BASE}/${id}/status`, { status })
+}
+
 export function setCollaboration(email: string, status: string) {
   return apiSend('patch', `${BASE}/collaboration`, { email, status })
 }

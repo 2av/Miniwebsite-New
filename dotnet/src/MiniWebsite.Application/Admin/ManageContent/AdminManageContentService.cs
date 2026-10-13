@@ -4,6 +4,7 @@ using MiniWebsite.Application.Admin.ManageContent.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageContent;
 
@@ -85,7 +86,7 @@ public class AdminManageContentService : IAdminManageContentService
                 entity.MetaDescription = metaDesc;
                 entity.MetaKeywords = metaKeys;
                 entity.UpdatedBy = updatedBy;
-                entity.LastUpdated = DateTime.UtcNow;
+                entity.LastUpdated = AppClock.Now;
                 await _db.SaveChangesAsync(ct);
 
                 return ApiResult<ManageContentItemDto>.Ok(
@@ -101,7 +102,7 @@ public class AdminManageContentService : IAdminManageContentService
                 MetaDescription = metaDesc,
                 MetaKeywords = metaKeys,
                 UpdatedBy = updatedBy,
-                LastUpdated = DateTime.UtcNow,
+                LastUpdated = AppClock.Now,
                 IsActive = true,
             };
             _db.ContentPages.Add(entity);

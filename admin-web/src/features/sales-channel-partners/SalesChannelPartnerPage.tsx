@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { BatteryCharging, KeyRound, Pencil, Plus, Power, PowerOff, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
+import { fetchDashboardDetails, fetchReferralDetails } from '@/features/manage-users/api'
 import {
   createSalesChannelPartner,
   fetchSalesChannelPartners,
@@ -22,6 +23,7 @@ import {
 import type { SalesChannelPartnerRow } from '@/shared/types/api'
 import { ApiError } from '@/shared/api/client'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
+import { openInvoiceById } from '@/shared/lib/invoiceDownload'
 import { FiltersButton, FiltersDrawer } from '@/shared/ui/FiltersDrawer'
 import { useToast } from '@/shared/ui/Toast'
 import { Badge } from '@/components/ui/badge'
@@ -86,6 +88,66 @@ const ACTION_BTN =
 
 const COLUMNS = ['User ID', 'Name', 'Email', 'Mobile', 'District', 'State', 'Status', 'Created', 'Actions']
 
+const DMP_COLUMNS = [
+  'User ID',
+  'User Email',
+  'User Name',
+  'User Number',
+  'Joined On',
+  'State',
+  'District',
+  'Referral Source',
+  'Date Created',
+  'Expiry Date',
+  'User Status',
+  'User Payment Status',
+  'Joining Fees',
+  'Promo Discount',
+  'Bill Details',
+  'No. of DB',
+  'Documents Status',
+  'Total Referred',
+  'Total Referral Earning',
+  'Commission Status',
+  'User Dashboard',
+  'Refund',
+  'Actions',
+]
+
+const COUPON_COLUMNS = [
+  'User ID',
+  'User Email',
+  'User Name',
+  'User Number',
+  'Joined On',
+  'State',
+  'District',
+  'Referral Source',
+  'User Status',
+  'User Payment Status',
+  'Joining Fees',
+  'Coupon Code',
+  'Bill Details',
+  'No. of DB',
+  'Documents Status',
+  'Total Referred',
+  'Total Referral Earning',
+  'Commission Status',
+  'User Dashboard',
+  'Refund',
+  'Actions',
+]
+
+function commissionTone(label: string): 'neutral' | 'ok' | 'danger' {
+  if (label === 'Eligible') return 'ok'
+  if (label === 'Rejected') return 'danger'
+  return 'neutral'
+}
+
+function paymentTone(label: string): 'neutral' | 'ok' {
+  return label.startsWith('Paid') ? 'ok' : 'neutral'
+}
+
 export function SalesChannelPartnerRoute() {
   const { slug } = useParams()
   const partner = findSalesChannelPartner(slug)
@@ -114,7 +176,19 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const [resetBusy, setResetBusy] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
   const [rechargeTarget, setRechargeTarget] = useState<RechargeWalletTarget | null>(null)
+  const [dashboardEmail, setDashboardEmail] = useState<string | null>(null)
+  const [referralEmail, setReferralEmail] = useState<string | null>(null)
+  const [documents, setDocuments] = useState<SalesChannelPartnerRow | null>(null)
   const canRechargeWallet = slug === 'franchisee-partner'
+  const isDetailed =
+    slug === 'digital-marketing-partner' ||
+    slug === 'print-shop-partner' ||
+    slug === 'field-sales-partner'
+  const isCoupon =
+    slug === 'social-media-partner' ||
+    slug === 'field-sales-team' ||
+    slug === 'franchisee-partner'
+  const columns = isDetailed ? DMP_COLUMNS : isCoupon ? COUPON_COLUMNS : COLUMNS
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -141,6 +215,18 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const listQuery = useQuery({
     queryKey: ['sales-channel-partners', slug, filters],
     queryFn: () => fetchSalesChannelPartners(slug, filters),
+  })
+
+  const dashboardQuery = useQuery({
+    queryKey: ['dashboard-details', dashboardEmail],
+    queryFn: () => fetchDashboardDetails(dashboardEmail!),
+    enabled: !!dashboardEmail,
+  })
+
+  const referralQuery = useQuery({
+    queryKey: ['referral-details', referralEmail],
+    queryFn: () => fetchReferralDetails(referralEmail!),
+    enabled: !!referralEmail,
   })
 
   const data = listQuery.data
@@ -320,7 +406,7 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
             <Table className="w-max min-w-full">
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
-                  {COLUMNS.map((h) => (
+                  {columns.map((h) => (
                     <TableHead key={h} className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
                       {h}
                     </TableHead>
@@ -330,26 +416,45 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={columns.length} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {listQuery.isError && (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-destructive">
+                    <TableCell colSpan={columns.length} className="py-10 text-center text-destructive">
                       {(listQuery.error as Error).message}
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && !listQuery.isError && partners.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={columns.length} className="py-10 text-center text-muted-foreground">
                       No {roleName.toLowerCase()} records found
                     </TableCell>
                   </TableRow>
                 )}
-                {partners.map((p) => (
+                {partners.map((p) => isDetailed || isCoupon ? (
+                  <DmpPartnerRow
+                    key={p.id}
+                    partner={p}
+                    showCoupon={isCoupon}
+                    showWallet={canRechargeWallet}
+                    toggling={togglingId === p.id}
+                    onEdit={() => openEdit(p)}
+                    onToggle={() => void runToggle(p)}
+                    onReset={() => {
+                      setResetTarget(p)
+                      setNewPassword('')
+                    }}
+                    onBill={() => p.invoiceId && openInvoiceById(p.invoiceId)}
+                    onDocuments={() => setDocuments(p)}
+                    onCommission={() => setReferralEmail(p.email)}
+                    onDashboard={() => setDashboardEmail(p.email)}
+                    onRecharge={() => setRechargeTarget({ id: p.id, email: p.email, name: p.name })}
+                  />
+                ) : (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono font-medium">{p.userCode}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
@@ -559,7 +664,237 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
       </Dialog>
 
       <RechargeWalletDialog target={rechargeTarget} onClose={() => setRechargeTarget(null)} />
+
+      <Dialog open={!!dashboardEmail} onOpenChange={(open) => !open && setDashboardEmail(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Dashboard — {dashboardEmail ?? ''}</DialogTitle>
+            <DialogDescription>ShareBizz profiles for this partner.</DialogDescription>
+          </DialogHeader>
+          {dashboardQuery.isLoading && <p className="text-muted-foreground">Loading…</p>}
+          {dashboardQuery.isError && <p className="text-destructive">{(dashboardQuery.error as Error).message}</p>}
+          {dashboardQuery.data && (
+            dashboardQuery.data.websites.length === 0 ? (
+              <p className="rounded-xl bg-sky-50 px-4 py-3 text-sky-900">No websites created yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {['DB ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
+                      <TableHead key={heading}>{heading}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardQuery.data.websites.map((w) => (
+                    <TableRow key={w.id}>
+                      <TableCell>{w.id}</TableCell>
+                      <TableCell>{w.companyName || 'Unnamed'}</TableCell>
+                      <TableCell>{w.uploadedDate ? w.uploadedDate.slice(0, 10) : ''}</TableCell>
+                      <TableCell>{w.validityDisplay}</TableCell>
+                      <TableCell>{w.statusText}</TableCell>
+                      <TableCell>{w.paymentLabel}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!referralEmail} onOpenChange={(open) => !open && setReferralEmail(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Commission — {referralEmail ?? ''}</DialogTitle>
+            <DialogDescription>Referral earnings for this partner.</DialogDescription>
+          </DialogHeader>
+          {referralQuery.isLoading && <p className="text-muted-foreground">Loading…</p>}
+          {referralQuery.isError && <p className="text-destructive">{(referralQuery.error as Error).message}</p>}
+          {referralQuery.data && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Total earning ₹ {Math.round(referralQuery.data.totalReferralAmount).toLocaleString('en-IN')} · Pending ₹{' '}
+                {Math.round(referralQuery.data.pendingAmount).toLocaleString('en-IN')}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {['User', 'Email', 'Joined', 'Amount'].map((heading) => (
+                      <TableHead key={heading}>{heading}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {referralQuery.data.referredUsers.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-muted-foreground">No referrals found</TableCell>
+                    </TableRow>
+                  )}
+                  {referralQuery.data.referredUsers.map((r) => (
+                    <TableRow key={r.referralId}>
+                      <TableCell>{r.userName || 'Unknown'}</TableCell>
+                      <TableCell>{r.referredEmail}</TableCell>
+                      <TableCell>{r.referralDate?.slice(0, 10)}</TableCell>
+                      <TableCell>₹ {Math.round(r.amount).toLocaleString('en-IN')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!documents} onOpenChange={(open) => !open && setDocuments(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Documents — {documents?.name}</DialogTitle>
+            <DialogDescription>{documents?.documentStatus || 'Not Submitted'}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <DocumentLink label="PAN" href={documents?.panDocumentUrl} />
+            <DocumentLink label="ID front" href={documents?.frontDocumentUrl} />
+            <DocumentLink label="ID back" href={documents?.backDocumentUrl} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+  )
+}
+
+function DmpPartnerRow({
+  partner: p,
+  showCoupon = false,
+  showWallet = false,
+  toggling,
+  onEdit,
+  onToggle,
+  onReset,
+  onBill,
+  onDocuments,
+  onCommission,
+  onDashboard,
+  onRecharge,
+}: {
+  partner: SalesChannelPartnerRow
+  showCoupon?: boolean
+  showWallet?: boolean
+  toggling: boolean
+  onEdit: () => void
+  onToggle: () => void
+  onReset: () => void
+  onBill: () => void
+  onDocuments: () => void
+  onCommission: () => void
+  onDashboard: () => void
+  onRecharge?: () => void
+}) {
+  const active = p.status === 'ACTIVE'
+  const commission = p.commissionStatus || 'Not Eligible'
+  return (
+    <TableRow>
+      <TableCell className="font-mono font-medium whitespace-nowrap">{p.userCode}</TableCell>
+      <TableCell className="max-w-[200px] truncate">{p.email}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.name}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.phone}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.joinedOnDisplay}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.state}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.district}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.referralSource || 'Direct'}</TableCell>
+      {!showCoupon && <TableCell className="whitespace-nowrap">{p.dateCreatedDisplay}</TableCell>}
+      {!showCoupon && <TableCell className="whitespace-nowrap">{p.expiryDateDisplay}</TableCell>}
+      <TableCell>
+        <Badge variant={badgeVariantFromTone(p.statusTone)}>{p.userStatusLabel || (active ? 'Active' : 'InActive')}</Badge>
+      </TableCell>
+      <TableCell>
+        <Badge variant={badgeVariantFromTone(paymentTone(p.userPaymentStatus || 'Unpaid'))}>
+          {p.userPaymentStatus || 'Unpaid'}
+        </Badge>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">{p.joiningFeesDisplay || '₹ 0.00'}</TableCell>
+      {showCoupon ? (
+        <TableCell className="whitespace-nowrap">{p.couponCode}</TableCell>
+      ) : (
+        <TableCell className="whitespace-nowrap">{p.promoDiscountDisplay || '₹ 0.00'}</TableCell>
+      )}
+      <TableCell>
+        <Button variant="outline" size="sm" disabled={!p.invoiceId} onClick={onBill}>
+          View
+        </Button>
+      </TableCell>
+      <TableCell className="text-center font-semibold">{p.dbCount ?? 0}</TableCell>
+      <TableCell className="whitespace-nowrap">
+        <span className="inline-flex items-center gap-1">
+          <Badge variant={badgeVariantFromTone(p.documentStatusTone)}>{p.documentStatus || 'Not Submitted'}</Badge>
+          <Button variant="link" size="sm" className="h-auto px-1" onClick={onDocuments}>
+            View
+          </Button>
+        </span>
+      </TableCell>
+      <TableCell className="text-center font-semibold">{p.totalReferred ?? 0}</TableCell>
+      <TableCell className="whitespace-nowrap">{p.totalReferralEarningDisplay || '₹ 0'}</TableCell>
+      <TableCell className="whitespace-nowrap">
+        <span className="inline-flex items-center gap-1">
+          <Badge variant={badgeVariantFromTone(commissionTone(commission))}>{commission}</Badge>
+          <Button variant="link" size="sm" className="h-auto px-1" onClick={onCommission}>
+            [View]
+          </Button>
+        </span>
+      </TableCell>
+      <TableCell>
+        <Button variant="outline" size="sm" onClick={onDashboard}>
+          View
+        </Button>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">{p.refundStatus}</TableCell>
+      <TableCell>
+        <div className="flex gap-1">
+          <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Edit" aria-label="Edit" onClick={onEdit}>
+            <Pencil size={14} />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className={
+              active
+                ? `${ACTION_BTN} text-red-600 hover:bg-red-50 hover:text-red-700`
+                : `${ACTION_BTN} text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700`
+            }
+            title={active ? 'Deactivate' : 'Activate'}
+            aria-label={active ? 'Deactivate' : 'Activate'}
+            disabled={toggling}
+            onClick={onToggle}
+          >
+            {toggling ? <RefreshCw size={14} className="animate-spin" /> : active ? <PowerOff size={14} /> : <Power size={14} />}
+          </Button>
+          <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Reset password" aria-label="Reset password" onClick={onReset}>
+            <KeyRound size={14} />
+          </Button>
+          {showWallet && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={`${ACTION_BTN} text-amber-600 hover:bg-amber-50 hover:text-amber-700`}
+              title="Recharge Wallet"
+              aria-label="Recharge Wallet"
+              onClick={onRecharge}
+            >
+              <BatteryCharging size={14} />
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function DocumentLink({ label, href }: { label: string; href?: string | null }) {
+  if (!href) return <div className="text-muted-foreground">{label}: not uploaded</div>
+  return (
+    <a className="block text-rose-700 underline" href={href} target="_blank" rel="noreferrer">
+      View {label}
+    </a>
   )
 }
 

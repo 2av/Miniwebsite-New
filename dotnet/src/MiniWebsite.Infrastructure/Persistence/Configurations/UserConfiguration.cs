@@ -26,6 +26,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(x => x.UserCode).IsUnique();
         builder.HasIndex(x => x.Email).IsUnique();
         builder.HasIndex(x => x.RoleId);
+        builder.HasIndex(x => new { x.RoleId, x.CreatedAt });
         builder.HasOne(x => x.AssignedRole)
             .WithMany()
             .HasForeignKey(x => x.RoleId)
@@ -69,11 +70,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             r.Property<int>("UserId");
             r.HasKey("UserId");
             r.Property(x => x.ReferralCode).HasMaxLength(50);
-            r.Property(x => x.ReferredBy);
+            r.Property(x => x.ReferredBy).HasMaxLength(255);
             r.Property(x => x.Influencer).IsRequired();
             r.Property(x => x.CollaborationEnabled).IsRequired();
             r.Property(x => x.SaleskitEnabled).IsRequired();
             r.HasIndex(x => x.ReferralCode);
+            r.HasIndex(x => x.ReferredBy);
         });
         builder.Navigation(x => x.Referral).IsRequired();
 
@@ -103,6 +105,7 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
         builder.HasIndex(x => x.Slug).IsUnique();
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => x.UserEmail);
+        builder.HasIndex(x => x.FranchiseeEmail);
         builder.HasOne(x => x.User).WithMany(x => x.Cards).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.SlugHistory).WithOne(x => x.Card).HasForeignKey<CardSlugHistory>(x => x.CardId);
     }

@@ -9,6 +9,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.Portal.Dtos;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Portal;
 
@@ -282,7 +283,7 @@ public class PortalService : IPortalService
             return ApiResult.Fail("All fields are mandatory. Please fill all the required fields.");
 
         var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserEmail.ToLower() == email, ct);
-        var now = DateTime.UtcNow;
+        var now = AppClock.Now;
 
         if (entity != null)
         {
@@ -563,7 +564,7 @@ public class PortalService : IPortalService
         {
             var entity = await _db.FranchiseVerifications
                 .FirstOrDefaultAsync(v => v.UserEmail.ToLower() == emailKey, ct);
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
             var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!);
 
             if (entity != null)
@@ -578,11 +579,13 @@ public class PortalService : IPortalService
                 var userId = await _db.Users.AsNoTracking()
                     .Where(u => u.Email.ToLower() == emailKey)
                     .Select(u => (int?)u.Id)
-                    .FirstOrDefaultAsync(ct) ?? 0;
+                    .FirstOrDefaultAsync(ct);
+                if (userId == null)
+                    return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
 
                 _db.FranchiseVerifications.Add(new Domain.Entities.FranchiseVerification
                 {
-                    UserId = userId,
+                    UserId = userId.Value,
                     UserEmail = email.Trim(),
                     DocumentPath = docPath,
                     Status = "submitted",
@@ -651,7 +654,7 @@ public class PortalService : IPortalService
         if (bytes.Length > 2_500_000)
             throw new InvalidOperationException($"{kind} image is too large (max ~2.5MB).");
 
-        var stamp = DateTime.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
+        var stamp = AppClock.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
         var fileName = $"{stamp}_{kind}.jpg";
         var fullPath = Path.Combine(fsDir, fileName);
         await File.WriteAllBytesAsync(fullPath, bytes, ct);
@@ -774,7 +777,7 @@ public class PortalService : IPortalService
             }
 
             user.ProfileImage = dbPath;
-            user.UpdatedAt = DateTime.Now;
+            user.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             var publicUrl = ToPublicProfileUrl(dbPath) ?? "";
@@ -939,7 +942,7 @@ public class PortalService : IPortalService
                 entity.BusinessType = businessType;
                 entity.ApproachedFor = approachedFor;
                 entity.FollowupMethod = followupMethod;
-                entity.UpdatedAt = DateTime.UtcNow;
+                entity.UpdatedAt = AppClock.Now;
             }
             else
             {
@@ -961,8 +964,8 @@ public class PortalService : IPortalService
                     BusinessType = businessType,
                     ApproachedFor = approachedFor,
                     FollowupMethod = followupMethod,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
+                    CreatedAt = AppClock.Now,
+                    UpdatedAt = AppClock.Now,
                 });
             }
 
@@ -1078,13 +1081,13 @@ public class PortalService : IPortalService
                 FollowupMethod = method,
                 FollowupStatus = status,
                 Comments = comments,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = AppClock.Now,
             });
 
             customer.Status = status;
             customer.FollowupMethod = method;
             customer.Comments = comments;
-            customer.UpdatedAt = DateTime.UtcNow;
+            customer.UpdatedAt = AppClock.Now;
 
             await _db.SaveChangesAsync(ct);
             return ApiResult.Ok("Followup added successfully.");
@@ -1105,7 +1108,7 @@ public class PortalService : IPortalService
             var customer = await _db.Customers.FirstOrDefaultAsync(
                 c => c.Id == customerId && c.OwnerUserId == user.Id && c.OwnerRole == role, ct);
             if (customer == null) return ApiResult.Fail("Customer not found.");
-            customer.LastSharedAt = DateTime.UtcNow;
+            customer.LastSharedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
             return ApiResult.Ok("ok");
         }
@@ -1411,7 +1414,7 @@ public class PortalService : IPortalService
         if (string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
         {
             var pd = paymentDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                     ?? DateTime.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+                     ?? AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             userPayLabel = "Paid on " + pd;
             userPayClass = "bg-success";
         }
@@ -1481,13 +1484,13 @@ public class PortalService : IPortalService
 
         if (string.Equals(paymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
         {
-            if (validity.HasValue && validity.Value < DateTime.Now)
+            if (validity.HasValue && validity.Value < AppClock.Now)
                 return ("bg-secondary lightGray", "Expired on " + validity.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture));
             return ("bg-success", "Active");
         }
 
         var trialEnd = uploaded?.AddDays(7);
-        var trialExpired = trialEnd.HasValue && trialEnd.Value < DateTime.Now;
+        var trialExpired = trialEnd.HasValue && trialEnd.Value < AppClock.Now;
         var franchiseLinked = !string.IsNullOrWhiteSpace(fUserEmail) && fUserEmail.Trim().Length >= 3;
 
         if (franchiseLinked)

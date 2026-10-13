@@ -57,6 +57,13 @@ public class AdminManageUsersController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPatch("{id:int}/status")]
+    public async Task<ActionResult<ApiResult>> SetStatus(int id, [FromBody] SetUserStatusRequest request, CancellationToken ct)
+    {
+        var result = await _service.SetUserStatusAsync(id, request.Status, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPatch("collaboration")]
     public async Task<ActionResult<ApiResult>> Collaboration([FromBody] ToggleStatusRequest request, CancellationToken ct)
     {

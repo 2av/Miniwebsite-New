@@ -4,6 +4,7 @@ using MiniWebsite.Application.Admin.ManagePricing.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManagePricing;
 
@@ -143,7 +144,7 @@ public class AdminManagePricingService : IAdminManagePricingService
             if (dup)
                 return ApiResult<ManagePricingRowDto>.Fail("This plan type and plan name combination already exists.");
 
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
             var entity = new PricingPlan
             {
                 PlanType = planType,
@@ -205,7 +206,7 @@ public class AdminManagePricingService : IAdminManagePricingService
             entity.DealId = dealId > 0 ? dealId : null;
             if (!string.IsNullOrWhiteSpace(request.Status))
                 entity.Status = NormalizeStatus(request.Status);
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             return await GetAsync(id, ct) switch
@@ -230,7 +231,7 @@ public class AdminManagePricingService : IAdminManagePricingService
             entity.Status = string.Equals(entity.Status, "Active", StringComparison.OrdinalIgnoreCase)
                 ? "Inactive"
                 : "Active";
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
             return ApiResult.Ok("Status updated!");
         }

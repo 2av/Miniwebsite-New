@@ -132,8 +132,8 @@ public class AdminManageTeamsService : IAdminManageTeamsService
             Address = new UserAddress { District = district, State = state },
             Password = hash,
             Status = "ACTIVE",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now,
         };
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -206,13 +206,14 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                     $"This mobile number is already registered as a {phoneConflict}. Please use a different mobile number.");
         }
 
+        await _db.StageUserEmailChangeAsync(user.Email, email, ct);
         user.FirstName = firstName;
         user.LastName = lastName;
         user.Email = email;
         user.Phone = phone;
         user.Address.District = district;
         user.Address.State = state;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
 
         return ApiResult<ManageTeamRowDto>.Ok(await MapRowAsync(user, ct), "Team member updated successfully.");
@@ -231,7 +232,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
             newStatus = string.Equals(user.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "INACTIVE" : "ACTIVE";
 
         user.Status = newStatus;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult<ManageTeamRowDto>.Ok(await MapRowAsync(user, ct), "Member status updated.");
     }
@@ -247,7 +248,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
         var hash = _passwordHasher.Hash(password);
         user.Password = hash;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Password reset successfully.");
     }
@@ -443,7 +444,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
         var safeName = Regex.Replace(result.Data.MemberName, @"[^a-zA-Z0-9_-]+", "_");
-        return (bytes, $"tracker_{safeName}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+        return (bytes, $"tracker_{safeName}_{AppClock.Now:yyyyMMdd_HHmmss}.csv");
     }
 
     private async Task<ManageTeamRowDto> MapRowAsync(User u, CancellationToken ct)

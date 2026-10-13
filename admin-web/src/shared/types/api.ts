@@ -43,6 +43,7 @@ export type ManageUserRow = {
   name: string
   phone?: string | null
   state?: string | null
+  district?: string | null
   status: string
   createdAt: string
   collaborationEnabled: string
@@ -57,6 +58,7 @@ export type ManageUserRow = {
   totalPaidAmount: number
   lastPaymentDate?: string | null
   mwPaymentStatusLabel: string
+  commissionStatus: string
   mwDeal?: MappedDeal | null
   franchiseDeal?: MappedDeal | null
 }
@@ -165,6 +167,12 @@ export type ManageCardRow = {
   canToggleComplimentary: boolean
   publicUrl: string
   editUrl: string
+  userIdDisplay?: string
+  dbIdDisplay?: string
+  dateCreatedDisplay?: string
+  expiryDateDisplay?: string
+  couponCode?: string
+  orderValueDisplay?: string
 }
 
 export type ManageCardsPage = {
@@ -206,13 +214,23 @@ export type FranchiseDistributorPage = {
 
 export type AllOrderRow = {
   invoiceId: number
+  orderIdDisplay: string
+  orderDateDisplay: string
   userIdDisplay: string
-  mwIdDisplay?: string | null
-  paymentStatusLabel: string
-  paymentStatusTone: string
-  paidOnDisplay?: string | null
+  userEmail: string
+  cardId?: number | null
+  dbIdDisplay: string
+  referralSource: string
+  referralAmountDisplay: string
+  orderDescription: string
+  listPriceDisplay: string
+  promoDiscountDisplay: string
+  netPriceDisplay: string
+  gstDisplay: string
   totalAmount: number
   totalAmountDisplay: string
+  invoiceNumber: string
+  comment: string
 }
 
 export type AllOrdersPage = {
@@ -273,18 +291,28 @@ export type FranchiseeDashboard = {
 
 export type ManageReferralRow = {
   referralId: number
-  referrerEmail: string
+  commissionId: string
   userIdDisplay: string
-  userName: string
-  userPhone: string
-  referredToDisplay: string
-  referralAmountDisplay: string
+  referrerEmail: string
+  referredCustomer: string
+  referredEmail: string
+  orderDescription: string
+  listPriceDisplay: string
+  promoDiscountDisplay: string
+  netPriceDisplay: string
+  gstDisplay: string
+  totalAmountDisplay: string
   referralAmount: number
-  refundStatus: string
-  mwPaymentStatusLabel: string
-  mwPaymentStatusTone: string
-  latestCardId?: number | null
-  hasInvoice: boolean
+  referralAmountDisplay: string
+  renewalAmountDisplay: string
+  commissionStatus: string
+  sbPaymentStatus: string
+  sbPaymentStatusTone: string
+  paidAmount: number
+  pendingAmount: number
+  canAddPayment: boolean
+  hasPaymentHistory: boolean
+  comment: string
 }
 
 export type ManageReferralsPage = {
@@ -964,6 +992,29 @@ export type SalesChannelPartnerRow = {
   status: string
   statusTone: string
   createdAtDisplay: string
+  joinedOnDisplay?: string
+  referralSource?: string
+  dateCreatedDisplay?: string
+  expiryDateDisplay?: string
+  userStatusLabel?: string
+  userPaymentStatus?: string
+  joiningFees?: number
+  joiningFeesDisplay?: string
+  promoDiscount?: number
+  promoDiscountDisplay?: string
+  couponCode?: string
+  invoiceId?: number | null
+  dbCount?: number
+  documentStatus?: string
+  documentStatusTone?: string
+  panDocumentUrl?: string | null
+  frontDocumentUrl?: string | null
+  backDocumentUrl?: string | null
+  totalReferred?: number
+  totalReferralEarning?: number
+  totalReferralEarningDisplay?: string
+  commissionStatus?: string
+  refundStatus?: string
 }
 
 export type SalesChannelPartnersPage = {

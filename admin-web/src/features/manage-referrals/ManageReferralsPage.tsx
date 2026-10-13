@@ -1,18 +1,17 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, Eye, History, RefreshCw, Search, X } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { History, Pencil, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   fetchManageReferrals,
   fetchReferralBankDetails,
   fetchReferralPaymentHistory,
-  fetchReferrerPaymentDetails,
   processReferralPayment,
+  updateReferralComment,
 } from '@/features/manage-referrals/api'
-import { upsertBankDetails } from '@/features/manage-users/api'
-import type { ManageReferralRow, ReferrerPaymentLine } from '@/shared/types/api'
+import { fetchDashboardDetails, upsertBankDetails } from '@/features/manage-users/api'
+import type { ManageReferralRow } from '@/shared/types/api'
 import { ApiError } from '@/shared/api/client'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
-import { openInvoiceByCardId } from '@/shared/lib/invoiceDownload'
 import { FiltersButton, FiltersDrawer } from '@/shared/ui/FiltersDrawer'
 import { useToast } from '@/shared/ui/Toast'
 import { Badge } from '@/components/ui/badge'
@@ -55,6 +54,33 @@ function formatMoney(n: number) {
   return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 }
 
+const COLUMNS = [
+  'Commission ID',
+  'User ID',
+  'User Email',
+  'User Dashboard',
+  'Referred Customer',
+  'Order Description',
+  'List Price',
+  'Promo Discount',
+  'Net Price',
+  'GST',
+  'Total Amount',
+  'Referral Amt.',
+  'Renewal Amount',
+  'Commission Status',
+  'SB Payment Status',
+  'SB Payment Details',
+  'Bank Details',
+  'Any Comment',
+]
+
+function commissionTone(label: string) {
+  if (label === 'Eligible') return 'ok'
+  if (label === 'Rejected') return 'danger'
+  return 'neutral'
+}
+
 export function ManageReferralsPage() {
   const toast = useToast()
   const qc = useQueryClient()
@@ -63,7 +89,9 @@ export function ManageReferralsPage() {
   const [search, setSearch] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const [detailsEmail, setDetailsEmail] = useState<string | null>(null)
+  const [dashboardEmail, setDashboardEmail] = useState<string | null>(null)
+  const [commentTarget, setCommentTarget] = useState<ManageReferralRow | null>(null)
+  const [commentDraft, setCommentDraft] = useState('')
   const [bankEmail, setBankEmail] = useState<string | null>(null)
   const [bankEdit, setBankEdit] = useState(false)
   const [bankForm, setBankForm] = useState({
@@ -108,10 +136,20 @@ export function ManageReferralsPage() {
     queryFn: () => fetchManageReferrals(filters),
   })
 
-  const detailsQuery = useQuery({
-    queryKey: ['manage-referrals-details', detailsEmail],
-    queryFn: () => fetchReferrerPaymentDetails(detailsEmail!),
-    enabled: !!detailsEmail,
+  const dashboardQuery = useQuery({
+    queryKey: ['dashboard-details', dashboardEmail],
+    queryFn: () => fetchDashboardDetails(dashboardEmail!),
+    enabled: !!dashboardEmail,
+  })
+
+  const commentMut = useMutation({
+    mutationFn: ({ id, comment }: { id: number; comment: string }) => updateReferralComment(id, comment),
+    onSuccess: async (res) => {
+      toast.push(res.message || 'Comment saved', 'success')
+      setCommentTarget(null)
+      await qc.invalidateQueries({ queryKey: ['manage-referrals'] })
+    },
+    onError: (e: Error) => toast.push(e.message, 'error'),
   })
 
   const bankQuery = useQuery({
@@ -153,13 +191,17 @@ export function ManageReferralsPage() {
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['manage-referrals'] })
-    void qc.invalidateQueries({ queryKey: ['manage-referrals-details'] })
     void qc.invalidateQueries({ queryKey: ['manage-referrals-history'] })
   }
 
-  const openPayment = (line: ReferrerPaymentLine) => {
-    setPaymentTarget({ referralId: line.referralId, amount: line.pendingAmount })
-    setPayAmount(String(line.pendingAmount))
+  const openComment = (row: ManageReferralRow) => {
+    setCommentDraft(row.comment || '')
+    setCommentTarget(row)
+  }
+
+  const openPayment = (row: ManageReferralRow) => {
+    setPaymentTarget({ referralId: row.referralId, amount: row.pendingAmount })
+    setPayAmount(String(row.pendingAmount))
     setPayTxn('')
     setPayMethod('')
     setPayNotes('')
@@ -217,7 +259,7 @@ export function ManageReferralsPage() {
             Manage Referrals
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {data?.totalCount ?? '—'} referrals · payment & bank details
+            {data?.totalCount ?? '—'} commissions
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -239,7 +281,7 @@ export function ManageReferralsPage() {
             <Search size={16} className="pointer-events-none absolute top-2.5 left-3 text-muted-foreground" />
             <Input
               className="pr-9 pl-9"
-              placeholder="Referrer or referred email…"
+              placeholder="Commission ID / User ID / email…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -262,20 +304,8 @@ export function ManageReferralsPage() {
             <Table className="w-max min-w-full">
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
-                  {[
-                    'USER ID',
-                    'User Email',
-                    'User Name',
-                    'User Number',
-                    'Referred to',
-                    'Referral Details',
-                    'Referral Amt.',
-                    'Refund',
-                    'SB Payment Status',
-                    'Bank Details',
-                    'SB Payment Details',
-                  ].map((h) => (
-                    <TableHead key={h} className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
+                  {COLUMNS.map((h) => (
+                    <TableHead key={h} className="px-3 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-200 uppercase">
                       {h}
                     </TableHead>
                   ))}
@@ -284,22 +314,22 @@ export function ManageReferralsPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {listQuery.isError && (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-destructive">
+                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-destructive">
                       {(listQuery.error as Error).message}
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && !listQuery.isError && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
-                      No referral records found
+                    <TableCell colSpan={COLUMNS.length} className="py-10 text-center text-muted-foreground">
+                      No commissions found
                     </TableCell>
                   </TableRow>
                 )}
@@ -307,8 +337,11 @@ export function ManageReferralsPage() {
                   <ReferralRow
                     key={r.referralId}
                     row={r}
-                    onDetails={() => setDetailsEmail(r.referrerEmail)}
+                    onDashboard={() => setDashboardEmail(r.referrerEmail)}
+                    onPayment={() => openPayment(r)}
+                    onHistory={() => setHistoryId(r.referralId)}
                     onBank={() => setBankEmail(r.referrerEmail)}
+                    onComment={() => openComment(r)}
                   />
                 ))}
               </TableBody>
@@ -341,90 +374,68 @@ export function ManageReferralsPage() {
         </CardContent>
       </Card>
 
-      {/* Referral details */}
-      <Dialog open={!!detailsEmail} onOpenChange={(o) => !o && setDetailsEmail(null)}>
-        <DialogContent className="flex max-h-[85vh] max-w-5xl flex-col overflow-hidden">
+      <Dialog open={!!dashboardEmail} onOpenChange={(open) => !open && setDashboardEmail(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Referral Details</DialogTitle>
-            <DialogDescription>
-              {detailsQuery.data
-                ? `${detailsQuery.data.referrerName} (${detailsQuery.data.referrerEmail})`
-                : detailsEmail}
-            </DialogDescription>
+            <DialogTitle>Dashboard — {dashboardEmail ?? ''}</DialogTitle>
+            <DialogDescription>ShareBizz profiles for this user.</DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-auto">
-            {detailsQuery.isLoading && <p className="py-6 text-center text-muted-foreground">Loading…</p>}
-            {detailsQuery.isError && (
-              <p className="py-6 text-center text-destructive">{(detailsQuery.error as Error).message}</p>
-            )}
-            {detailsQuery.data && (
+          {dashboardQuery.isLoading && <p className="text-muted-foreground">Loading…</p>}
+          {dashboardQuery.isError && <p className="text-destructive">{(dashboardQuery.error as Error).message}</p>}
+          {dashboardQuery.data && (
+            dashboardQuery.data.websites.length === 0 ? (
+              <p className="rounded-xl bg-sky-50 px-4 py-3 text-sky-900">No websites created yet.</p>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {[
-                      'Referred User',
-                      'Date',
-                      'User Payment',
-                      'Total',
-                      'Paid',
-                      'Pending',
-                      'Status',
-                      'Action',
-                    ].map((h) => (
-                      <TableHead key={h}>{h}</TableHead>
+                    {['DB ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
+                      <TableHead key={heading}>{heading}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detailsQuery.data.lines.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
-                        No referral details found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {detailsQuery.data.lines.map((line) => (
-                    <TableRow key={line.referralId}>
-                      <TableCell>
-                        <div className="font-medium">{line.referredName}</div>
-                        <div className="text-xs text-muted-foreground">{line.referredEmail}</div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDate(line.referralDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant={badgeVariantFromTone(line.userPaymentStatusTone)}>
-                          {line.userPaymentStatusLabel}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatMoney(line.totalAmount)}</TableCell>
-                      <TableCell className="text-emerald-700">{formatMoney(line.paidAmount)}</TableCell>
-                      <TableCell className="text-rose-700">{formatMoney(line.pendingAmount)}</TableCell>
-                      <TableCell>
-                        <Badge variant={badgeVariantFromTone(line.statusTone)}>{line.statusLabel}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {line.canAddPayment && (
-                            <Button size="sm" onClick={() => openPayment(line)}>
-                              Add Payment
-                            </Button>
-                          )}
-                          {line.hasHistory && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setHistoryId(line.referralId)}
-                            >
-                              <History size={14} /> History
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+                  {dashboardQuery.data.websites.map((w) => (
+                    <TableRow key={w.id}>
+                      <TableCell>{w.id}</TableCell>
+                      <TableCell>{w.companyName || 'Unnamed'}</TableCell>
+                      <TableCell>{w.uploadedDate ? w.uploadedDate.slice(0, 10) : ''}</TableCell>
+                      <TableCell>{w.validityDisplay}</TableCell>
+                      <TableCell>{w.statusText}</TableCell>
+                      <TableCell>{w.paymentLabel}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            )}
-          </div>
+            )
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!commentTarget} onOpenChange={(open) => !open && !commentMut.isPending && setCommentTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Comment — {commentTarget?.commissionId}</DialogTitle>
+            <DialogDescription>Internal note for this commission.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            rows={4}
+            maxLength={1000}
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
+            placeholder="Add a comment…"
+          />
+          <DialogFooter>
+            <Button variant="outline" disabled={commentMut.isPending} onClick={() => setCommentTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={commentMut.isPending || !commentTarget}
+              onClick={() => commentTarget && commentMut.mutate({ id: commentTarget.referralId, comment: commentDraft })}
+            >
+              {commentMut.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -591,48 +602,70 @@ export function ManageReferralsPage() {
 
 function ReferralRow({
   row: r,
-  onDetails,
+  onDashboard,
+  onPayment,
+  onHistory,
   onBank,
+  onComment,
 }: {
   row: ManageReferralRow
-  onDetails: () => void
+  onDashboard: () => void
+  onPayment: () => void
+  onHistory: () => void
   onBank: () => void
+  onComment: () => void
 }) {
   return (
     <TableRow>
-      <TableCell className="font-medium whitespace-nowrap">{r.userIdDisplay}</TableCell>
-      <TableCell className="max-w-[200px] truncate">{r.referrerEmail}</TableCell>
-      <TableCell>{r.userName}</TableCell>
-      <TableCell>{r.userPhone}</TableCell>
-      <TableCell className="whitespace-nowrap">{r.referredToDisplay}</TableCell>
-      <TableCell>
-        <Button size="sm" variant="outline" onClick={onDetails}>
-          <Eye size={14} /> View
+      <TableCell className="px-3 font-medium whitespace-nowrap">{r.commissionId}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.userIdDisplay}</TableCell>
+      <TableCell className="max-w-[200px] truncate px-3">{r.referrerEmail}</TableCell>
+      <TableCell className="px-3">
+        <Button size="sm" variant="outline" onClick={onDashboard}>
+          View
         </Button>
       </TableCell>
-      <TableCell className="font-semibold whitespace-nowrap">{r.referralAmountDisplay}</TableCell>
-      <TableCell>{r.refundStatus}</TableCell>
-      <TableCell>
-        <Badge variant={badgeVariantFromTone(r.mwPaymentStatusTone)}>{r.mwPaymentStatusLabel}</Badge>
+      <TableCell className="px-3 whitespace-nowrap" title={r.referredEmail}>{r.referredCustomer}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.orderDescription}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.listPriceDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.promoDiscountDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.netPriceDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.gstDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.totalAmountDisplay}</TableCell>
+      <TableCell className="px-3 font-semibold whitespace-nowrap">{r.referralAmountDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{r.renewalAmountDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">
+        <Badge variant={badgeVariantFromTone(commissionTone(r.commissionStatus))}>{r.commissionStatus}</Badge>
       </TableCell>
-      <TableCell>
+      <TableCell className="px-3 whitespace-nowrap">
+        <Badge variant={badgeVariantFromTone(r.sbPaymentStatusTone)}>{r.sbPaymentStatus}</Badge>
+      </TableCell>
+      <TableCell className="px-3">
+        <div className="flex items-center gap-1">
+          {r.canAddPayment && (
+            <Button size="sm" onClick={onPayment}>
+              Add Payment Details
+            </Button>
+          )}
+          {r.hasPaymentHistory && (
+            <Button size="sm" variant="outline" onClick={onHistory}>
+              <History size={14} /> History
+            </Button>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="px-3">
         <Button size="sm" variant="outline" onClick={onBank}>
           View
         </Button>
       </TableCell>
-      <TableCell>
-        {r.hasInvoice && r.latestCardId ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Download invoice"
-            onClick={() => openInvoiceByCardId(r.latestCardId!)}
-          >
-            <Download size={16} />
+      <TableCell className="px-3">
+        <div className="flex max-w-[240px] items-center gap-1">
+          <span className="truncate" title={r.comment}>{r.comment}</span>
+          <Button variant="ghost" size="icon-sm" title="Edit comment" aria-label="Edit comment" onClick={onComment}>
+            <Pencil size={14} />
           </Button>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
+        </div>
       </TableCell>
     </TableRow>
   )

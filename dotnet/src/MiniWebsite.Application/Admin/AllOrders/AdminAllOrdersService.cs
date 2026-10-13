@@ -1,15 +1,17 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Admin.AllOrders.Dtos;
+using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
-using MiniWebsite.Domain.Enums;
 using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.AllOrders;
 
 public class AdminAllOrdersService : IAdminAllOrdersService
 {
+    private const int MaxCommentLength = 1000;
+
     private readonly IApplicationDbContext _db;
 
     public AdminAllOrdersService(IApplicationDbContext db)
@@ -30,10 +32,16 @@ public class AdminAllOrdersService : IAdminAllOrdersService
             if (search != null)
             {
                 var term = search.ToLowerInvariant();
+                var compact = term.Replace(" ", "");
+                var matchedEmails = _db.Users
+                    .Where(u => u.UserCode.Contains(compact))
+                    .Select(u => u.Email);
                 q = q.Where(i =>
-                    i.UserEmail.ToLower().Contains(term)
-                    || i.UserName.ToLower().Contains(term)
-                    || i.InvoiceNumber.ToLower().Contains(term));
+                    i.UserEmail.Contains(term)
+                    || i.UserName.Contains(term)
+                    || i.InvoiceNumber.Contains(term)
+                    || i.OrderCode.Contains(compact)
+                    || matchedEmails.Contains(i.UserEmail));
             }
 
             var totalCount = await q.CountAsync(ct);
@@ -43,15 +51,21 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                 .Take(query.PageSize)
                 .Select(i => new InvoiceLite(
                     i.Id,
+                    i.OrderCode,
                     i.UserEmail,
-                    i.UserName,
                     i.InvoiceNumber,
                     i.CardId,
                     i.ServiceName,
-                    i.PaymentType,
-                    i.PaymentStatus,
+                    i.ServiceDescription,
+                    i.PlanName,
                     i.InvoiceDate,
-                    i.TotalAmount))
+                    i.OriginalAmount,
+                    i.PromoDiscount,
+                    i.DiscountAmount,
+                    i.SubTotal,
+                    i.IgstAmount + i.CgstAmount + i.SgstAmount,
+                    i.TotalAmount,
+                    i.AdminComment))
                 .ToListAsync(ct);
 
             var emails = invoices
@@ -63,44 +77,105 @@ public class AdminAllOrdersService : IAdminAllOrdersService
             var users = emails.Count == 0
                 ? []
                 : await _db.Users.AsNoTracking()
-                    .Where(u => emails.Contains(u.Email.ToLower()))
-                    .Select(u => new { u.Id, Email = u.Email.ToLower(), u.AssignedRole!.Prefix })
+                    .Where(u => emails.Contains(u.Email))
+                    .Select(u => new { Email = u.Email.ToLower(), u.UserCode, ReferredBy = u.Referral.ReferredBy })
+                    .ToListAsync(ct);
+            var userByEmail = users
+                .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var referrerEmails = users
+                .Select(u => Normalize(u.ReferredBy))
+                .Where(e => e.Length > 0)
+                .Distinct()
+                .ToList();
+            var referrerCodes = referrerEmails.Count == 0
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : (await _db.Users.AsNoTracking()
+                    .Where(u => referrerEmails.Contains(u.Email))
+                    .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
+                    .ToListAsync(ct))
+                .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => UserCodeGenerator.FormatDisplay(g.First().UserCode), StringComparer.OrdinalIgnoreCase);
+
+            var earnings = emails.Count == 0
+                ? []
+                : await _db.ReferralEarnings.AsNoTracking()
+                    .Where(r => emails.Contains(r.ReferredEmail))
+                    .Select(r => new { Referred = r.ReferredEmail.ToLower(), Referrer = r.ReferrerEmail.ToLower(), r.Amount, r.InvoiceId, r.ReferralDate })
                     .ToListAsync(ct);
 
-            var customerByEmail = users
-                .Where(u => RolePrefixes.ToUserRole(u.Prefix) == UserRole.Customer)
-                .GroupBy(u => u.Email)
-                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+            var buyerInvoices = earnings.Count == 0
+                ? new Dictionary<string, List<(int Id, DateTime InvoiceDate)>>(StringComparer.OrdinalIgnoreCase)
+                : (await _db.Invoices.AsNoTracking()
+                    .Where(i => emails.Contains(i.UserEmail))
+                    .Select(i => new { i.Id, Email = i.UserEmail.ToLower(), i.InvoiceDate })
+                    .ToListAsync(ct))
+                .GroupBy(i => i.Email, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList(), StringComparer.OrdinalIgnoreCase);
+            var commissions = earnings
+                .Select(e => new
+                {
+                    e.Referred,
+                    e.Referrer,
+                    e.Amount,
+                    InvoiceId = ReferralOrderMatching.ResolveInvoiceId(
+                        e.InvoiceId, e.ReferralDate, buyerInvoices.GetValueOrDefault(e.Referred) ?? []),
+                })
+                .ToList();
 
-            var franchiseeByEmail = users
-                .Where(u => RolePrefixes.ToUserRole(u.Prefix) == UserRole.Franchisee)
-                .GroupBy(u => u.Email)
-                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+            var cardIds = invoices.Where(i => i.CardId is > 0).Select(i => i.CardId!.Value).Distinct().ToList();
+            var slugByCard = cardIds.Count == 0
+                ? new Dictionary<int, string?>()
+                : await _db.Cards.AsNoTracking()
+                    .Where(c => cardIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id, c => c.Slug, ct);
 
             var rows = invoices.Select(inv =>
             {
                 var email = Normalize(inv.UserEmail);
-                var isFranchisee = IsFranchiseeInvoice(inv);
-                string userIdDisplay = "-";
+                userByEmail.TryGetValue(email, out var user);
 
-                if (isFranchisee && franchiseeByEmail.TryGetValue(email, out var frId))
-                    userIdDisplay = "FR - " + frId.ToString(CultureInfo.InvariantCulture);
-                else if (customerByEmail.TryGetValue(email, out var customerId))
-                    userIdDisplay = customerId.ToString("D5", CultureInfo.InvariantCulture);
+                var referralSource = "Direct";
+                decimal referralAmount = 0;
+                var referrer = Normalize(user?.ReferredBy);
+                if (referrer.Length > 0)
+                {
+                    referralSource = referrerCodes.TryGetValue(referrer, out var code) && code.Length > 0
+                        ? code
+                        : "Ref: " + user!.ReferredBy!.Trim();
+                    referralAmount = commissions
+                        .Where(e => e.InvoiceId == inv.Id && e.Referred == email && e.Referrer == referrer)
+                        .Sum(e => e.Amount);
+                }
 
-                var mwId = inv.CardId is > 0 ? inv.CardId : null;
-                var amount = inv.TotalAmount;
-                var (label, tone, paidOn) = ResolvePaymentStatus(inv.PaymentStatus, inv.InvoiceDate);
+                var dbId = "";
+                if (inv.CardId is int cardId && slugByCard.TryGetValue(cardId, out var slug))
+                    dbId = UserCodeGenerator.FormatDbId(slug);
+
+                var net = inv.SubTotal > 0
+                    ? inv.SubTotal
+                    : Math.Max(0, inv.OriginalAmount - inv.PromoDiscount - inv.DiscountAmount);
 
                 return new AllOrderRowDto(
                     inv.Id,
-                    userIdDisplay,
-                    mwId?.ToString(CultureInfo.InvariantCulture),
-                    label,
-                    tone,
-                    paidOn,
-                    amount,
-                    "₹" + amount.ToString("N2", CultureInfo.CreateSpecificCulture("en-IN")));
+                    UserCodeGenerator.FormatDisplay(inv.OrderCode),
+                    inv.InvoiceDate.Year <= 1 ? "" : inv.InvoiceDate.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
+                    user == null ? "" : UserCodeGenerator.FormatDisplay(user.UserCode),
+                    inv.UserEmail ?? "",
+                    inv.CardId is > 0 ? inv.CardId : null,
+                    dbId,
+                    referralSource,
+                    FormatRupees(referralAmount),
+                    Describe(inv),
+                    FormatNumber(inv.OriginalAmount),
+                    FormatNumber(inv.PromoDiscount),
+                    FormatNumber(net),
+                    FormatRupees(inv.Gst),
+                    inv.TotalAmount,
+                    FormatRupees(inv.TotalAmount),
+                    inv.InvoiceNumber ?? "",
+                    inv.AdminComment ?? "");
             }).ToList();
 
             return ApiResult<AllOrdersPageDto>.Ok(new AllOrdersPageDto(
@@ -115,67 +190,59 @@ public class AdminAllOrdersService : IAdminAllOrdersService
         }
     }
 
-    private static bool IsFranchiseeInvoice(InvoiceLite inv)
+    public async Task<ApiResult> UpdateCommentAsync(int invoiceId, string? comment, CancellationToken ct = default)
     {
-        if (string.Equals(inv.PaymentType, "Franchisee", StringComparison.OrdinalIgnoreCase))
-            return true;
-        return !string.IsNullOrWhiteSpace(inv.ServiceName)
-               && inv.ServiceName.Contains("Franchisee", StringComparison.OrdinalIgnoreCase);
+        var text = (comment ?? "").Trim();
+        if (text.Length > MaxCommentLength)
+            return ApiResult.Fail($"Comment must be {MaxCommentLength} characters or fewer.");
+
+        var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId, ct);
+        if (invoice == null)
+            return ApiResult.Fail("Order not found.");
+
+        invoice.AdminComment = text.Length == 0 ? null : text;
+        invoice.UpdatedAt = AppClock.Now;
+        await _db.SaveChangesAsync(ct);
+        return ApiResult.Ok("Comment saved.");
     }
 
-    private static (string Label, string Tone, string? PaidOn) ResolvePaymentStatus(
-        string? paymentStatus, DateTime? invoiceDate)
+    private static string Describe(InvoiceLite inv)
     {
-        var paidDateNorm = FormatInvoiceDate(invoiceDate);
-        var ps = (paymentStatus ?? string.Empty).Trim();
-        if (ps.Length == 0)
-            return ("-", "neutral", null);
-
-        if (ps.StartsWith("Paid on", StringComparison.OrdinalIgnoreCase))
-        {
-            var paidDate = ps["Paid on".Length..].Trim();
-            if (paidDate.Length == 0) paidDate = paidDateNorm ?? "";
-            return ("Paid", "ok", string.IsNullOrWhiteSpace(paidDate) ? null : paidDate);
-        }
-
-        if (ps.Equals("Success", StringComparison.OrdinalIgnoreCase)
-            || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase))
-        {
-            return ("Paid", "ok", paidDateNorm);
-        }
-
-        if (ps.Equals("Failed", StringComparison.OrdinalIgnoreCase)
-            || ps.Equals("Failure", StringComparison.OrdinalIgnoreCase))
-            return ("Failed", "danger", null);
-
-        if (ps.Equals("Pending", StringComparison.OrdinalIgnoreCase)
-            || ps.Equals("Initiated", StringComparison.OrdinalIgnoreCase))
-            return ("Pending", "warn", null);
-
-        if (ps.Equals("Refunded", StringComparison.OrdinalIgnoreCase))
-            return ("Refunded", "neutral", null);
-
-        return (ps, "neutral", null);
+        var name = (inv.ServiceName ?? "").Trim();
+        if (name.Length == 0) name = (inv.ServiceDescription ?? "").Trim();
+        var plan = (inv.PlanName ?? "").Trim();
+        if (plan.Length == 0 || name.Contains(plan, StringComparison.OrdinalIgnoreCase))
+            return name;
+        return name.Length == 0 ? plan : $"{name} ({plan})";
     }
 
-    private static string? FormatInvoiceDate(DateTime? invoiceDate)
+    private static string FormatNumber(decimal value)
     {
-        if (!invoiceDate.HasValue) return null;
-        if (invoiceDate.Value.Year <= 1) return null;
-        return invoiceDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+        var rounded = decimal.Round(value, 2);
+        return rounded == decimal.Truncate(rounded)
+            ? decimal.Truncate(rounded).ToString(CultureInfo.InvariantCulture)
+            : rounded.ToString("0.00", CultureInfo.InvariantCulture);
     }
+
+    private static string FormatRupees(decimal value) => "₹ " + FormatNumber(value);
 
     private static string Normalize(string? value) => (value ?? string.Empty).Trim().ToLowerInvariant();
 
     private sealed record InvoiceLite(
         int Id,
+        string OrderCode,
         string? UserEmail,
-        string? UserName,
         string? InvoiceNumber,
         int? CardId,
         string? ServiceName,
-        string? PaymentType,
-        string? PaymentStatus,
+        string? ServiceDescription,
+        string? PlanName,
         DateTime InvoiceDate,
-        decimal TotalAmount);
+        decimal OriginalAmount,
+        decimal PromoDiscount,
+        decimal DiscountAmount,
+        decimal SubTotal,
+        decimal Gst,
+        decimal TotalAmount,
+        string? AdminComment);
 }

@@ -64,7 +64,7 @@ function formatDate(value?: string | null) {
 }
 
 function cardsSearchUrl(email: string) {
-  return `/sb-profile-details?search=${encodeURIComponent(email)}`
+  return `/db-profile-details?search=${encodeURIComponent(email)}`
 }
 
 type ConfirmState = {

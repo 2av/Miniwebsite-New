@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.Website.Dtos;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Website;
 
@@ -60,10 +61,15 @@ public partial class WebsiteService : IWebsiteService
         var cleaned = CleanCompName(request.CompName);
         var slug = check.Data.Slug;
         var display = string.IsNullOrWhiteSpace(request.DisplayName) ? cleaned : request.DisplayName.Trim();
-        var now = DateTime.Now;
+        var now = AppClock.Now;
+        var ownerId = await _db.Users.AsNoTracking()
+            .Where(u => u.Email == email)
+            .Select(u => (int?)u.Id)
+            .FirstOrDefaultAsync(ct);
 
         var card = new Card
         {
+            UserId = ownerId,
             DCompName = cleaned,
             DDisplayName = display,
             CardId = slug,
@@ -341,8 +347,8 @@ public partial class WebsiteService : IWebsiteService
             PricingUnit = request.PricingUnit ?? "",
             CtaText = request.CtaText ?? "",
             DisplayOrder = request.DisplayOrder,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now
         };
         _db.CardProducts.Add(row);
         await _db.SaveChangesAsync(ct);
@@ -367,7 +373,7 @@ public partial class WebsiteService : IWebsiteService
         row.PricingUnit = request.PricingUnit ?? "";
         row.CtaText = request.CtaText ?? "";
         row.DisplayOrder = request.DisplayOrder;
-        row.UpdatedAt = DateTime.Now;
+        row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult<ProductDto>.Ok(MapProduct(row), "Product updated.");
     }
@@ -411,8 +417,8 @@ public partial class WebsiteService : IWebsiteService
             ProductDescription = request.ProductDescription ?? "",
             ProductImage = request.ProductImage,
             DisplayOrder = request.DisplayOrder,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now
         };
         _db.CardServices.Add(row);
         await _db.SaveChangesAsync(ct);
@@ -432,7 +438,7 @@ public partial class WebsiteService : IWebsiteService
         row.ProductDescription = request.ProductDescription ?? "";
         if (request.ProductImage != null) row.ProductImage = request.ProductImage;
         row.DisplayOrder = request.DisplayOrder;
-        row.UpdatedAt = DateTime.Now;
+        row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult<ServiceItemDto>.Ok(MapService(row), "Service updated.");
     }
@@ -475,8 +481,8 @@ public partial class WebsiteService : IWebsiteService
             UserId = ctx.Value.UserId,
             GalleryImage = request.GalleryImage,
             DisplayOrder = request.DisplayOrder > 0 ? request.DisplayOrder : maxOrder + 1,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now
         };
         _db.CardGallery.Add(row);
         await _db.SaveChangesAsync(ct);
@@ -527,8 +533,8 @@ public partial class WebsiteService : IWebsiteService
             EndTime = request.EndTime,
             Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status,
             DisplayOrder = request.DisplayOrder,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedAt = AppClock.Now,
+            UpdatedAt = AppClock.Now
         };
         _db.CardOffers.Add(row);
         await _db.SaveChangesAsync(ct);
@@ -553,7 +559,7 @@ public partial class WebsiteService : IWebsiteService
         row.EndTime = request.EndTime;
         row.Status = string.IsNullOrWhiteSpace(request.Status) ? row.Status : request.Status;
         row.DisplayOrder = request.DisplayOrder;
-        row.UpdatedAt = DateTime.Now;
+        row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
         return ApiResult<SpecialOfferDto>.Ok(MapOffer(row), "Offer updated.");
     }

@@ -47,9 +47,15 @@ public class CrmContentConfigurations :
         builder.Property(x => x.Amount).HasPrecision(12, 2);
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.IsCollaboration).HasMaxLength(10);
+        builder.Property(x => x.CommissionCode).HasMaxLength(30);
+        builder.Property(x => x.AdminComment).HasMaxLength(1000);
+        builder.HasIndex(x => x.CommissionCode).IsUnique();
+        builder.HasIndex(x => x.ReferrerEmail);
+        builder.HasIndex(x => x.ReferredEmail);
         builder.HasOne(x => x.ReferrerUser).WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.ReferredUser).WithMany().HasForeignKey(x => x.ReferredUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Deal).WithMany().HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
     }
 
     public void Configure(EntityTypeBuilder<ReferralPayment> builder)
@@ -57,7 +63,7 @@ public class CrmContentConfigurations :
         builder.ToTable("referral_payments");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Amount).HasPrecision(12, 2);
-        builder.HasOne(x => x.ReferralEarning).WithMany(x => x.Payments).HasForeignKey(x => x.ReferralEarningId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.ReferralEarning).WithMany(x => x.Payments).HasForeignKey(x => x.ReferralEarningId).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<ContentPage> builder)
@@ -202,6 +208,7 @@ public class KitAccessConfigurations :
         builder.HasKey(x => x.Id);
         builder.Property(x => x.UserEmail).HasMaxLength(255);
         builder.HasIndex(x => x.UserId).IsUnique();
+        builder.HasIndex(x => x.UserEmail);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -213,6 +220,7 @@ public class KitAccessConfigurations :
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.DocumentPath).HasMaxLength(500);
         builder.HasIndex(x => x.UserId).IsUnique();
+        builder.HasIndex(x => x.UserEmail);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

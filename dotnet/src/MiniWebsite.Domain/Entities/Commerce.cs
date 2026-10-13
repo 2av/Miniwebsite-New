@@ -1,4 +1,6 @@
-﻿namespace MiniWebsite.Domain.Entities;
+﻿using MiniWebsite.Domain.Common;
+
+namespace MiniWebsite.Domain.Entities;
 
 public class PricingPlan
 {
@@ -97,7 +99,7 @@ public class WalletTransaction
     public string? OrderId { get; set; }
     public string? Message { get; set; }
     public string? Ip { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = AppClock.Now;
 }
 
 public class Order
@@ -126,7 +128,10 @@ public class Order
 public class Invoice
 {
     public int Id { get; set; }
+    /// <summary>Public order ID (<c>ORD</c> + 8 chars); assigned automatically on insert.</summary>
+    public string OrderCode { get; set; } = "";
     public string InvoiceNumber { get; set; } = "";
+    public string? AdminComment { get; set; }
     public DateTime InvoiceDate { get; set; }
     public int? CardId { get; set; }
     public Card? Card { get; set; }

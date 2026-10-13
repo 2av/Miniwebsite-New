@@ -34,4 +34,14 @@ public class AdminAllOrdersController : ControllerBase
         }, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPatch("{id:int}/comment")]
+    public async Task<ActionResult<ApiResult>> UpdateComment(
+        int id,
+        [FromBody] UpdateOrderCommentRequest request,
+        CancellationToken ct = default)
+    {
+        var result = await _service.UpdateCommentAsync(id, request.Comment, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
 }

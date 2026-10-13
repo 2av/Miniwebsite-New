@@ -9,6 +9,7 @@ public interface IAdminManageUsersService
     Task<ApiResult> MapDealAsync(MapDealRequest request, CancellationToken ct = default);
     Task<ApiResult> RemoveDealAsync(int mappingId, CancellationToken ct = default);
     Task<ApiResult> SetCollaborationAsync(ToggleStatusRequest request, CancellationToken ct = default);
+    Task<ApiResult> SetUserStatusAsync(int id, string? status, CancellationToken ct = default);
     Task<ApiResult> SetSaleskitAsync(ToggleStatusRequest request, CancellationToken ct = default);
     Task<ApiResult> SetRefundAsync(SetRefundRequest request, CancellationToken ct = default);
     Task<ApiResult> ResetPasswordAsync(AdminResetPasswordRequest request, CancellationToken ct = default);

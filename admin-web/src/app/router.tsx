@@ -46,8 +46,9 @@ export function AppRouter() {
         <Route path="sb-user-details" element={<ManageUsersPage />} />
         <Route path="user-details" element={<Navigate to="/sb-user-details" replace />} />
         <Route path="manage-users" element={<Navigate to="/sb-user-details" replace />} />
-        <Route path="sb-profile-details" element={<ManageCardsPage />} />
-        <Route path="miniwebsite-details" element={<RedirectWithSearch to="/sb-profile-details" />} />
+        <Route path="db-profile-details" element={<ManageCardsPage />} />
+        <Route path="sb-profile-details" element={<RedirectWithSearch to="/db-profile-details" />} />
+        <Route path="miniwebsite-details" element={<RedirectWithSearch to="/db-profile-details" />} />
         <Route path="franchisee-details" element={<FranchiseesPage />} />
         <Route path="franchise-details" element={<Navigate to="/franchisee-details" replace />} />
         <Route path="franchisee-distributor-details" element={<FranchiseDistributorsPage />} />

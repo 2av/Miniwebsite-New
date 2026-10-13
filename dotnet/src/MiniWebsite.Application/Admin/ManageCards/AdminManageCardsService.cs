@@ -5,6 +5,7 @@ using MiniWebsite.Application.Admin.ManageCards.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common.Extensions;
@@ -27,44 +28,59 @@ public class AdminManageCardsService : IAdminManageCardsService
         query.Page = query.Page < 1 ? 1 : query.Page;
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
 
-        var teamEmails = await _db.Users.AsNoTracking()
+        var teamEmails = _db.Users
             .WhereRole(UserRole.Team)
-            .Select(u => u.Email.ToLower())
-            .ToListAsync(ct);
-        var teamSet = teamEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Select(u => u.Email);
 
-        var cardsQuery = _db.Cards.AsNoTracking().AsQueryable();
+        var cardsQuery = _db.Cards.AsNoTracking()
+            .Where(c => string.IsNullOrWhiteSpace(c.UserEmail)
+                        || !teamEmails.Contains(c.UserEmail.Trim()));
 
         var paymentFilter = (query.PaymentFilter ?? "all").Trim().ToLowerInvariant();
         cardsQuery = paymentFilter switch
         {
-            "paid" => cardsQuery.Where(c => c.DPaymentStatus == "Success"),
-            "unpaid" or "trial" => cardsQuery.Where(c => c.DPaymentStatus == "Created"),
+            "paid" => cardsQuery.Where(c => c.PaymentStatus == "Success"),
+            "unpaid" or "trial" => cardsQuery.Where(c => c.PaymentStatus == "Created"),
             _ => cardsQuery
         };
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var s = query.Search.Trim().ToLowerInvariant();
+            var compact = s.Replace(" ", "");
+            var matchedEmails = _db.Users
+                .Where(u => u.UserCode.Replace(" ", "").Contains(compact))
+                .Select(u => u.Email);
             cardsQuery = cardsQuery.Where(c =>
-                (c.DCompName != null && c.DCompName.ToLower().Contains(s))
-                || (c.UserEmail != null && c.UserEmail.ToLower().Contains(s))
-                || (c.FUserEmail != null && c.FUserEmail.ToLower().Contains(s))
-                || (c.CardId != null && c.CardId.ToLower().Contains(s))
+                (c.CompanyName != null && c.CompanyName.Contains(s))
+                || (c.UserEmail != null && c.UserEmail.Contains(s))
+                || (c.FranchiseeEmail != null && c.FranchiseeEmail.Contains(s))
+                || (c.Slug != null && (c.Slug.Contains(s) || c.Slug.Replace(" ", "").Contains(compact)))
+                || (c.UserEmail != null && matchedEmails.Contains(c.UserEmail))
                 || c.Id.ToString().Contains(s));
         }
 
-        var all = await cardsQuery.OrderByDescending(c => c.Id).ToListAsync(ct);
-        all = all.Where(c =>
-                string.IsNullOrWhiteSpace(c.UserEmail)
-                || !teamSet.Contains(c.UserEmail.Trim().ToLowerInvariant()))
-            .ToList();
-
-        var total = all.Count;
-        var pageRows = all
+        var total = await cardsQuery.CountAsync(ct);
+        var pageRows = await cardsQuery
+            .OrderByDescending(c => c.Id)
             .Skip((query.Page - 1) * query.PageSize)
             .Take(query.PageSize)
-            .ToList();
+            .Select(c => new Card
+            {
+                Id = c.Id,
+                Slug = c.Slug,
+                UserEmail = c.UserEmail,
+                FranchiseeEmail = c.FranchiseeEmail,
+                CompanyName = c.CompanyName,
+                CreatedAt = c.CreatedAt,
+                ValidityDate = c.ValidityDate,
+                PaymentDate = c.PaymentDate,
+                PaymentStatus = c.PaymentStatus,
+                PaymentAmount = c.PaymentAmount,
+                CardStatus = c.CardStatus,
+                ComplimentaryEnabled = c.ComplimentaryEnabled,
+            })
+            .ToListAsync(ct);
 
         var userEmails = pageRows
             .Select(c => Normalize(c.UserEmail))
@@ -73,7 +89,7 @@ public class AdminManageCardsService : IAdminManageCardsService
             .ToList();
 
         var users = await _db.Users.AsNoTracking()
-            .Where(u => userEmails.Contains(u.Email.ToLower()))
+            .Where(u => userEmails.Contains(u.Email))
             .ToListAsync(ct);
         var userByEmail = users
             .GroupBy(u => Normalize(u.Email))
@@ -87,21 +103,13 @@ public class AdminManageCardsService : IAdminManageCardsService
         var referrers = referrerEmails.Count == 0
             ? new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase)
             : (await _db.Users.AsNoTracking()
-                .Where(u => referrerEmails.Contains(u.Email.ToLower()))
+                .Where(u => referrerEmails.Contains(u.Email))
                 .ToListAsync(ct))
             .GroupBy(u => Normalize(u.Email))
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var cardIds = pageRows.Select(c => c.Id).ToList();
         var invoices = await GetInvoiceSummariesAsync(cardIds, ct);
-
-        var frdPairs = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => r.IsCollaboration == "YES" && userEmails.Contains(r.ReferredEmail.ToLower()))
-            .Select(r => new { Referrer = r.ReferrerEmail.ToLower(), Referred = r.ReferredEmail.ToLower() })
-            .ToListAsync(ct);
-        var frdSet = frdPairs
-            .Select(p => p.Referrer + "|" + p.Referred)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var siteBase = (_app.PhpSiteBaseUrl ?? "https://miniwebsite.in").TrimEnd('/');
         var rows = new List<ManageCardRowDto>(pageRows.Count);
@@ -110,44 +118,50 @@ public class AdminManageCardsService : IAdminManageCardsService
         {
             userByEmail.TryGetValue(Normalize(c.UserEmail), out var user);
             invoices.TryGetValue(c.Id, out var inv);
-            inv ??= new InvoiceSummary(null, null, false);
+            inv ??= new InvoiceSummary(null, null, false, "", null, false);
 
-            var status = ResolveDisplayStatus(c);
-            var validity = FormatValidity(c, status.Text, status.IsTrial);
+            var expiry = ExpiryDate(c);
+            var status = ResolveProfileStatus(c, expiry);
+            var validity = FormatValidity(c, status.Text, false);
+            var company = c.CompanyName ?? "";
+            var paidOn = c.PaymentDate ?? inv.PaymentDate;
+            var paid = IsPaid(c.PaymentStatus) || inv.Paid;
+            var orderAmount = inv.HasInvoice ? inv.TotalAmount : ParseAmount(c.PaymentAmount);
 
-            var company = !string.IsNullOrWhiteSpace(inv.BillingName)
-                ? inv.BillingName!
-                : (c.DCompName ?? "");
-
-            var paid = string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase);
             rows.Add(new ManageCardRowDto(
                 c.Id,
-                c.CardId,
+                c.Slug,
                 c.UserEmail,
-                c.FUserEmail,
+                c.FranchiseeEmail,
                 user?.Id,
                 user?.FullName,
                 user?.Phone,
-                BuildReferralSource(user, referrers, frdSet),
+                BuildReferralSource(user, referrers),
                 company,
-                c.UploadedDate,
+                c.CreatedAt,
                 c.ValidityDate,
-                c.DPaymentDate,
-                c.DPaymentStatus,
+                c.PaymentDate,
+                c.PaymentStatus,
                 string.IsNullOrWhiteSpace(c.ComplimentaryEnabled) ? "No" : c.ComplimentaryEnabled,
                 status.Text,
                 status.Tone,
-                status.IsTrial,
+                false,
                 validity.Display,
                 validity.Tone,
-                paid && c.DPaymentDate.HasValue
-                    ? "Paid on " + c.DPaymentDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                    : (paid ? "Paid" : "Unpaid"),
-                FormatAmount(inv.TotalAmount),
-                inv.HasInvoice && paid,
+                paid
+                    ? "Paid on " + (paidOn ?? c.CreatedAt ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                    : "Unpaid",
+                orderAmount?.ToString(CultureInfo.InvariantCulture),
+                inv.HasInvoice,
                 !paid,
-                string.IsNullOrWhiteSpace(c.CardId) ? siteBase : $"{siteBase}/{c.CardId}",
-                $"{siteBase}/admin/select_theme.php?card_number={c.Id}&user_email={Uri.EscapeDataString(c.UserEmail ?? "")}"
+                string.IsNullOrWhiteSpace(c.Slug) ? siteBase : $"{siteBase}/{c.Slug}",
+                $"{siteBase}/admin/select_theme.php?card_number={c.Id}&user_email={Uri.EscapeDataString(c.UserEmail ?? "")}",
+                user == null ? "" : UserCodeGenerator.FormatDisplay(user.UserCode),
+                UserCodeGenerator.FormatDbId(c.Slug),
+                FormatDay(c.CreatedAt),
+                FormatDay(expiry),
+                inv.PromoCode,
+                FormatOrderValue(orderAmount)
             ));
         }
 
@@ -183,16 +197,28 @@ public class AdminManageCardsService : IAdminManageCardsService
         {
             var rows = await _db.Invoices.AsNoTracking()
                 .Where(i => i.CardId != null && cardIds.Contains(i.CardId.Value))
-                .Select(i => new { CardId = i.CardId!.Value, i.BillingName, i.TotalAmount })
+                .Select(i => new
+                {
+                    CardId = i.CardId!.Value,
+                    i.Id,
+                    i.BillingName,
+                    i.TotalAmount,
+                    i.PromoCode,
+                    i.PaymentStatus,
+                    i.PaymentDate,
+                })
                 .ToListAsync(ct);
 
             foreach (var group in rows.GroupBy(r => r.CardId))
             {
-                var first = group.First();
+                var latest = group.OrderByDescending(r => r.Id).First();
                 map[group.Key] = new InvoiceSummary(
-                    first.BillingName,
-                    first.TotalAmount.ToString(CultureInfo.InvariantCulture),
-                    true);
+                    latest.BillingName,
+                    latest.TotalAmount,
+                    true,
+                    latest.PromoCode ?? "",
+                    latest.PaymentDate,
+                    IsPaid(latest.PaymentStatus));
             }
         }
         catch
@@ -203,55 +229,64 @@ public class AdminManageCardsService : IAdminManageCardsService
         return map;
     }
 
-    private static string BuildReferralSource(
-        User? user,
-        Dictionary<string, User> referrers,
-        HashSet<string> frdSet)
+    private static string BuildReferralSource(User? user, Dictionary<string, User> referrers)
     {
         if (user == null || string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             return "Direct";
 
         var refEmail = Normalize(user.Referral.ReferredBy);
-        if (!referrers.TryGetValue(refEmail, out var referrer))
-            return "Ref: " + user.Referral.ReferredBy.Trim();
-
-        var display = referrer.LoginRole switch
+        if (referrers.TryGetValue(refEmail, out var referrer))
         {
-            UserRole.Franchisee => "FR - " + referrer.Id.ToString("D3", CultureInfo.InvariantCulture),
-            UserRole.Team => "Team - " + referrer.Id,
-            UserRole.Admin => "Admin - " + referrer.Id,
-            _ => "User - " + referrer.Id
-        };
-
-        if (frdSet.Contains(refEmail + "|" + Normalize(user.Email)))
-            display += " (FRD)";
-
-        return display;
-    }
-
-    private static (string Text, string Tone, bool IsTrial) ResolveDisplayStatus(Card c)
-    {
-        if (string.Equals(c.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase))
-            return ("Active", "ok", false);
-
-        if (string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
-        {
-            if (c.ValidityDate.HasValue && c.ValidityDate.Value < DateTime.UtcNow)
-                return ("Expired on " + c.ValidityDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture), "neutral", false);
-            return ("Active", "ok", false);
+            var code = UserCodeGenerator.FormatDisplay(referrer.UserCode);
+            if (!string.IsNullOrWhiteSpace(code)) return code;
         }
 
-        var trialEnd = c.UploadedDate?.AddDays(7);
-        var trialExpired = trialEnd.HasValue && trialEnd.Value < DateTime.UtcNow;
-        var franchiseLinked = !string.IsNullOrWhiteSpace(c.FUserEmail) && c.FUserEmail.Trim().Length >= 3;
+        return "Ref: " + user.Referral.ReferredBy.Trim();
+    }
 
-        if (franchiseLinked)
-            return trialExpired ? ("Inactive", "neutral", false) : ("Pending Payment", "warn", false);
+    private static (string Text, string Tone) ResolveProfileStatus(Card c, DateTime? expiry)
+    {
+        var raw = (c.CardStatus ?? "").Trim();
+        if (raw.Equals("Suspended", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("Inactive", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("InActive", StringComparison.OrdinalIgnoreCase))
+            return ("Suspended", "danger");
 
-        if (trialExpired)
-            return ("Inactive", "neutral", false);
+        if (expiry.HasValue && expiry.Value.Date < AppClock.Now.Date)
+            return ("Expired on " + expiry.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture), "neutral");
 
-        return ("7 Day Trial", "warn", true);
+        return ("Active", "ok");
+    }
+
+    private static DateTime? ExpiryDate(Card c)
+    {
+        if (c.ValidityDate.HasValue) return c.ValidityDate;
+        if (c.CreatedAt.HasValue) return c.CreatedAt.Value.AddYears(1);
+        return null;
+    }
+
+    private static string FormatDay(DateTime? value) =>
+        value.HasValue ? value.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) : "";
+
+    private static bool IsPaid(string? status) =>
+        string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
+
+    private static decimal? ParseAmount(string? amount)
+    {
+        if (string.IsNullOrWhiteSpace(amount)) return null;
+        return decimal.TryParse(amount.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
+
+    private static string FormatOrderValue(decimal? amount)
+    {
+        var value = decimal.Round(amount ?? 0, 2);
+        var text = value == decimal.Truncate(value)
+            ? decimal.Truncate(value).ToString(CultureInfo.InvariantCulture)
+            : value.ToString("0.00", CultureInfo.InvariantCulture);
+        return "₹ " + text;
     }
 
     private static (string Display, string Tone) FormatValidity(Card c, string statusText, bool isTrial)
@@ -260,7 +295,7 @@ public class AdminManageCardsService : IAdminManageCardsService
         {
             if (!c.UploadedDate.HasValue) return ("-", "neutral");
             var end = c.UploadedDate.Value.AddDays(7);
-            var expired = end < DateTime.UtcNow || statusText == "Inactive";
+            var expired = end < AppClock.Now || statusText == "Inactive";
             return (end.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture), expired ? "danger" : "ok");
         }
 
@@ -268,7 +303,7 @@ public class AdminManageCardsService : IAdminManageCardsService
         {
             if (c.ValidityDate.HasValue)
             {
-                var expired = c.ValidityDate.Value < DateTime.UtcNow;
+                var expired = c.ValidityDate.Value < AppClock.Now;
                 return (c.ValidityDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
                     expired ? "danger" : "ok");
             }
@@ -277,36 +312,34 @@ public class AdminManageCardsService : IAdminManageCardsService
             {
                 var end = c.UploadedDate.Value.AddYears(1);
                 return (end.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
-                    end < DateTime.UtcNow ? "danger" : "ok");
+                    end < AppClock.Now ? "danger" : "ok");
             }
 
             if (c.DPaymentDate.HasValue)
             {
                 var end = c.DPaymentDate.Value.AddYears(1);
                 return (end.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
-                    end < DateTime.UtcNow ? "danger" : "ok");
+                    end < AppClock.Now ? "danger" : "ok");
             }
 
             if (c.UploadedDate.HasValue)
             {
                 var end = c.UploadedDate.Value.AddYears(1);
                 return (end.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
-                    end < DateTime.UtcNow ? "danger" : "ok");
+                    end < AppClock.Now ? "danger" : "ok");
             }
         }
 
         return ("-", "neutral");
     }
 
-    private static string? FormatAmount(string? amount)
-    {
-        if (string.IsNullOrWhiteSpace(amount)) return null;
-        var t = amount.Trim();
-        if (t is "0" or "0.00") return null;
-        return t;
-    }
-
     private static string Normalize(string? value) => (value ?? string.Empty).Trim().ToLowerInvariant();
 
-    private sealed record InvoiceSummary(string? BillingName, string? TotalAmount, bool HasInvoice);
+    private sealed record InvoiceSummary(
+        string? BillingName,
+        decimal? TotalAmount,
+        bool HasInvoice,
+        string PromoCode,
+        DateTime? PaymentDate,
+        bool Paid);
 }

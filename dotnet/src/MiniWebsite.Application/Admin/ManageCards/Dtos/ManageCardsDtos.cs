@@ -41,4 +41,10 @@ public record ManageCardRowDto(
     bool HasInvoice,
     bool CanToggleComplimentary,
     string PublicUrl,
-    string EditUrl);
+    string EditUrl,
+    string UserIdDisplay,
+    string DbIdDisplay,
+    string DateCreatedDisplay,
+    string ExpiryDateDisplay,
+    string CouponCode,
+    string OrderValueDisplay);

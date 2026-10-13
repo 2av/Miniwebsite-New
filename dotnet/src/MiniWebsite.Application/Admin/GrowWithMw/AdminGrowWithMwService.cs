@@ -7,6 +7,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
+using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.GrowWithMw;
 
@@ -122,7 +123,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
         {
             var slugBase = string.IsNullOrWhiteSpace(request.Slug) ? title : request.Slug!;
             var slug = await UniquePageSlugAsync(Slugify(slugBase), id, ct);
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
 
             if (id is null or <= 0)
             {
@@ -222,7 +223,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
                 if (page != null)
                 {
                     page.SortOrder = pos;
-                    page.UpdatedAt = DateTime.UtcNow;
+                    page.UpdatedAt = AppClock.Now;
                 }
                 pos++;
             }
@@ -281,7 +282,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
                 null,
                 ct);
             var nextOrd = (await _db.DocSections.Select(s => (int?)s.SortOrder).MaxAsync(ct) ?? 0) + 1;
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
 
             var entity = new DocSection
             {
@@ -324,7 +325,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
                 ct);
             entity.Description = (request.Description ?? "").Trim();
             entity.CollapsedDefault = request.CollapsedDefault;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = AppClock.Now;
             await _db.SaveChangesAsync(ct);
 
             var pageCount = await _db.DocPages.CountAsync(p => p.SectionId == id, ct);
@@ -376,7 +377,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
                 if (section != null)
                 {
                     section.SortOrder = pos;
-                    section.UpdatedAt = DateTime.UtcNow;
+                    section.UpdatedAt = AppClock.Now;
                 }
                 pos++;
             }
@@ -443,13 +444,13 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
         try
         {
             Directory.CreateDirectory(dir);
-            var baseName = $"doc-{DateTime.Now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8]}.{ext}";
+            var baseName = $"doc-{AppClock.Now:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8]}.{ext}";
             var dest = Path.Combine(dir, baseName);
             await File.WriteAllBytesAsync(dest, ms.ToArray(), ct);
 
             var rel = "uploads/documentation/" + baseName;
             var by = string.IsNullOrWhiteSpace(uploadedBy) ? "admin" : uploadedBy.Trim();
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
 
             var entity = new DocMedia
             {
@@ -478,7 +479,7 @@ public class AdminGrowWithMwService : IAdminGrowWithMwService
 
         if (!await _db.DocSections.AnyAsync(ct))
         {
-            var now = DateTime.UtcNow;
+            var now = AppClock.Now;
             var section = new DocSection
             {
                 Title = "Getting Started",
