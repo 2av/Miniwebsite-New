@@ -20,6 +20,8 @@ public class RegistrationPendingConfiguration : IEntityTypeConfiguration<Registr
         builder.Property(x => x.ReferrerEmail).HasMaxLength(255);
         builder.Property(x => x.Otp).HasMaxLength(10).IsRequired();
         builder.HasIndex(x => new { x.Email, x.Role });
+        builder.HasIndex(x => x.ReferrerUserId);
+        builder.HasOne<User>().WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }

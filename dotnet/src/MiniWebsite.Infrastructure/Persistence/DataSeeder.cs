@@ -36,7 +36,6 @@ public sealed class DataSeeder : IDataSeeder
     public async Task SeedAsync(CancellationToken ct = default)
     {
         await SeedThemesAsync(ct);
-        await SeedPricingPlansAsync(ct);
         await SeedEmailTemplatesAsync(ct);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Reference data seed completed.");
@@ -253,40 +252,6 @@ public sealed class DataSeeder : IDataSeeder
             });
         }
     }
-
-    private async Task SeedPricingPlansAsync(CancellationToken ct)
-    {
-        if (await _db.PricingPlans.AnyAsync(ct)) return;
-
-        var seeds = new (string Type, string Name, decimal Price)[]
-        {
-            ("MW Plan (For MW Users)", "MiniWebsite 1 Year Plan", 999m),
-            ("MW Plan (For MW Users)", "MiniWebsite 2 Year Plan", 1799m),
-            ("MW Plan (For MW Users)", "MiniWebsite 3 Year Plan", 2499m),
-            ("MW Plan (For Franchise Partner)", "MiniWebsite 1 Year Plan", 799m),
-            ("MW Plan (For Franchise Partner)", "MiniWebsite 2 Year Plan", 1499m),
-            ("MW Plan (For Franchise Partner)", "MiniWebsite 3 Year Plan", 2199m),
-            ("Franchise Fees", "MW Full Franchise (Lifetime Fees)", 25000m),
-            ("Digital Marketer Partnership Fees", "MW Digital Marketing (Annual Membership Fees)", 5000m),
-        };
-
-        foreach (var (type, name, price) in seeds)
-        {
-            var gst = Math.Round(price * 1.18m, 2);
-            _db.PricingPlans.Add(new PricingPlan
-            {
-                PlanType = type,
-                PlanName = name,
-                OriginalPrice = price,
-                OriginalPriceGst = gst,
-                OfferedPrice = price,
-                OfferedPriceGst = gst,
-                Status = "Active",
-                CreatedAt = AppClock.Now,
-            });
-        }
-    }
-
 }
 
 public static class DataSeederExtensions

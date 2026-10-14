@@ -39,7 +39,7 @@ export function DashboardPage() {
         </Card>
 
         <Card className="p-5 opacity-70">
-          <h2 className="text-lg font-semibold text-slate-900">Deals</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Coupons</h2>
           <p className="mt-1 text-sm text-slate-500">Placeholder — migrate when APIs are ready.</p>
         </Card>
       </div>

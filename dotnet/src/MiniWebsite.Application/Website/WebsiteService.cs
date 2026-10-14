@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
@@ -36,11 +37,11 @@ public partial class WebsiteService : IWebsiteService
             return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, "", "Business name is required."));
 
         var slug = ToSlug(cleaned);
-        var nameTaken = await _db.Cards.AnyAsync(c => c.DCompName == cleaned && (!excludeId.HasValue || c.Id != excludeId), ct);
+        var nameTaken = await _db.Cards.AnyAsync(c => c.CompanyName == cleaned && (!excludeId.HasValue || c.Id != excludeId), ct);
         if (nameTaken)
             return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, "Business name already exists."));
 
-        var slugTaken = await _db.Cards.AnyAsync(c => c.CardId == slug && (!excludeId.HasValue || c.Id != excludeId), ct);
+        var slugTaken = await _db.Cards.AnyAsync(c => c.Slug == slug && (!excludeId.HasValue || c.Id != excludeId), ct);
         if (slugTaken)
             return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, "URL slug already taken."));
 
@@ -66,15 +67,23 @@ public partial class WebsiteService : IWebsiteService
             .Where(u => u.Email == email)
             .Select(u => (int?)u.Id)
             .FirstOrDefaultAsync(ct);
+        var franchiseeEmail = string.IsNullOrWhiteSpace(request.FranchiseeEmail) ? "" : request.FranchiseeEmail.Trim();
+        var franchiseeId = franchiseeEmail.Length == 0
+            ? null
+            : await _db.Users.AsNoTracking()
+                .Where(u => u.Email == franchiseeEmail)
+                .Select(u => (int?)u.Id)
+                .FirstOrDefaultAsync(ct);
 
         var card = new Card
         {
             UserId = ownerId,
+            FranchiseeUserId = franchiseeId,
             DCompName = cleaned,
             DDisplayName = display,
             CardId = slug,
             UserEmail = email,
-            FUserEmail = string.IsNullOrWhiteSpace(request.FranchiseeEmail) ? "" : request.FranchiseeEmail.Trim(),
+            FUserEmail = franchiseeEmail,
             DPaymentStatus = "Created",
             DCardStatus = "Active",
             UploadedDate = now,
@@ -579,27 +588,33 @@ public partial class WebsiteService : IWebsiteService
     // ---------- helpers ----------
     private async Task<Card?> LoadOwnedCardAsync(int cardId, string ownerEmail, CancellationToken ct)
     {
-        var email = ownerEmail.Trim().ToLowerInvariant();
+        var userId = await _db.FindUserIdAsync(ownerEmail, ct);
+        if (userId == null) return null;
         return await _db.Cards.AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == cardId && c.UserEmail != null && c.UserEmail.ToLower() == email, ct);
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.UserId == userId, ct);
     }
 
     private async Task<Card?> LoadOwnedCardTrackedAsync(int cardId, string ownerEmail, CancellationToken ct)
     {
-        var email = ownerEmail.Trim().ToLowerInvariant();
+        var userId = await _db.FindUserIdAsync(ownerEmail, ct);
+        if (userId == null) return null;
         return await _db.Cards
-            .FirstOrDefaultAsync(c => c.Id == cardId && c.UserEmail != null && c.UserEmail.ToLower() == email, ct);
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.UserId == userId, ct);
     }
 
     private async Task<(int CardId, string CardSlug, int UserId)?> ResolveChildContextAsync(int cardId, string ownerEmail, CancellationToken ct)
     {
-        var card = await LoadOwnedCardAsync(cardId, ownerEmail, ct);
+        var email = ownerEmail.Trim();
+        var userId = await _db.Users.AsNoTracking()
+            .Where(u => u.Email == email)
+            .Select(u => (int?)u.Id)
+            .FirstOrDefaultAsync(ct);
+        if (userId == null) return null;
+        var card = await _db.Cards.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == cardId && c.UserId == userId, ct);
         if (card == null) return null;
-        var email = ownerEmail.Trim().ToLowerInvariant();
-        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
-        if (user == null) return null;
         var slug = card.Slug ?? card.CardId ?? "";
-        return (card.Id, slug, user.Id);
+        return (card.Id, slug, userId.Value);
     }
 
     private CompanyDetailsDto MapCompany(Card c) =>

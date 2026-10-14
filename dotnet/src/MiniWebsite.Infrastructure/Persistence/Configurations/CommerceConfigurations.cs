@@ -4,25 +4,24 @@ using MiniWebsite.Domain.Entities;
 
 namespace MiniWebsite.Infrastructure.Persistence.Configurations;
 
-public class DealConfiguration : IEntityTypeConfiguration<Deal>
+public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
 {
-    public void Configure(EntityTypeBuilder<Deal> builder)
+    public void Configure(EntityTypeBuilder<Coupon> builder)
     {
-        builder.ToTable("deals");
+        builder.ToTable("coupons");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.PlanName).HasMaxLength(200);
-        builder.Property(x => x.PlanType).HasMaxLength(100);
-        builder.Property(x => x.DealState).HasMaxLength(100);
-        builder.Property(x => x.DealName).HasMaxLength(200);
+        builder.Property(x => x.CouponName).HasMaxLength(200);
         builder.Property(x => x.CouponCode).HasMaxLength(100);
         builder.Property(x => x.CouponType).HasMaxLength(50);
+        builder.Property(x => x.PromoDiscountType).HasMaxLength(20);
+        builder.Property(x => x.PromoDiscountValue).HasPrecision(12, 2);
         builder.Property(x => x.BonusAmount).HasPrecision(12, 2);
-        builder.Property(x => x.DiscountAmount).HasPrecision(12, 2);
-        builder.Property(x => x.DiscountPercentage).HasPrecision(12, 2);
         builder.Property(x => x.RenewalBonusAmount).HasPrecision(12, 2);
-        builder.Property(x => x.DealStatus).HasMaxLength(20);
+        builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.CreatedBy).HasMaxLength(200);
         builder.HasIndex(x => x.CouponCode);
+        builder.HasIndex(x => x.RoleId);
+        builder.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -41,15 +40,14 @@ public class CommerceConfigurations :
     {
         builder.ToTable("pricing_plans");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.PlanType).HasMaxLength(100).IsRequired();
         builder.Property(x => x.PlanName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.OriginalPrice).HasPrecision(12, 2);
         builder.Property(x => x.OriginalPriceGst).HasPrecision(12, 2);
         builder.Property(x => x.OfferedPrice).HasPrecision(12, 2);
         builder.Property(x => x.OfferedPriceGst).HasPrecision(12, 2);
         builder.Property(x => x.Status).HasMaxLength(20);
-        builder.HasIndex(x => new { x.PlanType, x.PlanName });
-        builder.HasOne(x => x.Deal).WithMany().HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(x => new { x.RoleId, x.PlanName }).IsUnique();
+        builder.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<DealCustomerMapping> builder)
@@ -60,7 +58,7 @@ public class CommerceConfigurations :
         builder.Property(x => x.CreatedBy).HasMaxLength(255);
         builder.HasIndex(x => x.DealId);
         builder.HasIndex(x => x.CustomerEmail);
-        builder.HasOne(x => x.Deal).WithMany(x => x.CustomerMappings).HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Coupon).WithMany(x => x.CustomerMappings).HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
     }
 

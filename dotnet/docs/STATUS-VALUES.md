@@ -27,6 +27,14 @@ Use only these labels. Do not invent alternatives such as Success, Failed, Inact
 - Active
 - InActive
 
+## Coupon Status
+
+- Active
+- InActive
+- Expired
+
+The admin chooses only Active or InActive. A coupon shows Expired automatically once its validity date has passed.
+
 ## Document verification
 
 - Not Submitted

@@ -128,6 +128,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int?>("FranchiseeUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("GooglePay")
                         .HasColumnType("longtext");
 
@@ -281,6 +284,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("FranchiseeEmail");
+
+                    b.HasIndex("FranchiseeUserId");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -649,6 +654,82 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("content_pages", (string)null);
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.Coupon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("BonusAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("CouponCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("CouponName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("CouponType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("CurrentUsage")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PromoDiscountType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("PromoDiscountValue")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("RenewalBonusAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("UsageLimitPerCoupon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsageLimitPerUser")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ValidityDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CouponCode");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("coupons", (string)null);
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Customer", b =>
                 {
                     b.Property<int>("Id")
@@ -769,87 +850,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerId");
 
                     b.ToTable("customer_followups", (string)null);
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.Deal", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("BonusAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<string>("CouponCode")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("CouponType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<int>("CurrentUsage")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DealName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("DealState")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("DealStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<decimal>("DiscountPercentage")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<int>("MaxUsage")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PlanName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("PlanType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<decimal>("RenewalBonusAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime?>("ValidityDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CouponCode");
-
-                    b.ToTable("deals", (string)null);
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.DealCustomerMapping", b =>
@@ -1851,9 +1851,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int?>("DealId")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("OfferedPrice")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -1875,10 +1872,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<string>("PlanType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                    b.Property<int?>("RoleId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1890,9 +1885,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DealId");
-
-                    b.HasIndex("PlanType", "PlanName");
+                    b.HasIndex("RoleId", "PlanName")
+                        .IsUnique();
 
                     b.ToTable("pricing_plans", (string)null);
                 });
@@ -2161,6 +2155,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<int?>("ReferrerUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2174,6 +2171,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReferrerUserId");
 
                     b.HasIndex("Email", "Role");
 
@@ -2623,10 +2622,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Card", b =>
                 {
+                    b.HasOne("MiniWebsite.Domain.Entities.User", "FranchiseeUser")
+                        .WithMany()
+                        .HasForeignKey("FranchiseeUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MiniWebsite.Domain.Entities.User", "User")
                         .WithMany("Cards")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FranchiseeUser");
 
                     b.Navigation("User");
                 });
@@ -2707,6 +2713,16 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Card");
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.Coupon", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Customer", b =>
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.User", "OwnerUser")
@@ -2731,7 +2747,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.DealCustomerMapping", b =>
                 {
-                    b.HasOne("MiniWebsite.Domain.Entities.Deal", "Deal")
+                    b.HasOne("MiniWebsite.Domain.Entities.Coupon", "Coupon")
                         .WithMany("CustomerMappings")
                         .HasForeignKey("DealId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -2742,7 +2758,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Deal");
+                    b.Navigation("Coupon");
 
                     b.Navigation("User");
                 });
@@ -2856,17 +2872,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.PricingPlan", b =>
                 {
-                    b.HasOne("MiniWebsite.Domain.Entities.Deal", "Deal")
+                    b.HasOne("MiniWebsite.Domain.Entities.Role", "Role")
                         .WithMany()
-                        .HasForeignKey("DealId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.Navigation("Deal");
+                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.ReferralEarning", b =>
                 {
-                    b.HasOne("MiniWebsite.Domain.Entities.Deal", "Deal")
+                    b.HasOne("MiniWebsite.Domain.Entities.Coupon", "Coupon")
                         .WithMany()
                         .HasForeignKey("DealId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -2886,7 +2902,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ReferrerUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("Deal");
+                    b.Navigation("Coupon");
 
                     b.Navigation("Invoice");
 
@@ -2915,6 +2931,14 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.RegistrationPending", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReferrerUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>
@@ -3013,6 +3037,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                                 .HasMaxLength(255)
                                 .HasColumnType("varchar(255)");
 
+                            b1.Property<int?>("ReferrerUserId")
+                                .HasColumnType("int");
+
                             b1.Property<bool>("SaleskitEnabled")
                                 .HasColumnType("tinyint(1)");
 
@@ -3025,7 +3052,14 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                             b1.HasIndex("ReferredBy");
 
+                            b1.HasIndex("ReferrerUserId");
+
                             b1.ToTable("user_referral_settings", (string)null);
+
+                            b1.HasOne("MiniWebsite.Domain.Entities.User", null)
+                                .WithMany()
+                                .HasForeignKey("ReferrerUserId")
+                                .OnDelete(DeleteBehavior.SetNull);
 
                             b1.WithOwner()
                                 .HasForeignKey("UserId");
@@ -3126,14 +3160,14 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Videos");
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.Coupon", b =>
+                {
+                    b.Navigation("CustomerMappings");
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Customer", b =>
                 {
                     b.Navigation("Followups");
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.Deal", b =>
-                {
-                    b.Navigation("CustomerMappings");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.DocSection", b =>

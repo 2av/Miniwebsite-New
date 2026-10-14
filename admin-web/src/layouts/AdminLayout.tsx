@@ -205,7 +205,7 @@ const nav: NavNode[] = [
     ],
   },
   { kind: 'link', to: '/manage-referrals', label: 'Manage Referrals', icon: Share2 },
-  { kind: 'link', to: '/manage-deals', label: 'Manage Deals', icon: Tag },
+  { kind: 'link', to: '/coupons', label: 'Coupons', icon: Tag },
   { kind: 'link', to: '/manage-pricing', label: 'Manage Pricing', icon: BadgeIndianRupee },
   { kind: 'link', to: '/recharge-wallet', label: 'Recharge Wallet', icon: BatteryCharging },
   { kind: 'link', to: '/manage-categories', label: 'Category Management', icon: FolderTree },

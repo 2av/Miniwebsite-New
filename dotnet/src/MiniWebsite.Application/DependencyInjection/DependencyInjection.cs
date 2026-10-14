@@ -15,7 +15,7 @@ using MiniWebsite.Application.Admin.GrowWithMw;
 using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.RoleManagement;
 using MiniWebsite.Application.Admin.SalesChannelPartners;
-using MiniWebsite.Application.Admin.ManageDeals;
+using MiniWebsite.Application.Admin.Coupons;
 using MiniWebsite.Application.Admin.ManagePricing;
 using MiniWebsite.Application.Admin.ManageReferrals;
 using MiniWebsite.Application.Admin.WalletRecharge;
@@ -49,7 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminInvoiceAccessService, AdminInvoiceAccessService>();
         services.AddScoped<IAdminUserDeletionsService, AdminUserDeletionsService>();
         services.AddScoped<IAdminManageReferralsService, AdminManageReferralsService>();
-        services.AddScoped<IAdminManageDealsService, AdminManageDealsService>();
+        services.AddScoped<IAdminCouponsService, AdminCouponsService>();
         services.AddScoped<IAdminManagePricingService, AdminManagePricingService>();
         services.AddScoped<IAdminEmailTemplatesService, AdminEmailTemplatesService>();
         services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();

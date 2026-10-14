@@ -313,65 +313,49 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var map = users.ToDictionary(u => u.Id, _ => PartnerRowFacts.Empty);
         if (users.Count == 0) return map;
 
-        var emails = users.Select(u => NormalizeEmail(u.Email)).Distinct().ToList();
         var userIds = users.Select(u => u.Id).ToList();
 
-        var referrerEmails = users
-            .Select(u => u.Referral.ReferredBy)
-            .Where(email => !string.IsNullOrWhiteSpace(email))
-            .Select(NormalizeEmail)
+        var referrerIds = users
+            .Where(u => u.Referral.ReferrerUserId != null)
+            .Select(u => u.Referral.ReferrerUserId!.Value)
             .Distinct()
             .ToList();
-        var referrerCodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (referrerEmails.Count > 0)
-        {
-            var referrers = await _db.Users.AsNoTracking()
-                .Where(u => referrerEmails.Contains(u.Email))
-                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
-                .ToListAsync(ct);
-            foreach (var referrer in referrers)
-                referrerCodes[referrer.Email] = UserCodeGenerator.FormatDisplay(referrer.UserCode);
-        }
+        var referrerCodes = referrerIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => referrerIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => UserCodeGenerator.FormatDisplay(u.UserCode), ct);
 
         var referred = await _db.Users.AsNoTracking()
-            .Where(u => u.Referral.ReferredBy != null && emails.Contains(u.Referral.ReferredBy))
-            .Select(u => new { Referrer = u.Referral.ReferredBy!.ToLower(), Email = u.Email.ToLower() })
+            .Where(u => u.Referral.ReferrerUserId != null && userIds.Contains(u.Referral.ReferrerUserId.Value))
+            .Select(u => new { Referrer = u.Referral.ReferrerUserId!.Value, u.Id })
             .ToListAsync(ct);
         var referredByPartner = referred
-            .GroupBy(r => r.Referrer, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Email).Distinct().ToList(), StringComparer.OrdinalIgnoreCase);
+            .GroupBy(r => r.Referrer)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Id).Distinct().ToList());
 
-        var ownerEmails = emails.Concat(referred.Select(r => r.Email)).Distinct().ToList();
+        var ownerIds = userIds.Concat(referred.Select(r => r.Id)).Distinct().ToList();
         var cards = await _db.Cards.AsNoTracking()
             .Where(c =>
-                (c.UserEmail != null && ownerEmails.Contains(c.UserEmail))
-                || (c.FranchiseeEmail != null && emails.Contains(c.FranchiseeEmail)))
-            .Select(c => new
-            {
-                c.Id,
-                UserEmail = c.UserEmail == null ? "" : c.UserEmail.ToLower(),
-                FranchiseeEmail = c.FranchiseeEmail == null ? "" : c.FranchiseeEmail.ToLower(),
-            })
+                (c.UserId != null && ownerIds.Contains(c.UserId.Value))
+                || (c.FranchiseeUserId != null && userIds.Contains(c.FranchiseeUserId.Value)))
+            .Select(c => new { c.Id, c.UserId, c.FranchiseeUserId })
             .ToListAsync(ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => emails.Contains(r.ReferrerEmail))
-            .Select(r => new { Email = r.ReferrerEmail.ToLower(), r.Amount, r.Status })
+            .Where(r => r.ReferrerUserId != null && userIds.Contains(r.ReferrerUserId.Value))
+            .Select(r => new { UserId = r.ReferrerUserId!.Value, r.Amount, r.Status })
             .ToListAsync(ct);
-        var earningsByEmail = earnings.GroupBy(r => r.Email, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        var earningsByUser = earnings.GroupBy(r => r.UserId).ToDictionary(g => g.Key, g => g.ToList());
 
         var docs = await _db.FranchiseVerifications.AsNoTracking()
-            .Where(v => emails.Contains(v.UserEmail))
+            .Where(v => userIds.Contains(v.UserId))
             .OrderByDescending(v => v.Id)
-            .Select(v => new { Email = v.UserEmail.ToLower(), v.Status, v.DocumentPath })
+            .Select(v => new { v.UserId, v.Status, v.DocumentPath })
             .ToListAsync(ct);
-        var docByEmail = new Dictionary<string, (string Status, string? Path)>(StringComparer.OrdinalIgnoreCase);
+        var docByUser = new Dictionary<int, (string Status, string? Path)>();
         foreach (var doc in docs)
-        {
-            if (!docByEmail.ContainsKey(doc.Email))
-                docByEmail[doc.Email] = (doc.Status, doc.DocumentPath);
-        }
+            docByUser.TryAdd(doc.UserId, (doc.Status, doc.DocumentPath));
 
         var deals = await (
             from d in _db.UserJoiningDeals.AsNoTracking()
@@ -406,24 +390,22 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
 
         foreach (var user in users)
         {
-            var email = NormalizeEmail(user.Email);
             var referralSource = "Direct";
-            if (!string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
-            {
-                var referrerEmail = NormalizeEmail(user.Referral.ReferredBy);
-                referralSource = referrerCodes.TryGetValue(referrerEmail, out var code) && !string.IsNullOrWhiteSpace(code)
-                    ? code
-                    : "Ref: " + user.Referral.ReferredBy.Trim();
-            }
+            if (user.Referral.ReferrerUserId is { } referrerId
+                && referrerCodes.TryGetValue(referrerId, out var code)
+                && !string.IsNullOrWhiteSpace(code))
+                referralSource = code;
+            else if (!string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
+                referralSource = "Ref: " + user.Referral.ReferredBy.Trim();
 
-            referredByPartner.TryGetValue(email, out var referredEmails);
-            referredEmails ??= [];
+            referredByPartner.TryGetValue(user.Id, out var referredIds);
+            referredIds ??= [];
             var dbCount = cards.Count(c =>
-                c.UserEmail == email
-                || c.FranchiseeEmail == email
-                || referredEmails.Contains(c.UserEmail));
+                c.UserId == user.Id
+                || c.FranchiseeUserId == user.Id
+                || (c.UserId is { } ownerId && referredIds.Contains(ownerId)));
 
-            earningsByEmail.TryGetValue(email, out var userEarnings);
+            earningsByUser.TryGetValue(user.Id, out var userEarnings);
             userEarnings ??= [];
             var earningTotal = userEarnings.Sum(e => e.Amount);
             var rejected = userEarnings.Count(e => string.Equals(e.Status, "Rejected", StringComparison.OrdinalIgnoreCase));
@@ -436,7 +418,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             var documentStatus = "Not Submitted";
             var documentTone = "neutral";
             string? pan = null, front = null, back = null;
-            if (docByEmail.TryGetValue(email, out var doc))
+            if (docByUser.TryGetValue(user.Id, out var doc))
             {
                 documentStatus = MapDocumentStatus(doc.Status);
                 documentTone = MapDocumentTone(documentStatus);
@@ -491,7 +473,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 PublicDoc(pan),
                 PublicDoc(front),
                 PublicDoc(back),
-                referredEmails.Count,
+                referredIds.Count,
                 earningTotal,
                 FormatMoney(earningTotal, false),
                 commission,

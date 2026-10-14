@@ -12,15 +12,14 @@ public class WalletBalanceLookup : IWalletBalanceLookup
         _db = db;
     }
 
-    public async Task<decimal> GetLatestBalanceAsync(string franchiseeEmail, CancellationToken ct = default)
+    public async Task<decimal> GetLatestBalanceAsync(int? userId, CancellationToken ct = default)
     {
-        var email = (franchiseeEmail ?? "").Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(email)) return 0m;
+        if (userId is null or <= 0) return 0m;
 
         try
         {
             var balance = await _db.Wallets.AsNoTracking()
-                .Where(w => w.UserEmail.ToLower() == email)
+                .Where(w => w.UserId == userId)
                 .OrderByDescending(w => w.Id)
                 .Select(w => (decimal?)w.Balance)
                 .FirstOrDefaultAsync(ct);

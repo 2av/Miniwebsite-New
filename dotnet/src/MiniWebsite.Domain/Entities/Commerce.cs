@@ -5,14 +5,14 @@ namespace MiniWebsite.Domain.Entities;
 public class PricingPlan
 {
     public int Id { get; set; }
-    public string PlanType { get; set; } = "";
+    /// <summary>Plan type: the role this price applies to. Null means All (no role mapped).</summary>
+    public int? RoleId { get; set; }
+    public Role? Role { get; set; }
     public string PlanName { get; set; } = "";
     public decimal OriginalPrice { get; set; }
     public decimal OriginalPriceGst { get; set; }
     public decimal OfferedPrice { get; set; }
     public decimal OfferedPriceGst { get; set; }
-    public int? DealId { get; set; }
-    public Deal? Deal { get; set; }
     public string Status { get; set; } = "Active";
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -22,7 +22,7 @@ public class DealCustomerMapping
 {
     public int Id { get; set; }
     public int DealId { get; set; }
-    public Deal Deal { get; set; } = null!;
+    public Coupon Coupon { get; set; } = null!;
     public string CustomerEmail { get; set; } = "";
     public int? UserId { get; set; }
     public User? User { get; set; }

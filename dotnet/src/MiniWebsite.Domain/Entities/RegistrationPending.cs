@@ -13,6 +13,7 @@ public class RegistrationPending : BaseEntity
     public string? State { get; set; }
     public required string PasswordHash { get; set; }
     public string? ReferrerEmail { get; set; }
+    public int? ReferrerUserId { get; set; }
     public required string Otp { get; set; }
     public DateTime ExpiresAt { get; set; }
     public bool IsConsumed { get; set; }

@@ -7,7 +7,7 @@ import { FranchiseDistributorsPage } from '@/features/franchise-distributors/Fra
 import { FranchiseesPage } from '@/features/franchisees/FranchiseesPage'
 import { AllOrdersPage } from '@/features/all-orders/AllOrdersPage'
 import { ManageReferralsPage } from '@/features/manage-referrals/ManageReferralsPage'
-import { ManageDealsPage } from '@/features/manage-deals/ManageDealsPage'
+import { CouponsPage } from '@/features/coupons/CouponsPage'
 import { ManagePricingPage } from '@/features/manage-pricing/ManagePricingPage'
 import { RechargeWalletPage } from '@/features/wallet-recharge/RechargeWalletPage'
 import { ManageEmailTemplatesPage } from '@/features/email-templates/ManageEmailTemplatesPage'
@@ -55,8 +55,9 @@ export function AppRouter() {
         <Route path="sales-channel/influencer-partner" element={<FranchiseDistributorsPage />} />
         <Route path="all-orders" element={<AllOrdersPage />} />
         <Route path="manage-referrals" element={<ManageReferralsPage />} />
-        <Route path="manage-deals" element={<ManageDealsPage />} />
-        <Route path="deals" element={<Navigate to="/manage-deals" replace />} />
+        <Route path="coupons" element={<CouponsPage />} />
+        <Route path="manage-deals" element={<Navigate to="/coupons" replace />} />
+        <Route path="deals" element={<Navigate to="/coupons" replace />} />
         <Route path="manage-pricing" element={<ManagePricingPage />} />
         <Route path="pricing" element={<Navigate to="/manage-pricing" replace />} />
         <Route path="recharge-wallet" element={<RechargeWalletPage />} />

@@ -40,7 +40,7 @@ public class PublicCardService : IPublicCardService
         else
         {
             card = await _db.Cards.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CardId != null && c.CardId == key, ct);
+                .FirstOrDefaultAsync(c => c.Slug != null && c.Slug == key, ct);
 
             if (card == null)
             {

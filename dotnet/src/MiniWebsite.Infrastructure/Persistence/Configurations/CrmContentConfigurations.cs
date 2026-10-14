@@ -54,7 +54,7 @@ public class CrmContentConfigurations :
         builder.HasIndex(x => x.ReferredEmail);
         builder.HasOne(x => x.ReferrerUser).WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.ReferredUser).WithMany().HasForeignKey(x => x.ReferredUserId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasOne(x => x.Deal).WithMany().HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Coupon).WithMany().HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
     }
 

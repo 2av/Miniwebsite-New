@@ -90,6 +90,7 @@ public class AuthService : IAuthService
                 Influencer = false,
                 ReferralCode = GenerateReferralCode(email),
                 ReferredBy = referredBy,
+                ReferrerUserId = referrerId,
             },
             CreatedAt = AppClock.Now,
             UpdatedAt = AppClock.Now,
@@ -101,7 +102,7 @@ public class AuthService : IAuthService
 
         if (referredBy != null)
         {
-            var amount = await _deals.GetBonusAmountAsync(referredBy, "MiniWebsite", "DMW001", ct);
+            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.ShareBizzUser, "DMW001", ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
                 ReferrerUserId = referrerId,

@@ -55,23 +55,23 @@ import {
 } from '@/components/ui/table'
 
 const GST_RATE = 1.18
+/** Select value for the "All" plan type, saved as no role. */
+const ALL_ROLES = 'all'
 
 type PricingFormState = {
-  planType: string
+  roleId: string
   planName: string
   /** Keep as string so the user can clear the field while typing */
   originalPrice: string
   offeredPrice: string
-  dealId: number | null
   status: string
 }
 
 const emptyForm: PricingFormState = {
-  planType: '',
+  roleId: '',
   planName: '',
   originalPrice: '',
   offeredPrice: '',
-  dealId: null,
   status: 'Active',
 }
 
@@ -113,7 +113,7 @@ export function ManagePricingPage() {
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [planType, setPlanType] = useState('all')
+  const [roleFilter, setRoleFilter] = useState('any')
   const [status, setStatus] = useState('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -141,10 +141,10 @@ export function ManagePricingPage() {
       page,
       pageSize: 10,
       search: search || undefined,
-      planType: planType === 'all' ? undefined : planType,
+      roleId: roleFilter === 'any' ? undefined : roleFilter === ALL_ROLES ? 0 : Number(roleFilter),
       status: status === 'all' ? undefined : status,
     }),
-    [page, search, planType, status],
+    [page, search, roleFilter, status],
   )
   const queryKey = useMemo(() => ['manage-pricing', filters] as const, [filters])
 
@@ -164,26 +164,15 @@ export function ManagePricingPage() {
   const pages = data ? Math.max(1, Math.ceil(data.totalCount / data.pageSize)) : 1
   const hasSearch = Boolean(searchInput.trim())
   const activeFilterCount =
-    (hasSearch ? 1 : 0) + (planType !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0)
+    (hasSearch ? 1 : 0) + (roleFilter !== 'any' ? 1 : 0) + (status !== 'all' ? 1 : 0)
 
-  const catalog = metaQuery.data?.planCatalog ?? []
-  const dealOptions = metaQuery.data?.deals ?? []
+  const roles = metaQuery.data?.roles ?? []
   const existingPlans = metaQuery.data?.existingPlans ?? []
-  const planNamesForType = useMemo(() => {
-    const entry = catalog.find((c) => c.key === form.planType)
-    const names = entry?.planNames ?? []
-    const taken = new Set(
-      existingPlans
-        .filter((p) => p.planType === form.planType && p.id !== editing?.id)
-        .map((p) => p.planName),
-    )
-    return names.filter((n) => !taken.has(n))
-  }, [catalog, existingPlans, form.planType, editing?.id])
 
   const clearFilters = () => {
     setSearchInput('')
     setSearch('')
-    setPlanType('all')
+    setRoleFilter('any')
     setStatus('all')
     setPage(1)
   }
@@ -197,31 +186,29 @@ export function ManagePricingPage() {
   const openEdit = (row: ManagePricingRow) => {
     setEditing(row)
     setForm({
-      planType: row.planType,
+      roleId: row.roleId ? String(row.roleId) : ALL_ROLES,
       planName: row.planName,
       originalPrice: String(row.originalPrice ?? ''),
       offeredPrice: String(row.offeredPrice ?? ''),
-      dealId: row.dealId ?? null,
       status: row.status || 'Active',
     })
     setFormOpen(true)
   }
 
   const submitForm = async () => {
-    if (!form.planType || !form.planName) {
-      return toast.push('Please select plan type and plan name', 'error')
+    const planName = form.planName.trim()
+    if (!form.roleId || !planName) {
+      return toast.push('Please select plan type and enter plan name', 'error')
     }
+    const roleId = form.roleId === ALL_ROLES ? null : Number(form.roleId)
     const duplicate = existingPlans.some(
       (p) =>
-        p.planType === form.planType &&
-        p.planName === form.planName &&
+        p.roleId === roleId &&
+        p.planName.toLowerCase() === planName.toLowerCase() &&
         p.id !== editing?.id,
     )
     if (duplicate) {
       return toast.push('This plan type and plan name combination already exists', 'error')
-    }
-    if (!planNamesForType.includes(form.planName)) {
-      return toast.push('This plan name is already used for the selected plan type', 'error')
     }
     const originalPrice = parsePriceInput(form.originalPrice)
     const offeredPrice = parsePriceInput(form.offeredPrice)
@@ -234,11 +221,10 @@ export function ManagePricingPage() {
     setFormBusy(true)
     try {
       const payload: UpsertPricingPayload = {
-        planType: form.planType,
-        planName: form.planName,
+        roleId,
+        planName,
         originalPrice,
         offeredPrice,
-        dealId: form.dealId && form.dealId > 0 ? form.dealId : null,
         status: editing ? form.status || 'Active' : undefined,
       }
       const res = editing
@@ -318,7 +304,6 @@ export function ManagePricingPage() {
                     'Original (w/ GST)',
                     'Offered (w/o GST)',
                     'Offered (w/ GST)',
-                    'Deal / Coupon',
                     'Status',
                     'Action',
                   ].map((h) => (
@@ -331,14 +316,14 @@ export function ManagePricingPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       No pricing plans found.
                     </TableCell>
                   </TableRow>
@@ -351,7 +336,6 @@ export function ManagePricingPage() {
                       <TableCell>{row.originalPriceGstDisplay}</TableCell>
                       <TableCell>{row.offeredPriceDisplay}</TableCell>
                       <TableCell>{row.offeredPriceGstDisplay}</TableCell>
-                      <TableCell className="max-w-[12rem] whitespace-normal text-sm">{row.dealDisplay}</TableCell>
                       <TableCell>
                         <Badge variant={badgeVariantFromTone(row.statusTone)}>{row.status}</Badge>
                       </TableCell>
@@ -432,16 +416,16 @@ export function ManagePricingPage() {
                 className="pl-8"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Plan, deal, coupon…"
+                placeholder="Plan type, plan name…"
               />
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Plan type</label>
             <Select
-              value={planType}
+              value={roleFilter}
               onValueChange={(v) => {
-                setPlanType(v)
+                setRoleFilter(v)
                 setPage(1)
               }}
             >
@@ -449,10 +433,11 @@ export function ManagePricingPage() {
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {catalog.map((c) => (
-                  <SelectItem key={c.key} value={c.key}>
-                    {c.key}
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value={ALL_ROLES}>All</SelectItem>
+                {roles.map((r) => (
+                  <SelectItem key={r.roleId} value={String(r.roleId)}>
+                    {r.roleName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -485,22 +470,23 @@ export function ManagePricingPage() {
           <DrawerHeader>
             <DrawerTitle>{editing ? 'Edit Pricing' : 'Add Pricing'}</DrawerTitle>
             <DrawerDescription>
-              GST is auto-calculated at 18%. Plan type and name are fixed catalog options.
+              GST is auto-calculated at 18%. Plan type is the role this price applies to.
             </DrawerDescription>
           </DrawerHeader>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2">
             <FormField label="Plan Type *">
               <Select
-                value={form.planType || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, planType: v, planName: '' }))}
+                value={form.roleId || undefined}
+                onValueChange={(v) => setForm((f) => ({ ...f, roleId: v }))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select Plan Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {catalog.map((c) => (
-                    <SelectItem key={c.key} value={c.key}>
-                      {c.key}
+                  <SelectItem value={ALL_ROLES}>All</SelectItem>
+                  {roles.map((r) => (
+                    <SelectItem key={r.roleId} value={String(r.roleId)}>
+                      {r.roleName}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -508,22 +494,12 @@ export function ManagePricingPage() {
             </FormField>
 
             <FormField label="Plan Name *">
-              <Select
-                value={form.planName || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, planName: v }))}
-                disabled={!form.planType}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Plan Name" />
-                </SelectTrigger>
-                <SelectContent>
-                  {planNamesForType.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                maxLength={200}
+                value={form.planName}
+                onChange={(e) => setForm((f) => ({ ...f, planName: e.target.value }))}
+                placeholder="e.g., ShareBizz 1 Year Plan"
+              />
             </FormField>
 
             <div className="rounded-lg border bg-muted/30 p-3">
@@ -581,28 +557,6 @@ export function ManagePricingPage() {
                 </FormField>
               </div>
             </div>
-
-            <FormField label="Manage Deals (Coupon Code)">
-              <Select
-                value={form.dealId && form.dealId > 0 ? String(form.dealId) : 'none'}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, dealId: v === 'none' ? null : Number(v) }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {dealOptions.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.dealName}
-                      {d.couponCode ? ` (${d.couponCode})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
 
             {editing && (
               <FormField label="Status">

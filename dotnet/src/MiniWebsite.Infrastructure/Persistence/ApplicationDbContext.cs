@@ -17,7 +17,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<RegistrationPending> RegistrationPendings => Set<RegistrationPending>();
     public DbSet<ReferralEarning> ReferralEarnings => Set<ReferralEarning>();
     public DbSet<ReferralPayment> ReferralPayments => Set<ReferralPayment>();
-    public DbSet<Deal> Deals => Set<Deal>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<DealCustomerMapping> DealCustomerMappings => Set<DealCustomerMapping>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardSlugHistory> CardSlugHistories => Set<CardSlugHistory>();

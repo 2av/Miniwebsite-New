@@ -9,6 +9,8 @@ public class Card
     public int? UserId { get; set; }
     public User? User { get; set; }
     public string? Ip { get; set; }
+    public int? FranchiseeUserId { get; set; }
+    public User? FranchiseeUser { get; set; }
     public string? FranchiseeEmail { get; set; }
     public string? UserEmail { get; set; }
     public string? Slug { get; set; }

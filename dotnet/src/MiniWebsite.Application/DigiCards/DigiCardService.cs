@@ -36,22 +36,26 @@ public class DigiCardService : IDigiCardService
 
     public async Task<ApiResult<IReadOnlyList<DigiCardListItemDto>>> ListByUserEmailAsync(string userEmail, CancellationToken ct = default)
     {
-        var email = Normalize(userEmail);
-        var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && c.UserEmail.ToLower() == email)
-            .OrderByDescending(c => c.Id)
-            .ToListAsync(ct);
+        var userId = await _db.FindUserIdAsync(userEmail, ct);
+        var cards = userId == null
+            ? []
+            : await _db.Cards.AsNoTracking()
+                .Where(c => c.UserId == userId)
+                .OrderByDescending(c => c.Id)
+                .ToListAsync(ct);
 
         return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(cards.Select(MapListItem).ToList());
     }
 
     public async Task<ApiResult<IReadOnlyList<DigiCardListItemDto>>> ListByFranchiseeEmailAsync(string franchiseeEmail, CancellationToken ct = default)
     {
-        var email = Normalize(franchiseeEmail);
-        var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.FUserEmail != null && c.FUserEmail.ToLower() == email)
-            .OrderByDescending(c => c.Id)
-            .ToListAsync(ct);
+        var franchiseeId = await _db.FindUserIdAsync(franchiseeEmail, ct);
+        var cards = franchiseeId == null
+            ? []
+            : await _db.Cards.AsNoTracking()
+                .Where(c => c.FranchiseeUserId == franchiseeId)
+                .OrderByDescending(c => c.Id)
+                .ToListAsync(ct);
 
         return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(cards.Select(MapListItem).ToList());
     }
@@ -114,7 +118,7 @@ public class DigiCardService : IDigiCardService
         }
 
         var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && c.UserEmail.ToLower() == email)
+            .Where(c => c.UserId == user.Id)
             .OrderByDescending(c => c.Id)
             .ToListAsync(ct);
 
@@ -143,17 +147,16 @@ public class DigiCardService : IDigiCardService
             return ApiResult<FranchiseeDashboardDto>.Fail("User is not a franchisee.");
 
         var totalCards = await _db.Cards.AsNoTracking()
-            .CountAsync(c => c.FUserEmail != null && c.FUserEmail.ToLower() == email, ct);
+            .CountAsync(c => c.FranchiseeUserId == user.Id, ct);
 
-        var walletBalance = await _wallet.GetLatestBalanceAsync(email, ct);
+        var walletBalance = await _wallet.GetLatestBalanceAsync(user.Id, ct);
 
         // Same join as PHP manage-users query
         var managed = await (
             from ud in _db.Users.AsNoTracking().WhereRole(UserRole.Customer)
             join dc in _db.Cards.AsNoTracking()
-                on ud.Email equals dc.UserEmail
-            where dc.FUserEmail != null
-                  && dc.FUserEmail.ToLower() == email
+                on (int?)ud.Id equals dc.UserId
+            where dc.FranchiseeUserId == user.Id
             orderby ud.CreatedAt descending
             select new { ud, dc }
         ).ToListAsync(ct);

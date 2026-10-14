@@ -143,6 +143,10 @@ public class AdminRoleManagementService : IAdminRoleManagementService
                 return ApiResult.Fail($"Role '{entity.RoleName}' is a system role and can't be deleted.");
             if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.RoleId == roleId, ct))
                 return ApiResult.Fail($"Role '{entity.RoleName}' is assigned to users and can't be deleted.");
+            if (await _db.Coupons.AnyAsync(c => c.RoleId == roleId, ct))
+                return ApiResult.Fail($"Role '{entity.RoleName}' is the plan type of one or more coupons and can't be deleted.");
+            if (await _db.PricingPlans.AnyAsync(p => p.RoleId == roleId, ct))
+                return ApiResult.Fail($"Role '{entity.RoleName}' is the plan type of one or more pricing plans and can't be deleted.");
 
             _db.Roles.Remove(entity);
             await _db.SaveChangesAsync(ct);

@@ -33,15 +33,15 @@ public class AdminAllOrdersService : IAdminAllOrdersService
             {
                 var term = search.ToLowerInvariant();
                 var compact = term.Replace(" ", "");
-                var matchedEmails = _db.Users
+                var matchedIds = _db.Users
                     .Where(u => u.UserCode.Contains(compact))
-                    .Select(u => u.Email);
+                    .Select(u => u.Id);
                 q = q.Where(i =>
                     i.UserEmail.Contains(term)
                     || i.UserName.Contains(term)
                     || i.InvoiceNumber.Contains(term)
                     || i.OrderCode.Contains(compact)
-                    || matchedEmails.Contains(i.UserEmail));
+                    || (i.UserId != null && matchedIds.Contains(i.UserId.Value)));
             }
 
             var totalCount = await q.CountAsync(ct);
@@ -52,6 +52,7 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                 .Select(i => new InvoiceLite(
                     i.Id,
                     i.OrderCode,
+                    i.UserId,
                     i.UserEmail,
                     i.InvoiceNumber,
                     i.CardId,
@@ -68,51 +69,45 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                     i.AdminComment))
                 .ToListAsync(ct);
 
-            var emails = invoices
-                .Select(i => Normalize(i.UserEmail))
-                .Where(e => e.Length > 0)
+            var buyerIds = invoices
+                .Where(i => i.UserId != null)
+                .Select(i => i.UserId!.Value)
                 .Distinct()
                 .ToList();
 
-            var users = emails.Count == 0
+            var userById = buyerIds.Count == 0
                 ? []
                 : await _db.Users.AsNoTracking()
-                    .Where(u => emails.Contains(u.Email))
-                    .Select(u => new { Email = u.Email.ToLower(), u.UserCode, ReferredBy = u.Referral.ReferredBy })
-                    .ToListAsync(ct);
-            var userByEmail = users
-                .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+                    .Where(u => buyerIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.UserCode, ReferredBy = u.Referral.ReferredBy, ReferrerId = u.Referral.ReferrerUserId })
+                    .ToDictionaryAsync(u => u.Id, ct);
 
-            var referrerEmails = users
-                .Select(u => Normalize(u.ReferredBy))
-                .Where(e => e.Length > 0)
+            var referrerIds = userById.Values
+                .Where(u => u.ReferrerId != null)
+                .Select(u => u.ReferrerId!.Value)
                 .Distinct()
                 .ToList();
-            var referrerCodes = referrerEmails.Count == 0
-                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                : (await _db.Users.AsNoTracking()
-                    .Where(u => referrerEmails.Contains(u.Email))
-                    .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
-                    .ToListAsync(ct))
-                .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => UserCodeGenerator.FormatDisplay(g.First().UserCode), StringComparer.OrdinalIgnoreCase);
+            var referrerCodes = referrerIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _db.Users.AsNoTracking()
+                    .Where(u => referrerIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => UserCodeGenerator.FormatDisplay(u.UserCode), ct);
 
-            var earnings = emails.Count == 0
+            var earnings = buyerIds.Count == 0
                 ? []
                 : await _db.ReferralEarnings.AsNoTracking()
-                    .Where(r => emails.Contains(r.ReferredEmail))
-                    .Select(r => new { Referred = r.ReferredEmail.ToLower(), Referrer = r.ReferrerEmail.ToLower(), r.Amount, r.InvoiceId, r.ReferralDate })
+                    .Where(r => r.ReferredUserId != null && buyerIds.Contains(r.ReferredUserId.Value))
+                    .Select(r => new { Referred = r.ReferredUserId!.Value, Referrer = r.ReferrerUserId, r.Amount, r.InvoiceId, r.ReferralDate })
                     .ToListAsync(ct);
 
             var buyerInvoices = earnings.Count == 0
-                ? new Dictionary<string, List<(int Id, DateTime InvoiceDate)>>(StringComparer.OrdinalIgnoreCase)
+                ? new Dictionary<int, List<(int Id, DateTime InvoiceDate)>>()
                 : (await _db.Invoices.AsNoTracking()
-                    .Where(i => emails.Contains(i.UserEmail))
-                    .Select(i => new { i.Id, Email = i.UserEmail.ToLower(), i.InvoiceDate })
+                    .Where(i => i.UserId != null && buyerIds.Contains(i.UserId.Value))
+                    .Select(i => new { i.Id, UserId = i.UserId!.Value, i.InvoiceDate })
                     .ToListAsync(ct))
-                .GroupBy(i => i.Email, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList(), StringComparer.OrdinalIgnoreCase);
+                .GroupBy(i => i.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList());
             var commissions = earnings
                 .Select(e => new
                 {
@@ -133,20 +128,22 @@ public class AdminAllOrdersService : IAdminAllOrdersService
 
             var rows = invoices.Select(inv =>
             {
-                var email = Normalize(inv.UserEmail);
-                userByEmail.TryGetValue(email, out var user);
+                var user = inv.UserId is { } buyerId ? userById.GetValueOrDefault(buyerId) : null;
 
                 var referralSource = "Direct";
                 decimal referralAmount = 0;
-                var referrer = Normalize(user?.ReferredBy);
-                if (referrer.Length > 0)
+                if (user?.ReferrerId is { } referrerId)
                 {
-                    referralSource = referrerCodes.TryGetValue(referrer, out var code) && code.Length > 0
+                    referralSource = referrerCodes.TryGetValue(referrerId, out var code) && code.Length > 0
                         ? code
-                        : "Ref: " + user!.ReferredBy!.Trim();
+                        : "Ref: " + (user.ReferredBy ?? "").Trim();
                     referralAmount = commissions
-                        .Where(e => e.InvoiceId == inv.Id && e.Referred == email && e.Referrer == referrer)
+                        .Where(e => e.InvoiceId == inv.Id && e.Referred == user.Id && e.Referrer == referrerId)
                         .Sum(e => e.Amount);
+                }
+                else if (!string.IsNullOrWhiteSpace(user?.ReferredBy))
+                {
+                    referralSource = "Ref: " + user.ReferredBy.Trim();
                 }
 
                 var dbId = "";
@@ -231,6 +228,7 @@ public class AdminAllOrdersService : IAdminAllOrdersService
     private sealed record InvoiceLite(
         int Id,
         string OrderCode,
+        int? UserId,
         string? UserEmail,
         string? InvoiceNumber,
         int? CardId,

@@ -1,60 +1,68 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MiniWebsite.Application.Admin.ManageDeals;
-using MiniWebsite.Application.Admin.ManageDeals.Dtos;
+using MiniWebsite.Application.Admin.Coupons;
+using MiniWebsite.Application.Admin.Coupons.Dtos;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Shared.Constants;
 
 namespace MiniWebsite.Api.Controllers.V1;
 
 [ApiController]
-[Route(ApiConstants.ApiRoutePrefix + "/admin/manage-deals")]
+[Route(ApiConstants.ApiRoutePrefix + "/admin/coupons")]
 [Authorize(Roles = ApiConstants.AdminRole)]
-public class AdminManageDealsController : ControllerBase
+public class AdminCouponsController : ControllerBase
 {
-    private readonly IAdminManageDealsService _service;
+    private readonly IAdminCouponsService _service;
 
-    public AdminManageDealsController(IAdminManageDealsService service)
+    public AdminCouponsController(IAdminCouponsService service)
     {
         _service = service;
     }
 
     [HttpGet("meta")]
-    public ActionResult<ApiResult<ManageDealsMetaDto>> Meta()
+    public async Task<ActionResult<ApiResult<CouponsMetaDto>>> Meta(CancellationToken ct = default)
     {
-        return Ok(ApiResult<ManageDealsMetaDto>.Ok(_service.GetMeta()));
+        var result = await _service.GetMetaAsync(ct);
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResult<ManageDealsPageDto>>> List(
+    public async Task<ActionResult<ApiResult<CouponsPageDto>>> List(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null,
-        [FromQuery] string? planType = null,
+        [FromQuery] int? roleId = null,
         [FromQuery] string? status = null,
         CancellationToken ct = default)
     {
-        var result = await _service.ListAsync(new ManageDealsQuery
+        var result = await _service.ListAsync(new CouponsQuery
         {
             Page = page,
             PageSize = pageSize,
             Search = search,
-            PlanType = planType,
+            RoleId = roleId,
             Status = status
         }, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpGet("generate-code")]
+    public async Task<ActionResult<ApiResult<CouponCodeDto>>> GenerateCode(CancellationToken ct = default)
+    {
+        var result = await _service.GenerateCodeAsync(ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<ApiResult<ManageDealRowDto>>> Get(int id, CancellationToken ct = default)
+    public async Task<ActionResult<ApiResult<CouponRowDto>>> Get(int id, CancellationToken ct = default)
     {
         var result = await _service.GetAsync(id, ct);
         return result.Success ? Ok(result) : NotFound(result);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResult<ManageDealRowDto>>> Create(
-        [FromBody] UpsertDealRequest request,
+    public async Task<ActionResult<ApiResult<CouponRowDto>>> Create(
+        [FromBody] UpsertCouponRequest request,
         CancellationToken ct = default)
     {
         var result = await _service.CreateAsync(request, ct);
@@ -62,19 +70,12 @@ public class AdminManageDealsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<ApiResult<ManageDealRowDto>>> Update(
+    public async Task<ActionResult<ApiResult<CouponRowDto>>> Update(
         int id,
-        [FromBody] UpsertDealRequest request,
+        [FromBody] UpsertCouponRequest request,
         CancellationToken ct = default)
     {
         var result = await _service.UpdateAsync(id, request, ct);
-        return result.Success ? Ok(result) : BadRequest(result);
-    }
-
-    [HttpPatch("{id:int}/status")]
-    public async Task<ActionResult<ApiResult>> ToggleStatus(int id, CancellationToken ct = default)
-    {
-        var result = await _service.ToggleStatusAsync(id, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 

@@ -31,15 +31,15 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         {
             var s = query.Search.Trim().ToLower();
             var compact = s.Replace(" ", "");
-            var matchedEmails = _db.Users
+            var matchedIds = _db.Users
                 .Where(u => u.UserCode.Contains(compact))
-                .Select(u => u.Email);
+                .Select(u => u.Id);
             q = q.Where(r =>
                 r.ReferrerEmail.Contains(s)
                 || r.ReferredEmail.Contains(s)
                 || (r.CommissionCode != null && r.CommissionCode.Contains(s))
-                || matchedEmails.Contains(r.ReferrerEmail)
-                || matchedEmails.Contains(r.ReferredEmail));
+                || (r.ReferrerUserId != null && matchedIds.Contains(r.ReferrerUserId.Value))
+                || (r.ReferredUserId != null && matchedIds.Contains(r.ReferredUserId.Value)));
         }
 
         var totalCount = await q.CountAsync(ct);
@@ -55,22 +55,20 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                 [], totalCount, query.Page, query.PageSize));
         }
 
-        var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
-        var allEmails = earnings.Select(e => Normalize(e.ReferrerEmail)).Concat(referredEmails).Distinct().ToList();
+        var referredIds = earnings.Where(e => e.ReferredUserId != null).Select(e => e.ReferredUserId!.Value).Distinct().ToList();
+        var allIds = earnings.Where(e => e.ReferrerUserId != null).Select(e => e.ReferrerUserId!.Value)
+            .Concat(referredIds).Distinct().ToList();
 
-        var codeByEmail = (await _db.Users.AsNoTracking()
-                .Where(u => allEmails.Contains(u.Email))
-                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
-                .ToListAsync(ct))
-            .GroupBy(u => u.Email, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => UserCodeGenerator.FormatDisplay(g.First().UserCode), StringComparer.OrdinalIgnoreCase);
+        var codeById = await _db.Users.AsNoTracking()
+            .Where(u => allIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => UserCodeGenerator.FormatDisplay(u.UserCode), ct);
 
         var linkedInvoiceIds = earnings.Where(e => e.InvoiceId != null).Select(e => e.InvoiceId!.Value).Distinct().ToList();
         var invoices = await _db.Invoices.AsNoTracking()
-                .Where(i => referredEmails.Contains(i.UserEmail) || linkedInvoiceIds.Contains(i.Id))
+                .Where(i => (i.UserId != null && referredIds.Contains(i.UserId.Value)) || linkedInvoiceIds.Contains(i.Id))
                 .Select(i => new OrderFacts(
                     i.Id,
-                    i.UserEmail.ToLower(),
+                    i.UserId,
                     i.InvoiceDate,
                     i.ServiceName,
                     i.PlanName,
@@ -84,18 +82,19 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                     i.TotalAmount))
                 .ToListAsync(ct);
         var invoiceById = invoices.ToDictionary(i => i.Id);
-        var invoicesByEmail = invoices
-            .GroupBy(i => i.Email, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList(), StringComparer.OrdinalIgnoreCase);
+        var invoicesByUser = invoices
+            .Where(i => i.UserId != null)
+            .GroupBy(i => i.UserId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList());
 
-        var paidCardEmails = (await _db.Cards.AsNoTracking()
-                .Where(c => c.UserEmail != null
-                            && referredEmails.Contains(c.UserEmail)
+        var paidCardUsers = (await _db.Cards.AsNoTracking()
+                .Where(c => c.UserId != null
+                            && referredIds.Contains(c.UserId.Value)
                             && c.PaymentStatus == "Success")
-                .Select(c => c.UserEmail!.ToLower())
+                .Select(c => c.UserId!.Value)
                 .Distinct()
                 .ToListAsync(ct))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet();
 
         var earningIds = earnings.Select(e => e.Id).ToList();
         var payments = await _db.ReferralPayments.AsNoTracking()
@@ -108,9 +107,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         var rows = earnings.Select(e =>
         {
-            var referrer = Normalize(e.ReferrerEmail);
-            var referred = Normalize(e.ReferredEmail);
-            invoicesByEmail.TryGetValue(referred, out var candidates);
+            var candidates = e.ReferredUserId is { } referredId ? invoicesByUser.GetValueOrDefault(referredId) : null;
             var orderId = ReferralOrderMatching.ResolveInvoiceId(e.InvoiceId, e.ReferralDate, candidates ?? []);
             var order = orderId is int id ? invoiceById.GetValueOrDefault(id) : null;
 
@@ -119,7 +116,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             var isRejected = string.Equals(e.Status, "Rejected", StringComparison.OrdinalIgnoreCase);
             var isPaid = string.Equals(e.Status, "Paid", StringComparison.OrdinalIgnoreCase)
                          || (e.Amount > 0 && pending <= 0);
-            var customerPaid = paidCardEmails.Contains(referred)
+            var customerPaid = (e.ReferredUserId is { } paidCheckId && paidCardUsers.Contains(paidCheckId))
                                || (order != null && IsPaid(order.PaymentStatus))
                                || isPaid
                                || pay.Paid > 0;
@@ -161,9 +158,9 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             return new ManageReferralRowDto(
                 e.Id,
                 e.CommissionCode ?? "",
-                codeByEmail.GetValueOrDefault(referrer, ""),
+                e.ReferrerUserId is { } referrerCodeId ? codeById.GetValueOrDefault(referrerCodeId, "") : "",
                 e.ReferrerEmail,
-                codeByEmail.GetValueOrDefault(referred, e.ReferredEmail),
+                e.ReferredUserId is { } referredCodeId ? codeById.GetValueOrDefault(referredCodeId, e.ReferredEmail) : e.ReferredEmail,
                 e.ReferredEmail,
                 order == null ? "" : Describe(order.ServiceName, order.PlanName),
                 order == null ? "" : FormatNumber(order.OriginalAmount),
@@ -215,39 +212,40 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             .WhereRole(UserRole.Customer)
             .FirstOrDefaultAsync(u => u.Email == email, ct);
 
-        var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => r.ReferrerEmail == email)
-            .OrderByDescending(r => r.ReferralDate)
-            .ToListAsync(ct);
+        var referrerId = await _db.FindUserIdAsync(email, ct);
+        var earnings = referrerId == null
+            ? []
+            : await _db.ReferralEarnings.AsNoTracking()
+                .Where(r => r.ReferrerUserId == referrerId)
+                .OrderByDescending(r => r.ReferralDate)
+                .ToListAsync(ct);
 
         var paidMap = await GetPaidAmountsByReferralIdsAsync(earnings.Select(e => e.Id).ToList(), ct);
-        var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
+        var referredIds = earnings.Where(e => e.ReferredUserId != null).Select(e => e.ReferredUserId!.Value).Distinct().ToList();
 
         var nameMap = await _db.Users.AsNoTracking()
-            .Where(u => referredEmails.Contains(u.Email))
-            .GroupBy(u => u.Email.ToLower())
-            .Select(g => new { Email = g.Key, Name = (g.First().FirstName + " " + g.First().LastName).Trim() })
-            .ToDictionaryAsync(x => x.Email, x => x.Name, ct);
+            .Where(u => referredIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
 
         var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail))
+            .Where(c => c.UserId != null && referredIds.Contains(c.UserId.Value))
             .OrderByDescending(c => c.Id)
             .ToListAsync(ct);
-        var cardMap = new Dictionary<string, Card>(StringComparer.OrdinalIgnoreCase);
+        var cardMap = new Dictionary<int, Card>();
         foreach (var c in cards)
-        {
-            var key = Normalize(c.UserEmail);
-            if (!cardMap.ContainsKey(key))
-                cardMap[key] = c;
-        }
+            cardMap.TryAdd(c.UserId!.Value, c);
 
         var lines = earnings.Select(e =>
         {
-            var re = Normalize(e.ReferredEmail);
             paidMap.TryGetValue(e.Id, out var paid);
             var pending = Math.Max(0, e.Amount - paid);
-            cardMap.TryGetValue(re, out var card);
-            nameMap.TryGetValue(re, out var name);
+            Card? card = null;
+            string? name = null;
+            if (e.ReferredUserId is { } referredId)
+            {
+                cardMap.TryGetValue(referredId, out card);
+                nameMap.TryGetValue(referredId, out name);
+            }
 
             string userPayLabel;
             string userPayTone;
@@ -313,12 +311,11 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         if (earning == null)
             return ApiResult<ReferralPaymentHistoryDto>.Fail("Referral not found");
 
-        var referrer = await _db.Users.AsNoTracking()
+        var referrer = earning.ReferrerUserId == null ? null : await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .FirstOrDefaultAsync(u => u.Email == Normalize(earning.ReferrerEmail), ct);
-        var referred = await _db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u =>
-                u.Email == Normalize(earning.ReferredEmail), ct);
+            .FirstOrDefaultAsync(u => u.Id == earning.ReferrerUserId, ct);
+        var referred = earning.ReferredUserId == null ? null : await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == earning.ReferredUserId, ct);
 
         var items = await LoadPaymentHistoryItemsAsync(referralId, ct);
 
@@ -392,8 +389,9 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
         try
         {
-            var row = await _db.UserBankDetails.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.UserEmail == email, ct);
+            var userId = await _db.FindUserIdAsync(email, ct);
+            var row = userId == null ? null : await _db.UserBankDetails.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.UserId == userId, ct);
 
             return ApiResult<ManageReferralBankDetailsDto>.Ok(new ManageReferralBankDetailsDto(
                 email,
@@ -488,7 +486,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
 
     private sealed record OrderFacts(
         int Id,
-        string Email,
+        int? UserId,
         DateTime InvoiceDate,
         string? ServiceName,
         string? PlanName,

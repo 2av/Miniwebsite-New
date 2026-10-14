@@ -371,87 +371,92 @@ export type ManageReferralBankDetails = {
   upiName?: string | null
 }
 
-export type ManageDealRow = {
+export type PromoDiscountType = 'Amount' | 'Percentage'
+
+export type CouponRow = {
   id: number
-  planName: string
+  roleId?: number | null
   planType: string
-  dealState?: string | null
-  dealStateDisplay: string
-  dealName: string
+  couponName: string
   couponCode: string
-  couponTypeDisplay: string
+  couponType: string
   createdAt?: string | null
   createdAtDisplay: string
-  bonusAmount: number
-  bonusAmountDisplay: string
-  discountAmount: number
-  discountPercentage: number
-  discountDisplay: string
-  renewalCommission: number
-  renewalCommissionDisplay: string
-  validityDate: string
+  validityDate?: string | null
   validityDateDisplay: string
-  isExpired: boolean
-  maxUsage: number
+  promoDiscountType: PromoDiscountType
+  promoDiscountValue: number
+  promoDiscountDisplay: string
+  usageLimitPerCoupon: number
+  usageLimitPerCouponDisplay: string
+  usageLimitPerUser: number
+  usageLimitPerUserDisplay: string
   currentUsage: number
-  usageDisplay: string
-  dealStatus: string
+  referrerCommission: number
+  renewalCommission: number
+  /** Stored status: Active or InActive. */
+  status: string
+  /** Active, InActive or Expired (Expired once the validity date has passed). */
+  statusDisplay: string
   statusTone: string
 }
 
-export type ManageDealsPage = {
-  deals: ManageDealRow[]
+export type CouponsPage = {
+  coupons: CouponRow[]
   totalCount: number
   page: number
   pageSize: number
 }
 
-export type ManageDealsMeta = {
-  states: string[]
+export type CouponRoleOption = {
+  roleId: number
+  roleName: string
 }
 
-export type UpsertDealPayload = {
-  planName: string
-  planType: string
-  dealName: string
+export type CouponsMeta = {
+  roles: CouponRoleOption[]
+  couponTypes: string[]
+  statuses: string[]
+}
+
+export type UpsertCouponPayload = {
+  roleId: number
+  couponName: string
   couponCode: string
   couponType: string
-  bonusAmount: number
-  discountAmount: number
-  discountPercentage: number
-  renewalCommission: number
   validityDate: string
-  maxUsage: number
-  dealState?: string
+  promoDiscountType: PromoDiscountType
+  promoDiscountValue: number
+  usageLimitPerCoupon: number
+  usageLimitPerUser: number
   status?: string
-  createdBy?: string
+  referrerCommission: number
+  renewalCommission: number
 }
 
-export type PricingDealOption = {
-  id: number
-  dealName: string
-  couponCode?: string | null
-}
-
-export type PricingPlanType = {
-  key: string
-  planNames: string[]
+export type PricingRoleOption = {
+  roleId: number
+  roleName: string
 }
 
 export type PricingPlanKey = {
   id: number
-  planType: string
+  /** Null means All (no role mapped). */
+  roleId: number | null
   planName: string
 }
 
 export type ManagePricingMeta = {
-  planCatalog: PricingPlanType[]
-  deals: PricingDealOption[]
+  roles: PricingRoleOption[]
+  planNames: string[]
   existingPlans: PricingPlanKey[]
 }
 
 export type ManagePricingRow = {
   id: number
+  /** Null means All (no role mapped). */
+  roleId: number | null
+  /** Role name of the plan type, or "All". */
   planType: string
   planName: string
   originalPrice: number
@@ -462,10 +467,6 @@ export type ManagePricingRow = {
   offeredPriceDisplay: string
   offeredPriceGst: number
   offeredPriceGstDisplay: string
-  dealId?: number | null
-  dealName?: string | null
-  couponCode?: string | null
-  dealDisplay: string
   status: string
   statusTone: string
   createdAtDisplay?: string | null
@@ -479,11 +480,11 @@ export type ManagePricingPage = {
 }
 
 export type UpsertPricingPayload = {
-  planType: string
+  /** Null means All (no role mapped). */
+  roleId: number | null
   planName: string
   originalPrice: number
   offeredPrice: number
-  dealId?: number | null
   status?: string
 }
 

@@ -28,13 +28,12 @@ public class AdminManageCardsService : IAdminManageCardsService
         query.Page = query.Page < 1 ? 1 : query.Page;
         query.PageSize = query.PageSize is < 1 or > 100 ? 10 : query.PageSize;
 
-        var teamEmails = _db.Users
+        var teamIds = _db.Users
             .WhereRole(UserRole.Team)
-            .Select(u => u.Email);
+            .Select(u => u.Id);
 
         var cardsQuery = _db.Cards.AsNoTracking()
-            .Where(c => string.IsNullOrWhiteSpace(c.UserEmail)
-                        || !teamEmails.Contains(c.UserEmail.Trim()));
+            .Where(c => c.UserId == null || !teamIds.Contains(c.UserId.Value));
 
         var paymentFilter = (query.PaymentFilter ?? "all").Trim().ToLowerInvariant();
         cardsQuery = paymentFilter switch
@@ -48,15 +47,15 @@ public class AdminManageCardsService : IAdminManageCardsService
         {
             var s = query.Search.Trim().ToLowerInvariant();
             var compact = s.Replace(" ", "");
-            var matchedEmails = _db.Users
+            var matchedIds = _db.Users
                 .Where(u => u.UserCode.Replace(" ", "").Contains(compact))
-                .Select(u => u.Email);
+                .Select(u => u.Id);
             cardsQuery = cardsQuery.Where(c =>
                 (c.CompanyName != null && c.CompanyName.Contains(s))
                 || (c.UserEmail != null && c.UserEmail.Contains(s))
                 || (c.FranchiseeEmail != null && c.FranchiseeEmail.Contains(s))
                 || (c.Slug != null && (c.Slug.Contains(s) || c.Slug.Replace(" ", "").Contains(compact)))
-                || (c.UserEmail != null && matchedEmails.Contains(c.UserEmail))
+                || (c.UserId != null && matchedIds.Contains(c.UserId.Value))
                 || c.Id.ToString().Contains(s));
         }
 
@@ -69,6 +68,7 @@ public class AdminManageCardsService : IAdminManageCardsService
             {
                 Id = c.Id,
                 Slug = c.Slug,
+                UserId = c.UserId,
                 UserEmail = c.UserEmail,
                 FranchiseeEmail = c.FranchiseeEmail,
                 CompanyName = c.CompanyName,
@@ -82,31 +82,26 @@ public class AdminManageCardsService : IAdminManageCardsService
             })
             .ToListAsync(ct);
 
-        var userEmails = pageRows
-            .Select(c => Normalize(c.UserEmail))
-            .Where(e => e.Length > 0)
+        var userIds = pageRows
+            .Where(c => c.UserId != null)
+            .Select(c => c.UserId!.Value)
             .Distinct()
             .ToList();
 
-        var users = await _db.Users.AsNoTracking()
-            .Where(u => userEmails.Contains(u.Email))
-            .ToListAsync(ct);
-        var userByEmail = users
-            .GroupBy(u => Normalize(u.Email))
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var userById = await _db.Users.AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, ct);
 
-        var referrerEmails = users
-            .Select(u => Normalize(u.Referral.ReferredBy))
-            .Where(e => e.Length > 0)
+        var referrerIds = userById.Values
+            .Where(u => u.Referral.ReferrerUserId != null)
+            .Select(u => u.Referral.ReferrerUserId!.Value)
             .Distinct()
             .ToList();
-        var referrers = referrerEmails.Count == 0
-            ? new Dictionary<string, User>(StringComparer.OrdinalIgnoreCase)
-            : (await _db.Users.AsNoTracking()
-                .Where(u => referrerEmails.Contains(u.Email))
-                .ToListAsync(ct))
-            .GroupBy(u => Normalize(u.Email))
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var referrers = referrerIds.Count == 0
+            ? new Dictionary<int, User>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => referrerIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, ct);
 
         var cardIds = pageRows.Select(c => c.Id).ToList();
         var invoices = await GetInvoiceSummariesAsync(cardIds, ct);
@@ -116,7 +111,8 @@ public class AdminManageCardsService : IAdminManageCardsService
 
         foreach (var c in pageRows)
         {
-            userByEmail.TryGetValue(Normalize(c.UserEmail), out var user);
+            User? user = null;
+            if (c.UserId is { } ownerId) userById.TryGetValue(ownerId, out user);
             invoices.TryGetValue(c.Id, out var inv);
             inv ??= new InvoiceSummary(null, null, false, "", null, false);
 
@@ -229,19 +225,19 @@ public class AdminManageCardsService : IAdminManageCardsService
         return map;
     }
 
-    private static string BuildReferralSource(User? user, Dictionary<string, User> referrers)
+    private static string BuildReferralSource(User? user, Dictionary<int, User> referrers)
     {
-        if (user == null || string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
-            return "Direct";
+        if (user == null) return "Direct";
 
-        var refEmail = Normalize(user.Referral.ReferredBy);
-        if (referrers.TryGetValue(refEmail, out var referrer))
+        if (user.Referral.ReferrerUserId is { } referrerId && referrers.TryGetValue(referrerId, out var referrer))
         {
             var code = UserCodeGenerator.FormatDisplay(referrer.UserCode);
             if (!string.IsNullOrWhiteSpace(code)) return code;
         }
 
-        return "Ref: " + user.Referral.ReferredBy.Trim();
+        return string.IsNullOrWhiteSpace(user.Referral.ReferredBy)
+            ? "Direct"
+            : "Ref: " + user.Referral.ReferredBy.Trim();
     }
 
     private static (string Text, string Tone) ResolveProfileStatus(Card c, DateTime? expiry)

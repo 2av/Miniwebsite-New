@@ -1,5 +1,5 @@
 ---
-description: Allowed ShareBizz status labels for profile, commission, payment, user, and document verification
+description: Allowed ShareBizz status labels for profile, commission, payment, user, coupon, and document verification
 globs: user-web/**/*.{ts,tsx},admin-web/**/*.{ts,tsx},dotnet/**/*.cs
 alwaysApply: false
 ---
@@ -12,6 +12,7 @@ Follow `dotnet/docs/STATUS-VALUES.md`. Use these exact strings.
 - Commission Status: `Not Eligible`, `Eligible`, `Rejected`
 - SB Payment Details: `Pending`, `Paid on {date}`, `Rejected`
 - User Status: `Active`, `InActive`
+- Coupon Status: `Active`, `InActive`, `Expired` (Expired is automatic once the validity date has passed; admins pick only Active or InActive)
 - Document verification: `Not Submitted`, `Pending Review`, `Approved`, `Resubmission Required`, `Rejected`
 
 `{date}` is the real date. Do not replace these with Success, Failed, Inactive, or Pending Payment.

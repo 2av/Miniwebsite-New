@@ -11,7 +11,7 @@ public interface IApplicationDbContext
     DbSet<RegistrationPending> RegistrationPendings { get; }
     DbSet<ReferralEarning> ReferralEarnings { get; }
     DbSet<ReferralPayment> ReferralPayments { get; }
-    DbSet<Deal> Deals { get; }
+    DbSet<Coupon> Coupons { get; }
     DbSet<DealCustomerMapping> DealCustomerMappings { get; }
     DbSet<Card> Cards { get; }
     DbSet<CardSlugHistory> CardSlugHistories { get; }

@@ -57,25 +57,24 @@ public class AdminManageUsersService : IAdminManageUsersService
             .Take(query.PageSize)
             .ToListAsync(ct);
 
-        var emails = pageUsers.Select(u => Normalize(u.Email)).ToList();
-        var websiteCounts = await GetWebsiteCountsAsync(emails, ct);
-        var mwDealsByEmail = await GetMappedDealsAsync(emails, "MiniWebsite", ct);
-        var franchiseDealsByEmail = await GetMappedDealsAsync(emails, "Franchise", ct);
-        var refSummaries = await GetReferralSummariesAsync(emails, ct);
+        var userIds = pageUsers.Select(u => u.Id).ToList();
+        var websiteCounts = await GetWebsiteCountsAsync(userIds, ct);
+        var mwDealsByUser = await GetMappedDealsAsync(userIds, RolePrefixes.ShareBizzUser, ct);
+        var franchiseDealsByUser = await GetMappedDealsAsync(userIds, RolePrefixes.FranchisePartner, ct);
+        var refSummaries = await GetReferralSummariesAsync(userIds, ct);
         var referralSources = await BuildReferralSourcesAsync(pageUsers, ct);
 
         var rows = new List<ManageUserRowDto>(pageUsers.Count);
         foreach (var u in pageUsers)
         {
-            var email = Normalize(u.Email);
-            websiteCounts.TryGetValue(email, out var wc);
-            refSummaries.TryGetValue(email, out var summary);
+            websiteCounts.TryGetValue(u.Id, out var wc);
+            refSummaries.TryGetValue(u.Id, out var summary);
             summary ??= new ReferralSummary(0, 0, null, 0, 0);
 
             var pending = Math.Max(0, summary.TotalAmount - summary.PaidAmount);
-            mwDealsByEmail.TryGetValue(email, out var mwDeal);
-            franchiseDealsByEmail.TryGetValue(email, out var frDeal);
-            referralSources.TryGetValue(email, out var referralSource);
+            mwDealsByUser.TryGetValue(u.Id, out var mwDeal);
+            franchiseDealsByUser.TryGetValue(u.Id, out var frDeal);
+            referralSources.TryGetValue(u.Id, out var referralSource);
 
             rows.Add(new ManageUserRowDto(
                 u.Id,
@@ -104,8 +103,8 @@ public class AdminManageUsersService : IAdminManageUsersService
                 frDeal));
         }
 
-        var mwDeals = await ListActiveDealsAsync("MiniWebsite", ct);
-        var frDeals = await ListActiveDealsAsync("Franchise", ct);
+        var mwDeals = await ListActiveDealsAsync(RolePrefixes.ShareBizzUser, ct);
+        var frDeals = await ListActiveDealsAsync(RolePrefixes.FranchisePartner, ct);
 
         var page = new ManageUsersPageDto(
             new ManageUsersStatsDto(totalUsers, activeUsers, usersWithDeals, totalWebsites),
@@ -127,17 +126,20 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.IsNullOrWhiteSpace(email) || request.DealId <= 0)
             return ApiResult.Fail("userEmail and dealId are required.");
 
+        var userId = await _db.Users.AsNoTracking()
+            .Where(u => u.Email == email)
+            .Select(u => (int?)u.Id)
+            .FirstOrDefaultAsync(ct);
+        if (userId == null)
+            return ApiResult.Fail("No account found for this email.");
+
         var exists = await _db.DealCustomerMappings.AnyAsync(
-            m => m.DealId == request.DealId && m.CustomerEmail == email, ct);
+            m => m.DealId == request.DealId && m.UserId == userId, ct);
 
         if (exists)
             return ApiResult.Fail("Deal already mapped to this user!");
 
         var createdBy = string.IsNullOrWhiteSpace(request.CreatedBy) ? "admin" : request.CreatedBy!.Trim();
-        var userId = await _db.Users.AsNoTracking()
-            .Where(u => u.Email == email)
-            .Select(u => (int?)u.Id)
-            .FirstOrDefaultAsync(ct);
 
         _db.DealCustomerMappings.Add(new DealCustomerMapping
         {
@@ -292,10 +294,13 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.IsNullOrWhiteSpace(email))
             return ApiResult<DashboardDetailsDto>.Fail("Invalid user email provided.");
 
-        var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && c.UserEmail == email)
-            .OrderByDescending(c => c.CreatedAt)
-            .ToListAsync(ct);
+        var userId = await _db.FindUserIdAsync(email, ct);
+        var cards = userId == null
+            ? []
+            : await _db.Cards.AsNoTracking()
+                .Where(c => c.UserId == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync(ct);
 
         var sites = cards.Select(c =>
         {
@@ -330,26 +335,32 @@ public class AdminManageUsersService : IAdminManageUsersService
             .WhereRole(UserRole.Customer)
             .FirstOrDefaultAsync(u => u.Email == email, ct);
 
-        var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => r.ReferrerEmail == email)
-            .OrderByDescending(r => r.ReferralDate)
-            .ToListAsync(ct);
+        var referrerId = await _db.FindUserIdAsync(email, ct);
+        var earnings = referrerId == null
+            ? []
+            : await _db.ReferralEarnings.AsNoTracking()
+                .Where(r => r.ReferrerUserId == referrerId)
+                .OrderByDescending(r => r.ReferralDate)
+                .ToListAsync(ct);
 
-        var referredEmails = earnings.Select(e => Normalize(e.ReferredEmail)).Distinct().ToList();
-        var paidCardEmails = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null
-                        && referredEmails.Contains(c.UserEmail)
-                        && c.PaymentStatus == "Success")
-            .Select(c => c.UserEmail!.ToLower())
+        var referredIds = earnings
+            .Where(e => e.ReferredUserId != null)
+            .Select(e => e.ReferredUserId!.Value)
             .Distinct()
-            .ToListAsync(ct);
-        var paidSet = paidCardEmails.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToList();
+        var paidSet = (await _db.Cards.AsNoTracking()
+            .Where(c => c.UserId != null
+                        && referredIds.Contains(c.UserId.Value)
+                        && c.PaymentStatus == "Success")
+            .Select(c => c.UserId!.Value)
+            .Distinct()
+            .ToListAsync(ct)).ToHashSet();
 
         var totalReferral = earnings
-            .Where(e => paidSet.Contains(Normalize(e.ReferredEmail)))
+            .Where(e => e.ReferredUserId is { } id && paidSet.Contains(id))
             .Sum(e => e.Amount);
 
-        var paidAmount = await GetTotalPaidForReferrerAsync(email, ct);
+        var paidAmount = await GetTotalPaidForReferrerAsync(referrerId, ct);
         var pending = Math.Max(0, totalReferral - paidAmount);
 
         var regular = earnings.Count(e =>
@@ -357,38 +368,38 @@ public class AdminManageUsersService : IAdminManageUsersService
         var collab = earnings.Count(e =>
             string.Equals(e.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase));
 
-        var bank = await GetBankDetailsAsync(email, ct);
+        var bank = await GetBankDetailsAsync(referrerId, ct);
 
         var customerMap = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Customer)
-            .Where(u => referredEmails.Contains(u.Email))
-            .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
+            .Where(u => referredIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u, ct);
 
         var franchiseeMap = await _db.Users.AsNoTracking()
             .WhereRole(UserRole.Franchisee)
-            .Where(u => referredEmails.Contains(u.Email))
-            .ToDictionaryAsync(u => Normalize(u.Email), u => u, ct);
+            .Where(u => referredIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u, ct);
 
         var allCards = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && referredEmails.Contains(c.UserEmail))
+            .Where(c => c.UserId != null && referredIds.Contains(c.UserId.Value))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
-        var cardMap = new Dictionary<string, Card>(StringComparer.OrdinalIgnoreCase);
+        var cardMap = new Dictionary<int, Card>();
         foreach (var c in allCards)
-        {
-            var key = Normalize(c.UserEmail);
-            if (!cardMap.ContainsKey(key))
-                cardMap[key] = c;
-        }
+            cardMap.TryAdd(c.UserId!.Value, c);
 
         var referred = new List<ReferredUserDto>();
         foreach (var e in earnings)
         {
-            var re = Normalize(e.ReferredEmail);
             var isCollab = string.Equals(e.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase);
-            customerMap.TryGetValue(re, out var cust);
-            franchiseeMap.TryGetValue(re, out var fran);
-            cardMap.TryGetValue(re, out var card);
+            User? cust = null, fran = null;
+            Card? card = null;
+            if (e.ReferredUserId is { } referredId)
+            {
+                customerMap.TryGetValue(referredId, out cust);
+                franchiseeMap.TryGetValue(referredId, out fran);
+                cardMap.TryGetValue(referredId, out card);
+            }
 
             var statusText = card == null ? "-" : ResolveShortStatus(card);
             referred.Add(new ReferredUserDto(
@@ -432,7 +443,11 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.IsNullOrWhiteSpace(email))
             return ApiResult.Fail("user_email is required.");
 
-        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserEmail == email, ct);
+        var userId = await _db.FindUserIdAsync(email, ct);
+        if (userId == null)
+            return ApiResult.Fail("No account found for this email.");
+
+        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserId == userId, ct);
         var now = AppClock.Now;
 
         if (entity != null)
@@ -447,13 +462,6 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
         else
         {
-            var userId = await _db.Users.AsNoTracking()
-                .Where(u => u.Email == email)
-                .Select(u => (int?)u.Id)
-                .FirstOrDefaultAsync(ct);
-            if (userId == null)
-                return ApiResult.Fail("No account found for this email.");
-
             _db.UserBankDetails.Add(new UserBankDetails
             {
                 UserId = userId.Value,
@@ -558,9 +566,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         if (string.Equals(q.DealFilter, "mapped", StringComparison.OrdinalIgnoreCase))
             query = query.Where(HasDealMapping());
         else if (string.Equals(q.DealFilter, "unmapped", StringComparison.OrdinalIgnoreCase))
-            query = query.Where(u => !_db.DealCustomerMappings.Any(m =>
-                m.CustomerEmail != null && m.CustomerEmail.Trim() != ""
-                && m.CustomerEmail.Trim() == u.Email.Trim()));
+            query = query.Where(u => !_db.DealCustomerMappings.Any(m => m.UserId == u.Id));
 
         var (min, max) = q.WebsiteFilter switch
         {
@@ -576,91 +582,80 @@ public class AdminManageUsersService : IAdminManageUsersService
             .Select(u => new
             {
                 User = u,
-                Websites = _db.Cards.Count(c =>
-                    c.UserEmail != null && c.UserEmail == u.Email.Trim())
+                Websites = _db.Cards.Count(c => c.UserId == u.Id)
             })
             .Where(x => x.Websites >= min && x.Websites <= max)
             .Select(x => x.User);
     }
 
     private System.Linq.Expressions.Expression<Func<User, bool>> HasDealMapping() =>
-        u => _db.DealCustomerMappings.Any(m =>
-            m.CustomerEmail != null && m.CustomerEmail.Trim() != ""
-            && m.CustomerEmail.Trim() == u.Email.Trim());
+        u => _db.DealCustomerMappings.Any(m => m.UserId == u.Id);
 
-    private async Task<Dictionary<string, int>> GetWebsiteCountsAsync(
-        IReadOnlyList<string> emails, CancellationToken ct)
+    private async Task<Dictionary<int, int>> GetWebsiteCountsAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
     {
-        if (emails.Count == 0) return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (userIds.Count == 0) return new Dictionary<int, int>();
 
-        var groups = await _db.Cards.AsNoTracking()
-            .Where(c => c.UserEmail != null && emails.Contains(c.UserEmail))
-            .GroupBy(c => c.UserEmail!.ToLower())
-            .Select(g => new { Email = g.Key, Count = g.Count() })
-            .ToListAsync(ct);
-
-        return groups.ToDictionary(g => g.Email, g => g.Count, StringComparer.OrdinalIgnoreCase);
+        return await _db.Cards.AsNoTracking()
+            .Where(c => c.UserId != null && userIds.Contains(c.UserId.Value))
+            .GroupBy(c => c.UserId!.Value)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.UserId, g => g.Count, ct);
     }
 
-    private async Task<Dictionary<string, MappedDealDto>> GetMappedDealsAsync(
-        IReadOnlyList<string> emails, string planType, CancellationToken ct)
+    private async Task<Dictionary<int, MappedDealDto>> GetMappedDealsAsync(
+        IReadOnlyList<int> userIds, string rolePrefix, CancellationToken ct)
     {
-        var result = new Dictionary<string, MappedDealDto>(StringComparer.OrdinalIgnoreCase);
-        if (emails.Count == 0) return result;
+        var result = new Dictionary<int, MappedDealDto>();
+        if (userIds.Count == 0) return result;
 
         var rows = await (
             from m in _db.DealCustomerMappings.AsNoTracking()
-            join d in _db.Deals.AsNoTracking() on m.DealId equals d.Id
-            where d.PlanType == planType
-                  && m.CustomerEmail != null
-                  && emails.Contains(m.CustomerEmail.Trim())
+            join d in _db.Coupons.AsNoTracking().ForRolePrefix(rolePrefix) on m.DealId equals d.Id
+            where m.UserId != null
+                  && userIds.Contains(m.UserId.Value)
             orderby m.Id descending
             select new
             {
                 MappingId = m.Id,
                 m.DealId,
-                m.CustomerEmail,
-                d.DealName,
+                UserId = m.UserId!.Value,
+                d.CouponName,
                 d.CouponCode,
             }).ToListAsync(ct);
 
-        var emailSet = emails.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
-        {
-            if (row.CustomerEmail == null) continue;
-            var key = Normalize(row.CustomerEmail);
-            if (!emailSet.Contains(key) || result.ContainsKey(key)) continue;
-            result[key] = new MappedDealDto(row.MappingId, row.DealId, row.DealName ?? "", row.CouponCode);
-        }
+            result.TryAdd(row.UserId, new MappedDealDto(row.MappingId, row.DealId, row.CouponName ?? "", row.CouponCode));
 
         return result;
     }
 
-    private async Task<List<DealOptionDto>> ListActiveDealsAsync(string planType, CancellationToken ct)
+    private async Task<List<DealOptionDto>> ListActiveDealsAsync(string rolePrefix, CancellationToken ct)
     {
-        return await _db.Deals.AsNoTracking()
-            .Where(d => d.DealStatus == "Active" && d.PlanType == planType)
-            .OrderBy(d => d.DealName)
-            .Select(d => new DealOptionDto(d.Id, d.DealName ?? "", d.CouponCode, d.PlanType ?? planType))
+        return await _db.Coupons.AsNoTracking()
+            .ForRolePrefix(rolePrefix)
+            .Usable()
+            .OrderBy(d => d.CouponName)
+            .Select(d => new DealOptionDto(d.Id, d.CouponName ?? "", d.CouponCode, d.Role!.RoleName))
             .ToListAsync(ct);
     }
 
-    private async Task<Dictionary<string, ReferralSummary>> GetReferralSummariesAsync(
-        IReadOnlyList<string> emails, CancellationToken ct)
+    private async Task<Dictionary<int, ReferralSummary>> GetReferralSummariesAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
     {
-        var map = new Dictionary<string, ReferralSummary>(StringComparer.OrdinalIgnoreCase);
-        if (emails.Count == 0) return map;
+        var map = new Dictionary<int, ReferralSummary>();
+        if (userIds.Count == 0) return map;
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(r => emails.Contains(r.ReferrerEmail))
-            .Select(r => new { Email = r.ReferrerEmail.ToLower(), r.Amount, r.Status })
+            .Where(r => r.ReferrerUserId != null && userIds.Contains(r.ReferrerUserId.Value))
+            .Select(r => new { UserId = r.ReferrerUserId!.Value, r.Amount, r.Status })
             .ToListAsync(ct);
 
-        var payments = await GetPaymentTotalsByReferrerAsync(emails, ct);
+        var payments = await GetPaymentTotalsByReferrerAsync(userIds, ct);
 
-        foreach (var group in earnings.GroupBy(r => r.Email))
+        foreach (var group in earnings.GroupBy(r => r.UserId))
         {
-            payments.TryGetValue(Normalize(group.Key), out var pay);
+            payments.TryGetValue(group.Key, out var pay);
             map[group.Key] = new ReferralSummary(
                 group.Sum(x => x.Amount),
                 pay.Paid,
@@ -672,15 +667,15 @@ public class AdminManageUsersService : IAdminManageUsersService
         return map;
     }
 
-    private async Task<decimal> GetTotalPaidForReferrerAsync(string referrerEmail, CancellationToken ct)
+    private async Task<decimal> GetTotalPaidForReferrerAsync(int? referrerId, CancellationToken ct)
     {
+        if (referrerId == null) return 0;
         try
         {
-            var email = Normalize(referrerEmail);
             return await (
                 from p in _db.ReferralPayments.AsNoTracking()
                 join e in _db.ReferralEarnings.AsNoTracking() on p.ReferralEarningId equals e.Id
-                where e.ReferrerEmail == email
+                where e.ReferrerUserId == referrerId
                 select (decimal?)p.Amount).SumAsync(ct) ?? 0m;
         }
         catch
@@ -689,21 +684,21 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
     }
 
-    private async Task<Dictionary<string, (decimal Paid, DateTime? Last)>> GetPaymentTotalsByReferrerAsync(
-        IReadOnlyList<string> emails, CancellationToken ct)
+    private async Task<Dictionary<int, (decimal Paid, DateTime? Last)>> GetPaymentTotalsByReferrerAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
     {
-        var map = new Dictionary<string, (decimal Paid, DateTime? Last)>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<int, (decimal Paid, DateTime? Last)>();
         try
         {
             var rows = await (
                 from p in _db.ReferralPayments.AsNoTracking()
                 join e in _db.ReferralEarnings.AsNoTracking() on p.ReferralEarningId equals e.Id
-                where emails.Contains(e.ReferrerEmail)
-                group p by e.ReferrerEmail.ToLower() into g
-                select new { Email = g.Key, Paid = g.Sum(x => x.Amount), Last = g.Max(x => x.PaymentDate) })
+                where e.ReferrerUserId != null && userIds.Contains(e.ReferrerUserId.Value)
+                group p by e.ReferrerUserId!.Value into g
+                select new { UserId = g.Key, Paid = g.Sum(x => x.Amount), Last = g.Max(x => x.PaymentDate) })
                 .ToListAsync(ct);
             foreach (var row in rows)
-                map[row.Email] = (row.Paid, row.Last);
+                map[row.UserId] = (row.Paid, row.Last);
         }
         catch
         {
@@ -713,12 +708,12 @@ public class AdminManageUsersService : IAdminManageUsersService
         return map;
     }
 
-    private async Task<BankDetailsDto> GetBankDetailsAsync(string email, CancellationToken ct)
+    private async Task<BankDetailsDto> GetBankDetailsAsync(int? userId, CancellationToken ct)
     {
         try
         {
-            var row = await _db.UserBankDetails.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.UserEmail == Normalize(email), ct);
+            var row = userId == null ? null : await _db.UserBankDetails.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.UserId == userId, ct);
 
             return row == null
                 ? new BankDetailsDto(null, null, null, null, null, null)
@@ -730,42 +725,33 @@ public class AdminManageUsersService : IAdminManageUsersService
         }
     }
 
-    private async Task<Dictionary<string, string>> BuildReferralSourcesAsync(
+    private async Task<Dictionary<int, string>> BuildReferralSourcesAsync(
         IReadOnlyList<User> users,
         CancellationToken ct)
     {
-        var referrerEmails = users
-            .Select(u => u.Referral.ReferredBy)
-            .Where(email => !string.IsNullOrWhiteSpace(email))
-            .Select(Normalize)
+        var referrerIds = users
+            .Where(u => u.Referral.ReferrerUserId != null)
+            .Select(u => u.Referral.ReferrerUserId!.Value)
             .Distinct()
             .ToList();
 
-        var referrerCodes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (referrerEmails.Count > 0)
-        {
-            var referrers = await _db.Users.AsNoTracking()
-                .Where(u => referrerEmails.Contains(u.Email))
-                .Select(u => new { Email = u.Email.ToLower(), u.UserCode })
-                .ToListAsync(ct);
-            foreach (var referrer in referrers)
-                referrerCodes[referrer.Email] = UserCodeGenerator.FormatDisplay(referrer.UserCode);
-        }
+        var referrerCodes = referrerIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await _db.Users.AsNoTracking()
+                .Where(u => referrerIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => UserCodeGenerator.FormatDisplay(u.UserCode), ct);
 
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<int, string>();
         foreach (var user in users)
         {
-            var email = Normalize(user.Email);
-            if (string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
-            {
-                map[email] = "Direct";
-                continue;
-            }
-
-            var referrerEmail = Normalize(user.Referral.ReferredBy);
-            map[email] = referrerCodes.TryGetValue(referrerEmail, out var code) && !string.IsNullOrWhiteSpace(code)
-                ? code
-                : "Ref: " + user.Referral.ReferredBy.Trim();
+            if (user.Referral.ReferrerUserId is { } referrerId
+                && referrerCodes.TryGetValue(referrerId, out var code)
+                && !string.IsNullOrWhiteSpace(code))
+                map[user.Id] = code;
+            else if (!string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
+                map[user.Id] = "Ref: " + user.Referral.ReferredBy.Trim();
+            else
+                map[user.Id] = "Direct";
         }
 
         return map;

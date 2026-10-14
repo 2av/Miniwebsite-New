@@ -70,6 +70,7 @@ public class UserReferralSettings
 {
     public string? ReferralCode { get; set; }
     public string? ReferredBy { get; set; }
+    public int? ReferrerUserId { get; set; }
     public int? MwReferralId { get; set; }
     public int? SenderUserId { get; set; }
     public bool Influencer { get; set; }

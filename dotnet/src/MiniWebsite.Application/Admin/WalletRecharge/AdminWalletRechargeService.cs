@@ -31,7 +31,7 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
         if (user == null)
             return ApiResult<FranchiseeWalletLookupDto>.Fail("Sorry! User Not available");
 
-        var balance = await GetLatestBalanceAsync(user.Id, user.Email, ct);
+        var balance = await GetLatestBalanceAsync(user.Id, ct);
         return ApiResult<FranchiseeWalletLookupDto>.Ok(new FranchiseeWalletLookupDto(
             user.Id,
             user.Email,
@@ -56,7 +56,7 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
         if (user == null)
             return ApiResult<WalletRechargeResultDto>.Fail("Sorry! User Not available");
 
-        var current = await GetLatestBalanceAsync(user.Id, user.Email, ct);
+        var current = await GetLatestBalanceAsync(user.Id, ct);
         var amount = Math.Round(request.Amount, 2);
         var newBalance = current + amount;
         var txnMsg = string.IsNullOrWhiteSpace(request.TxnMsg) ? "Promotional Amount" : request.TxnMsg.Trim();
@@ -132,12 +132,12 @@ public class AdminWalletRechargeService : IAdminWalletRechargeService
         return row == null ? null : new FranchiseeUser(row.Id, row.Email, row.Name, row.Phone);
     }
 
-    private async Task<decimal> GetLatestBalanceAsync(int userId, string franchiseeEmail, CancellationToken ct)
+    private async Task<decimal> GetLatestBalanceAsync(int userId, CancellationToken ct)
     {
         try
         {
             var wallet = await _db.Wallets.AsNoTracking()
-                .FirstOrDefaultAsync(w => w.UserId == userId || w.UserEmail.ToLower() == franchiseeEmail.ToLower(), ct);
+                .FirstOrDefaultAsync(w => w.UserId == userId, ct);
             return wallet?.Balance ?? 0m;
         }
         catch

@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Admin.ManagePricing.Dtos;
+using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
@@ -11,31 +12,8 @@ namespace MiniWebsite.Application.Admin.ManagePricing;
 public class AdminManagePricingService : IAdminManagePricingService
 {
     private const decimal GstRate = 1.18m;
-
-    private static readonly IReadOnlyDictionary<string, string[]> PlanCatalog =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["MW Plan (For MW Users)"] =
-            [
-                "MiniWebsite 1 Year Plan",
-                "MiniWebsite 2 Year Plan",
-                "MiniWebsite 3 Year Plan",
-            ],
-            ["MW Plan (For Franchise Partner)"] =
-            [
-                "MiniWebsite 1 Year Plan",
-                "MiniWebsite 2 Year Plan",
-                "MiniWebsite 3 Year Plan",
-            ],
-            ["Franchise Fees"] =
-            [
-                "MW Full Franchise (Franchise Fees)",
-            ],
-            ["Digital Marketer Partnership Fees"] =
-            [
-                "MW Digital Marketing (Annual Membership Fees)",
-            ],
-        };
+    private const int PlanNameMaxLength = 200;
+    private const string AllPlanType = "All";
 
     private readonly IApplicationDbContext _db;
 
@@ -48,27 +26,28 @@ public class AdminManagePricingService : IAdminManagePricingService
     {
         try
         {
-            var deals = await _db.Deals.AsNoTracking()
-                .Where(d => d.DealStatus == "Active")
-                .OrderBy(d => d.DealName)
-                .ThenByDescending(d => d.Id)
-                .Select(d => new PricingDealOptionDto(d.Id, d.DealName ?? "", d.CouponCode))
+            var roles = await _db.Roles.AsNoTracking()
+                .Where(r => r.Prefix != RolePrefixes.Administrator)
+                .OrderBy(r => r.RoleName)
+                .Select(r => new PricingRoleOptionDto(r.RoleId, r.RoleName))
                 .ToListAsync(ct);
-
-            var catalog = PlanCatalog
-                .Select(kv => new PricingPlanTypeDto(kv.Key, kv.Value))
-                .ToList();
 
             var existingPlans = await _db.PricingPlans.AsNoTracking()
-                .OrderBy(p => p.PlanType)
+                .OrderBy(p => p.RoleId)
                 .ThenBy(p => p.PlanName)
                 .ThenBy(p => p.Id)
-                .Select(p => new PricingPlanKeyDto(p.Id, p.PlanType, p.PlanName))
+                .Select(p => new PricingPlanKeyDto(p.Id, p.RoleId, p.PlanName))
                 .ToListAsync(ct);
 
+            var planNames = existingPlans
+                .Select(p => p.PlanName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             return ApiResult<ManagePricingMetaDto>.Ok(new ManagePricingMetaDto(
-                catalog,
-                deals,
+                roles,
+                planNames,
                 existingPlans));
         }
         catch (Exception ex)
@@ -85,7 +64,7 @@ public class AdminManagePricingService : IAdminManagePricingService
         try
         {
             var q = ApplyFilters(
-                _db.PricingPlans.AsNoTracking().Include(p => p.Deal),
+                _db.PricingPlans.AsNoTracking().Include(p => p.Role),
                 query);
 
             var total = await q.CountAsync(ct);
@@ -112,7 +91,7 @@ public class AdminManagePricingService : IAdminManagePricingService
         try
         {
             var row = await _db.PricingPlans.AsNoTracking()
-                .Include(p => p.Deal)
+                .Include(p => p.Role)
                 .FirstOrDefaultAsync(p => p.Id == id, ct);
             if (row == null) return ApiResult<ManagePricingRowDto>.Fail("Pricing plan not found");
             return ApiResult<ManagePricingRowDto>.Ok(MapEntity(row));
@@ -125,35 +104,32 @@ public class AdminManagePricingService : IAdminManagePricingService
 
     public async Task<ApiResult<ManagePricingRowDto>> CreateAsync(UpsertPricingRequest request, CancellationToken ct = default)
     {
-        var validation = Validate(request);
+        var validation = await ValidateAsync(request, ct);
         if (validation != null) return ApiResult<ManagePricingRowDto>.Fail(validation);
 
         try
         {
-            var planType = request.PlanType.Trim();
+            var roleId = request.RoleId;
             var planName = request.PlanName.Trim();
             var original = RoundMoney(request.OriginalPrice);
             var offered = RoundMoney(request.OfferedPrice);
             var originalGst = WithGst(original);
             var offeredGst = WithGst(offered);
-            var dealId = await NormalizeDealIdAsync(request.DealId, ct);
-            if (dealId < 0) return ApiResult<ManagePricingRowDto>.Fail("Selected deal / coupon was not found.");
 
             var dup = await _db.PricingPlans.AnyAsync(
-                p => p.PlanType == planType && p.PlanName == planName, ct);
+                p => p.RoleId == roleId && p.PlanName == planName, ct);
             if (dup)
                 return ApiResult<ManagePricingRowDto>.Fail("This plan type and plan name combination already exists.");
 
             var now = AppClock.Now;
             var entity = new PricingPlan
             {
-                PlanType = planType,
+                RoleId = roleId,
                 PlanName = planName,
                 OriginalPrice = original,
                 OriginalPriceGst = originalGst,
                 OfferedPrice = offered,
                 OfferedPriceGst = offeredGst,
-                DealId = dealId > 0 ? dealId : null,
                 Status = "Active",
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -175,7 +151,7 @@ public class AdminManagePricingService : IAdminManagePricingService
 
     public async Task<ApiResult<ManagePricingRowDto>> UpdateAsync(int id, UpsertPricingRequest request, CancellationToken ct = default)
     {
-        var validation = Validate(request);
+        var validation = await ValidateAsync(request, ct);
         if (validation != null) return ApiResult<ManagePricingRowDto>.Fail(validation);
 
         try
@@ -183,27 +159,24 @@ public class AdminManagePricingService : IAdminManagePricingService
             var entity = await _db.PricingPlans.FirstOrDefaultAsync(p => p.Id == id, ct);
             if (entity == null) return ApiResult<ManagePricingRowDto>.Fail("Pricing plan not found");
 
-            var planType = request.PlanType.Trim();
+            var roleId = request.RoleId;
             var planName = request.PlanName.Trim();
             var original = RoundMoney(request.OriginalPrice);
             var offered = RoundMoney(request.OfferedPrice);
             var originalGst = WithGst(original);
             var offeredGst = WithGst(offered);
-            var dealId = await NormalizeDealIdAsync(request.DealId, ct);
-            if (dealId < 0) return ApiResult<ManagePricingRowDto>.Fail("Selected deal / coupon was not found.");
 
             var dup = await _db.PricingPlans.AnyAsync(
-                p => p.PlanType == planType && p.PlanName == planName && p.Id != id, ct);
+                p => p.RoleId == roleId && p.PlanName == planName && p.Id != id, ct);
             if (dup)
                 return ApiResult<ManagePricingRowDto>.Fail("This plan type and plan name combination already exists.");
 
-            entity.PlanType = planType;
+            entity.RoleId = roleId;
             entity.PlanName = planName;
             entity.OriginalPrice = original;
             entity.OriginalPriceGst = originalGst;
             entity.OfferedPrice = offered;
             entity.OfferedPriceGst = offeredGst;
-            entity.DealId = dealId > 0 ? dealId : null;
             if (!string.IsNullOrWhiteSpace(request.Status))
                 entity.Status = NormalizeStatus(request.Status);
             entity.UpdatedAt = AppClock.Now;
@@ -260,17 +233,15 @@ public class AdminManagePricingService : IAdminManagePricingService
 
     private static IQueryable<PricingPlan> ApplyFilters(IQueryable<PricingPlan> q, ManagePricingQuery query)
     {
-        var planType = string.IsNullOrWhiteSpace(query.PlanType)
-                       || query.PlanType.Equals("all", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : query.PlanType.Trim();
         var status = string.IsNullOrWhiteSpace(query.Status)
                      || query.Status.Equals("all", StringComparison.OrdinalIgnoreCase)
             ? null
             : query.Status.Trim();
 
-        if (planType != null)
-            q = q.Where(p => p.PlanType == planType);
+        if (query.RoleId is > 0)
+            q = q.Where(p => p.RoleId == query.RoleId);
+        else if (query.RoleId == 0)
+            q = q.Where(p => p.RoleId == null);
         if (status != null)
             q = q.Where(p => p.Status == status);
 
@@ -278,39 +249,25 @@ public class AdminManagePricingService : IAdminManagePricingService
         {
             var s = query.Search.Trim().ToLower();
             q = q.Where(p =>
-                p.PlanType.ToLower().Contains(s)
-                || p.PlanName.ToLower().Contains(s)
-                || (p.Deal != null && p.Deal.DealName.ToLower().Contains(s))
-                || (p.Deal != null && p.Deal.CouponCode != null && p.Deal.CouponCode.ToLower().Contains(s)));
+                (p.Role != null ? p.Role.RoleName.ToLower().Contains(s) : AllPlanType.ToLower().Contains(s))
+                || p.PlanName.ToLower().Contains(s));
         }
 
         return q;
     }
 
-    private static string? Validate(UpsertPricingRequest request)
+    private async Task<string?> ValidateAsync(UpsertPricingRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.PlanType)) return "Plan type is required";
+        if (request.RoleId is <= 0) return "Invalid plan type";
         if (string.IsNullOrWhiteSpace(request.PlanName)) return "Plan name is required";
+        if (request.PlanName.Trim().Length > PlanNameMaxLength)
+            return $"Plan name must be {PlanNameMaxLength} characters or fewer";
         if (request.OriginalPrice < 0) return "Original price cannot be negative";
         if (request.OfferedPrice < 0) return "Offered price cannot be negative";
-
-        var planType = request.PlanType.Trim();
-        if (!PlanCatalog.TryGetValue(planType, out var names))
+        if (request.RoleId is { } roleId
+            && !await _db.Roles.AnyAsync(r => r.RoleId == roleId && r.Prefix != RolePrefixes.Administrator, ct))
             return "Invalid plan type";
-
-        var planName = request.PlanName.Trim();
-        if (!names.Any(n => string.Equals(n, planName, StringComparison.Ordinal)))
-            return "Invalid plan name for the selected plan type";
-
         return null;
-    }
-
-    /// <returns>0 = none, positive = valid id, -1 = invalid</returns>
-    private async Task<int> NormalizeDealIdAsync(int? dealId, CancellationToken ct)
-    {
-        if (dealId is null or <= 0) return 0;
-        var exists = await _db.Deals.AnyAsync(d => d.Id == dealId.Value, ct);
-        return exists ? dealId.Value : -1;
     }
 
     private static ManagePricingRowDto MapEntity(PricingPlan p)
@@ -321,15 +278,11 @@ public class AdminManagePricingService : IAdminManagePricingService
         var offeredGst = p.OfferedPriceGst;
         var status = string.IsNullOrWhiteSpace(p.Status) ? "Active" : p.Status.Trim();
         var tone = string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "success" : "muted";
-        var dealName = p.Deal?.DealName;
-        var couponCode = p.Deal?.CouponCode;
-        var dealDisplay = !string.IsNullOrWhiteSpace(couponCode)
-            ? $"{dealName} ({couponCode})"
-            : (dealName ?? "—");
 
         return new ManagePricingRowDto(
             p.Id,
-            p.PlanType ?? "",
+            p.RoleId,
+            p.RoleId == null ? AllPlanType : p.Role?.RoleName ?? "-",
             p.PlanName ?? "",
             original,
             FormatMoneyDisplay(original),
@@ -339,10 +292,6 @@ public class AdminManagePricingService : IAdminManagePricingService
             FormatMoneyDisplay(offered),
             offeredGst,
             FormatMoneyDisplay(offeredGst),
-            p.DealId is > 0 ? p.DealId : null,
-            dealName,
-            couponCode,
-            string.IsNullOrWhiteSpace(dealName) && string.IsNullOrWhiteSpace(couponCode) ? "—" : dealDisplay,
             status,
             tone,
             FormatDateTime(p.CreatedAt));

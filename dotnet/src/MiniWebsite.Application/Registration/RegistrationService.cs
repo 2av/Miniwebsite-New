@@ -92,6 +92,7 @@ public class RegistrationService : IRegistrationService
             {
                 ReferralCode = referralCode,
                 ReferredBy = pending.ReferrerEmail ?? "",
+                ReferrerUserId = pending.ReferrerUserId,
                 CollaborationEnabled = false,
                 SaleskitEnabled = false,
                 Influencer = false,
@@ -108,10 +109,11 @@ public class RegistrationService : IRegistrationService
 
         if (!string.IsNullOrWhiteSpace(pending.ReferrerEmail))
         {
-            var amount = await _deals.GetBonusAmountAsync(pending.ReferrerEmail, "MiniWebsite", "DMW001", ct);
+            var referrerId = pending.ReferrerUserId ?? await FindUserIdAsync(pending.ReferrerEmail, ct);
+            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.ShareBizzUser, "DMW001", ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
-                ReferrerUserId = await FindUserIdAsync(pending.ReferrerEmail, ct),
+                ReferrerUserId = referrerId,
                 ReferredUserId = user.Id,
                 ReferrerEmail = pending.ReferrerEmail,
                 ReferredEmail = pending.Email,
@@ -172,6 +174,7 @@ public class RegistrationService : IRegistrationService
             {
                 ReferralCode = referralCode,
                 ReferredBy = pending.ReferrerEmail ?? "",
+                ReferrerUserId = pending.ReferrerUserId,
                 CollaborationEnabled = false,
                 SaleskitEnabled = false,
                 Influencer = false,
@@ -188,10 +191,11 @@ public class RegistrationService : IRegistrationService
 
         if (!string.IsNullOrWhiteSpace(pending.ReferrerEmail))
         {
-            var amount = await _deals.GetBonusAmountAsync(pending.ReferrerEmail, "Franchisee", "DFRAN101", ct);
+            var referrerId = pending.ReferrerUserId ?? await FindUserIdAsync(pending.ReferrerEmail, ct);
+            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.FranchisePartner, "DFRAN101", ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
-                ReferrerUserId = await FindUserIdAsync(pending.ReferrerEmail, ct),
+                ReferrerUserId = referrerId,
                 ReferredUserId = user.Id,
                 ReferrerEmail = pending.ReferrerEmail,
                 ReferredEmail = pending.Email,
@@ -244,7 +248,7 @@ public class RegistrationService : IRegistrationService
         if (uniqueness != null)
             return ApiResult<RegistrationStartedResponse>.Fail(uniqueness);
 
-        var referrerEmail = await ResolveReferrerEmailAsync(referralCode, ct);
+        var (referrerEmail, referrerId) = await ResolveReferrerAsync(referralCode, ct);
         var otp = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         var hash = _passwordHasher.Hash(password);
 
@@ -268,6 +272,7 @@ public class RegistrationService : IRegistrationService
             State = state,
             PasswordHash = hash,
             ReferrerEmail = referrerEmail,
+            ReferrerUserId = referrerId,
             Otp = otp,
             ExpiresAt = DateTime.UtcNow.AddMinutes(10),
             CreatedAt = AppClock.Now,
@@ -370,13 +375,13 @@ public class RegistrationService : IRegistrationService
         return null;
     }
 
-    private async Task<string?> ResolveReferrerEmailAsync(string? referralCode, CancellationToken ct)
+    private async Task<(string? Email, int? Id)> ResolveReferrerAsync(string? referralCode, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(referralCode)) return null;
+        if (string.IsNullOrWhiteSpace(referralCode)) return (null, null);
         var code = referralCode.Trim().ToUpperInvariant();
         var referrer = await _db.Users
             .FirstOrDefaultAsync(u => u.Referral.ReferralCode != null && u.Referral.ReferralCode.ToUpper() == code, ct);
-        return referrer?.Email;
+        return (referrer?.Email, referrer?.Id);
     }
 
     private static string RoleLabel(UserRole role) => role switch

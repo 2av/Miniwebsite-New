@@ -76,6 +76,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             r.Property(x => x.SaleskitEnabled).IsRequired();
             r.HasIndex(x => x.ReferralCode);
             r.HasIndex(x => x.ReferredBy);
+            r.HasIndex(x => x.ReferrerUserId);
+            r.HasOne<User>().WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
         });
         builder.Navigation(x => x.Referral).IsRequired();
 
@@ -106,7 +108,9 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
         builder.HasIndex(x => x.UserId);
         builder.HasIndex(x => x.UserEmail);
         builder.HasIndex(x => x.FranchiseeEmail);
+        builder.HasIndex(x => x.FranchiseeUserId);
         builder.HasOne(x => x.User).WithMany(x => x.Cards).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.FranchiseeUser).WithMany().HasForeignKey(x => x.FranchiseeUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.SlugHistory).WithOne(x => x.Card).HasForeignKey<CardSlugHistory>(x => x.CardId);
     }
 }

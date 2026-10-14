@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.Invoices;
 using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.KitManagement.Dtos;
+using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
@@ -45,11 +46,9 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<PortalMeDto>.Fail("User not found.");
 
-        var emailKey = email.Trim().ToLowerInvariant();
         var mwPaid = await _db.Cards.AsNoTracking()
             .AnyAsync(c =>
-                c.UserEmail != null
-                && c.UserEmail.ToLower() == emailKey
+                c.UserId == user.Id
                 && c.PaymentStatus != null
                 && c.PaymentStatus.ToLower() == "success", ct);
 
@@ -58,11 +57,11 @@ public class PortalService : IPortalService
         var franchiseInvoiceId = (int?)null;
         if (user.LoginRole == UserRole.Franchisee)
         {
-            agreementPaid = await IsFranchiseAgreementPaidAsync(email.Trim(), ct);
-            franchiseInvoiceId = await FindFranchiseInvoiceIdAsync(email.Trim(), ct);
+            agreementPaid = await IsFranchiseAgreementPaidAsync(user.Id, email, ct);
+            franchiseInvoiceId = await FindFranchiseInvoiceIdAsync(user.Id, email, ct);
 
             var v = await _db.FranchiseVerifications.AsNoTracking()
-                .Where(x => x.UserEmail.ToLower() == emailKey)
+                .Where(x => x.UserId == user.Id)
                 .OrderByDescending(x => x.Id)
                 .Select(x => x.Status)
                 .FirstOrDefaultAsync(ct);
@@ -93,85 +92,68 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<ReferralPageDto>.Fail("User not found.");
 
-        var emailKey = email.Trim().ToLowerInvariant();
         var isTeam = user.LoginRole == UserRole.Team;
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
-            .Where(re => re.ReferrerEmail.ToLower() == emailKey)
+            .Where(re => re.ReferrerUserId == user.Id)
             .ToListAsync(ct);
 
         var pendingAmount = earnings.Where(e => e.Status == "Pending").Sum(e => e.Amount);
         var totalEarning = earnings.Where(e => e.Status == "Paid").Sum(e => e.Amount);
         var referralCount = earnings.Select(e => e.Id).Distinct().Count();
 
-        var referredByCount = await _db.Users.AsNoTracking()
-            .CountAsync(u =>
-                u.Referral.ReferredBy != null
-                && u.Referral.ReferredBy.Trim() != ""
-                && u.Referral.ReferredBy.ToLower() == emailKey, ct);
-
-        var totalReferrals = Math.Max(referralCount, referredByCount);
-
-        var referredUsersFromReferrals = earnings
-            .Select(e => e.ReferredEmail.Trim().ToLowerInvariant())
-            .Where(e => e.Length > 0)
-            .Distinct()
-            .ToList();
-
-        var referredUsersFromUsers = await _db.Users.AsNoTracking()
-            .Where(u =>
-                u.Referral.ReferredBy != null
-                && u.Referral.ReferredBy.Trim() != ""
-                && u.Referral.ReferredBy.ToLower() == emailKey)
-            .Select(u => u.Email.ToLower())
-            .Distinct()
+        var referredIdsFromUsers = await _db.Users.AsNoTracking()
+            .Where(u => u.Referral.ReferrerUserId == user.Id)
+            .Select(u => u.Id)
             .ToListAsync(ct);
 
-        var allReferredEmails = referredUsersFromReferrals
-            .Concat(referredUsersFromUsers)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+        var totalReferrals = Math.Max(referralCount, referredIdsFromUsers.Count);
+
+        var allReferredKeys = earnings
+            .Select(e => ReferredKey.From(e.ReferredUserId, e.ReferredEmail))
+            .Where(k => k.UserId != null || k.Email.Length > 0)
+            .Concat(referredIdsFromUsers.Select(id => ReferredKey.From(id, null)))
+            .Distinct()
             .Take(500)
             .ToList();
 
-        var referredUserEntities = allReferredEmails.Count == 0
-            ? new List<Domain.Entities.User>()
+        var allReferredIds = allReferredKeys
+            .Where(k => k.UserId != null)
+            .Select(k => k.UserId!.Value)
+            .ToList();
+
+        var userById = allReferredIds.Count == 0
+            ? new Dictionary<int, Domain.Entities.User>()
             : await _db.Users.AsNoTracking()
-                .Where(u => allReferredEmails.Contains(u.Email.ToLower()))
-                .OrderByDescending(u => u.CreatedAt)
-                .ToListAsync(ct);
+                .Where(u => allReferredIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, ct);
 
-        var userByEmail = referredUserEntities
-            .GroupBy(u => u.Email.Trim().ToLowerInvariant())
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-        var cards = allReferredEmails.Count == 0
+        var cards = allReferredIds.Count == 0
             ? new List<Domain.Entities.Card>()
             : await _db.Cards.AsNoTracking()
-                .Where(c => c.UserEmail != null && allReferredEmails.Contains(c.UserEmail.ToLower()))
+                .Where(c => c.UserId != null && allReferredIds.Contains(c.UserId.Value))
                 .OrderByDescending(c => c.Id)
                 .ToListAsync(ct);
 
-        var cardByEmail = new Dictionary<string, Domain.Entities.Card>(StringComparer.OrdinalIgnoreCase);
+        var cardByUser = new Dictionary<int, Domain.Entities.Card>();
         foreach (var c in cards)
-        {
-            var key = (c.UserEmail ?? "").Trim().ToLowerInvariant();
-            if (key.Length > 0 && !cardByEmail.ContainsKey(key))
-                cardByEmail[key] = c;
-        }
+            cardByUser.TryAdd(c.UserId!.Value, c);
 
         var earningByReferred = earnings
-            .GroupBy(e => e.ReferredEmail.Trim().ToLowerInvariant())
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(x => x.Id).First(),
-                StringComparer.OrdinalIgnoreCase);
+            .GroupBy(e => ReferredKey.From(e.ReferredUserId, e.ReferredEmail))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First());
 
         var referredRows = new List<ReferredUserSql>();
-        foreach (var em in allReferredEmails)
+        foreach (var key in allReferredKeys)
         {
-            userByEmail.TryGetValue(em, out var ud);
-            earningByReferred.TryGetValue(em, out var re);
-            cardByEmail.TryGetValue(em, out var dc);
+            Domain.Entities.User? ud = null;
+            Domain.Entities.Card? dc = null;
+            if (key.UserId is int referredId)
+            {
+                userById.TryGetValue(referredId, out ud);
+                cardByUser.TryGetValue(referredId, out dc);
+            }
+            earningByReferred.TryGetValue(key, out var re);
 
             referredRows.Add(new ReferredUserSql
             {
@@ -217,7 +199,7 @@ public class PortalService : IPortalService
         }
 
         var bankEntity = await _db.UserBankDetails.AsNoTracking()
-            .FirstOrDefaultAsync(b => b.UserEmail.ToLower() == emailKey, ct);
+            .FirstOrDefaultAsync(b => b.UserId == user.Id, ct);
 
         var bank = bankEntity == null
             ? null
@@ -282,7 +264,14 @@ public class PortalService : IPortalService
             || string.IsNullOrWhiteSpace(request.UpiId) || string.IsNullOrWhiteSpace(request.UpiName))
             return ApiResult.Fail("All fields are mandatory. Please fill all the required fields.");
 
-        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserEmail.ToLower() == email, ct);
+        var userId = await _db.Users.AsNoTracking()
+            .Where(u => u.Email == email)
+            .Select(u => (int?)u.Id)
+            .FirstOrDefaultAsync(ct);
+        if (userId == null)
+            return ApiResult.Fail("No account found for this email.");
+
+        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserId == userId, ct);
         var now = AppClock.Now;
 
         if (entity != null)
@@ -298,14 +287,9 @@ public class PortalService : IPortalService
             return ApiResult.Ok("Bank details updated successfully!");
         }
 
-        var userId = await _db.Users.AsNoTracking()
-            .Where(u => u.Email.ToLower() == email)
-            .Select(u => (int?)u.Id)
-            .FirstOrDefaultAsync(ct) ?? 0;
-
         _db.UserBankDetails.Add(new Domain.Entities.UserBankDetails
         {
-            UserId = userId,
+            UserId = userId.Value,
             UserEmail = email,
             BankName = request.BankName.Trim(),
             AccountHolderName = request.AccountHolder.Trim(),
@@ -322,11 +306,13 @@ public class PortalService : IPortalService
 
     public async Task<ApiResult<WalletPageDto>> GetWalletAsync(string email, CancellationToken ct = default)
     {
-        var emailKey = email.Trim().ToLowerInvariant();
-        var balance = await _wallet.GetLatestBalanceAsync(email.Trim(), ct);
+        var userId = await _db.FindUserIdAsync(email, ct);
+        var balance = await _wallet.GetLatestBalanceAsync(userId, ct);
 
-        var wallet = await _db.Wallets.AsNoTracking()
-            .FirstOrDefaultAsync(w => w.UserEmail.ToLower() == emailKey, ct);
+        var wallet = userId == null
+            ? null
+            : await _db.Wallets.AsNoTracking()
+                .FirstOrDefaultAsync(w => w.UserId == userId, ct);
 
         var txns = wallet == null
             ? []
@@ -357,13 +343,12 @@ public class PortalService : IPortalService
         string email, int cardId, CancellationToken ct = default)
     {
         if (cardId <= 0) return ApiResult<IReadOnlyList<InvoiceListItemDto>>.Fail("Invalid card id.");
-        var emailKey = email.Trim().ToLowerInvariant();
+        var userId = await _db.FindUserIdAsync(email, ct);
 
-        var owns = await _db.Cards.AsNoTracking()
+        var owns = userId != null && await _db.Cards.AsNoTracking()
             .AnyAsync(c =>
                 c.Id == cardId
-                && ((c.UserEmail != null && c.UserEmail.ToLower() == emailKey)
-                    || (c.FranchiseeEmail != null && c.FranchiseeEmail.ToLower() == emailKey)), ct);
+                && (c.UserId == userId || c.FranchiseeUserId == userId), ct);
         if (!owns) return ApiResult<IReadOnlyList<InvoiceListItemDto>>.Fail("Access denied.");
 
         var rows = await _db.Invoices.AsNoTracking()
@@ -386,20 +371,19 @@ public class PortalService : IPortalService
 
     public async Task<ApiResult<InvoiceDetailDto>> GetInvoiceAsync(string email, int invoiceId, CancellationToken ct = default)
     {
-        var emailKey = email.Trim().ToLowerInvariant();
         var row = await _db.Invoices.AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == invoiceId, ct);
 
         if (row == null) return ApiResult<InvoiceDetailDto>.Fail("Invoice not found.");
 
-        var allowed = string.Equals(row.UserEmail?.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase);
+        var userId = await _db.FindUserIdAsync(email, ct);
+        var allowed = userId != null && row.UserId == userId;
         if (!allowed)
         {
-            var cardOk = row.CardId is > 0 && await _db.Cards.AsNoTracking()
+            var cardOk = userId != null && row.CardId is > 0 && await _db.Cards.AsNoTracking()
                 .AnyAsync(c =>
                     c.Id == row.CardId.Value
-                    && ((c.UserEmail != null && c.UserEmail.ToLower() == emailKey)
-                        || (c.FranchiseeEmail != null && c.FranchiseeEmail.ToLower() == emailKey)), ct);
+                    && (c.UserId == userId || c.FranchiseeUserId == userId), ct);
             if (!cardOk) return ApiResult<InvoiceDetailDto>.Fail("Access denied.");
         }
 
@@ -423,7 +407,7 @@ public class PortalService : IPortalService
         if (user.LoginRole != UserRole.Franchisee)
             return ApiResult<InvoiceHtmlResult>.Fail("Franchisee invoice is only available for franchisee accounts.");
 
-        var invoiceId = await FindFranchiseInvoiceIdAsync(email.Trim(), ct);
+        var invoiceId = await FindFranchiseInvoiceIdAsync(user.Id, email, ct);
         if (!invoiceId.HasValue)
             return ApiResult<InvoiceHtmlResult>.Fail("Invoice will be available only after franchise agreement payment verification.");
 
@@ -451,7 +435,7 @@ public class PortalService : IPortalService
         try
         {
             var row = await _db.FranchiseVerifications.AsNoTracking()
-                .Where(v => v.UserEmail.ToLower() == email.Trim().ToLowerInvariant())
+                .Where(v => v.UserId == me.Data.UserId)
                 .OrderByDescending(v => v.Id)
                 .FirstOrDefaultAsync(ct);
 
@@ -559,11 +543,17 @@ public class PortalService : IPortalService
         if (string.IsNullOrWhiteSpace(finalPan) || string.IsNullOrWhiteSpace(finalFront) || string.IsNullOrWhiteSpace(finalBack))
             return ApiResult<VerificationStatusDto>.Fail("All three documents are mandatory (PAN, Aadhaar Front, Aadhaar Back).");
 
-        var emailKey = email.ToLowerInvariant();
         try
         {
+            var userId = await _db.Users.AsNoTracking()
+                .Where(u => u.Email == email)
+                .Select(u => (int?)u.Id)
+                .FirstOrDefaultAsync(ct);
+            if (userId == null)
+                return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
+
             var entity = await _db.FranchiseVerifications
-                .FirstOrDefaultAsync(v => v.UserEmail.ToLower() == emailKey, ct);
+                .FirstOrDefaultAsync(v => v.UserId == userId, ct);
             var now = AppClock.Now;
             var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!);
 
@@ -576,13 +566,6 @@ public class PortalService : IPortalService
             }
             else
             {
-                var userId = await _db.Users.AsNoTracking()
-                    .Where(u => u.Email.ToLower() == emailKey)
-                    .Select(u => (int?)u.Id)
-                    .FirstOrDefaultAsync(ct);
-                if (userId == null)
-                    return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
-
                 _db.FranchiseVerifications.Add(new Domain.Entities.FranchiseVerification
                 {
                     UserId = userId.Value,
@@ -1216,7 +1199,7 @@ public class PortalService : IPortalService
     }
 
     /// <summary>Matches PHP isFranchiseeRegistrationAgreementPaid().</summary>
-    private async Task<bool> IsFranchiseAgreementPaidAsync(string email, CancellationToken ct)
+    private async Task<bool> IsFranchiseAgreementPaidAsync(int userId, string email, CancellationToken ct)
     {
         var emailKey = email.Trim().ToLowerInvariant();
 
@@ -1224,7 +1207,7 @@ public class PortalService : IPortalService
         {
             var viaFranchisePayments = await _db.FranchisePayments.AsNoTracking()
                 .AnyAsync(p =>
-                    p.FranchiseEmail.ToLower() == emailKey
+                    p.FranchiseUserId == userId
                     && p.PaymentStatus.ToLower() == "success", ct);
             if (viaFranchisePayments) return true;
         }
@@ -1237,7 +1220,7 @@ public class PortalService : IPortalService
         {
             return await _db.Invoices.AsNoTracking()
                 .AnyAsync(i =>
-                    (i.UserEmail.ToLower() == emailKey || i.BillingEmail.ToLower() == emailKey)
+                    (i.UserId == userId || i.BillingEmail.ToLower() == emailKey)
                     && (i.PaymentStatus.ToLower() == "success" || i.PaymentStatus.ToLower() == "paid")
                     && (i.ServiceName == "Franchisee Registration Fees"
                         || i.ServiceName == "Franchisee Registration"
@@ -1251,14 +1234,14 @@ public class PortalService : IPortalService
     }
 
     /// <summary>Matches PHP sidebar download_invoice availability check (invoice row exists).</summary>
-    private async Task<int?> FindFranchiseInvoiceIdAsync(string email, CancellationToken ct)
+    private async Task<int?> FindFranchiseInvoiceIdAsync(int userId, string email, CancellationToken ct)
     {
         var emailKey = email.Trim().ToLowerInvariant();
         try
         {
             return await _db.Invoices.AsNoTracking()
                 .Where(i =>
-                    (i.UserEmail.ToLower() == emailKey || i.BillingEmail.ToLower() == emailKey)
+                    (i.UserId == userId || i.BillingEmail.ToLower() == emailKey)
                     && (i.ServiceName == "Franchisee Registration Fees"
                         || i.PaymentType.ToLower() == "franchisee"
                         || i.ReferenceNumber.StartsWith("FRAN")))
@@ -1562,5 +1545,13 @@ public class PortalService : IPortalService
         public string? DPaymentStatus { get; set; }
         public string? DPaymentDate { get; set; }
         public string? FUserEmail { get; set; }
+    }
+
+    /// <summary>Referred user identity; earnings without a linked account fall back to their email.</summary>
+    private readonly record struct ReferredKey(int? UserId, string Email)
+    {
+        public static ReferredKey From(int? userId, string? email) => userId is int id
+            ? new ReferredKey(id, "")
+            : new ReferredKey(null, (email ?? "").Trim().ToLowerInvariant());
     }
 }

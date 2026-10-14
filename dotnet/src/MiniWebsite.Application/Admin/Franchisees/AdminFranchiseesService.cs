@@ -65,52 +65,47 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             .Take(query.PageSize)
             .ToListAsync(ct);
 
-        var emails = users.Select(u => Normalize(u.Email)).Where(e => e.Length > 0).Distinct().ToList();
-        var referrerEmails = users
-            .Select(u => Normalize(u.Referral.ReferredBy))
-            .Where(e => e.Length > 0 && e.Contains('@'))
+        var userIds = users.Select(u => u.Id).ToList();
+        var referrerIds = users
+            .Where(u => u.Referral.ReferrerUserId != null)
+            .Select(u => u.Referral.ReferrerUserId!.Value)
             .Distinct()
             .ToList();
 
-        var referrerList = referrerEmails.Count == 0
-            ? new List<User>()
+        var referrers = referrerIds.Count == 0
+            ? new Dictionary<int, User>()
             : await _db.Users.AsNoTracking()
-                .Where(u => referrerEmails.Contains(u.Email.ToLower()))
-                .ToListAsync(ct);
+                .Where(u => referrerIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, ct);
 
-        var referrers = referrerList
-            .GroupBy(u => Normalize(u.Email))
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-        var cards = emails.Count == 0
+        var cards = userIds.Count == 0
             ? []
             : await _db.Cards.AsNoTracking()
-                .Where(c => c.FUserEmail != null && emails.Contains(c.FUserEmail.ToLower()))
+                .Where(c => c.FranchiseeUserId != null && userIds.Contains(c.FranchiseeUserId.Value))
                 .OrderByDescending(c => c.Id)
                 .ToListAsync(ct);
 
-        var cardsByEmail = cards
-            .GroupBy(c => Normalize(c.FUserEmail))
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        var cardsByUser = cards
+            .GroupBy(c => c.FranchiseeUserId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
-        var invoices = await GetFranchiseInvoicesAsync(emails, ct);
-        var docs = await GetDocumentStatusesAsync(emails, ct);
+        var invoices = await GetFranchiseInvoicesAsync(userIds, ct);
+        var docs = await GetDocumentStatusesAsync(userIds, ct);
         var siteBase = (_configuration["App:SiteBaseUrl"] ?? "https://sharebizz.com").TrimEnd('/');
         var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
 
         var rows = new List<FranchiseeRowDto>();
         foreach (var u in users)
         {
-            var email = Normalize(u.Email);
-            cardsByEmail.TryGetValue(email, out var userCards);
+            cardsByUser.TryGetValue(u.Id, out var userCards);
             userCards ??= [];
             var first = userCards.FirstOrDefault();
-            invoices.TryGetValue(email, out var inv);
-            docs.TryGetValue(email, out var docStatus);
+            invoices.TryGetValue(u.Id, out var inv);
+            docs.TryGetValue(u.Id, out var docStatus);
             docStatus ??= "Not Uploaded";
 
             var isActive = string.Equals(u.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase);
-            var wallet = await _wallet.GetLatestBalanceAsync(u.Email, ct);
+            var wallet = await _wallet.GetLatestBalanceAsync(u.Id, ct);
             var (payLabel, payTone, paidOn) = ResolvePayment(inv);
             var fee = inv?.Amount ?? 0m;
             var company = first == null
@@ -244,10 +239,13 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             return ApiResult<FranchiseeDashboardDto>.Fail("Invalid email.");
 
         var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
-        var cards = await _db.Cards.AsNoTracking()
-            .Where(c => c.FUserEmail != null && c.FUserEmail.ToLower() == key)
-            .OrderByDescending(c => c.Id)
-            .ToListAsync(ct);
+        var franchiseeId = await _db.FindUserIdAsync(key, ct);
+        var cards = franchiseeId == null
+            ? []
+            : await _db.Cards.AsNoTracking()
+                .Where(c => c.FranchiseeUserId == franchiseeId)
+                .OrderByDescending(c => c.Id)
+                .ToListAsync(ct);
 
         var sites = cards.Select(c =>
         {
@@ -271,35 +269,30 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         return ApiResult<FranchiseeDashboardDto>.Ok(new FranchiseeDashboardDto(key, sites));
     }
 
-    private async Task<Dictionary<string, InvoiceInfo>> GetFranchiseInvoicesAsync(
-        IReadOnlyList<string> emails, CancellationToken ct)
+    private async Task<Dictionary<int, InvoiceInfo>> GetFranchiseInvoicesAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
     {
-        var map = new Dictionary<string, InvoiceInfo>(StringComparer.OrdinalIgnoreCase);
-        if (emails.Count == 0) return map;
+        var map = new Dictionary<int, InvoiceInfo>();
+        if (userIds.Count == 0) return map;
 
         try
         {
             var rows = await _db.Invoices.AsNoTracking()
-                .Where(i => i.ServiceName == "Franchisee Registration")
+                .Where(i => i.ServiceName == "Franchisee Registration"
+                    && i.UserId != null && userIds.Contains(i.UserId.Value))
                 .OrderByDescending(i => i.Id)
                 .Select(i => new
                 {
                     i.Id,
-                    i.UserEmail,
+                    UserId = i.UserId!.Value,
                     i.TotalAmount,
                     i.PaymentStatus,
                     i.InvoiceDate,
                 })
                 .ToListAsync(ct);
 
-            var set = emails.ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var row in rows)
-            {
-                if (row.UserEmail == null) continue;
-                var key = Normalize(row.UserEmail);
-                if (!set.Contains(key) || map.ContainsKey(key)) continue;
-                map[key] = new InvoiceInfo(row.Id, row.TotalAmount, row.PaymentStatus, row.InvoiceDate);
-            }
+                map.TryAdd(row.UserId, new InvoiceInfo(row.Id, row.TotalAmount, row.PaymentStatus, row.InvoiceDate));
         }
         catch
         {
@@ -309,27 +302,22 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         return map;
     }
 
-    private async Task<Dictionary<string, string>> GetDocumentStatusesAsync(
-        IReadOnlyList<string> emails, CancellationToken ct)
+    private async Task<Dictionary<int, string>> GetDocumentStatusesAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (emails.Count == 0) return map;
+        var map = new Dictionary<int, string>();
+        if (userIds.Count == 0) return map;
 
         try
         {
             var rows = await _db.FranchiseVerifications.AsNoTracking()
+                .Where(v => userIds.Contains(v.UserId))
                 .OrderByDescending(v => v.Id)
-                .Select(v => new { v.UserEmail, v.Status })
+                .Select(v => new { v.UserId, v.Status })
                 .ToListAsync(ct);
 
-            var set = emails.ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var row in rows)
-            {
-                if (row.UserEmail == null) continue;
-                var key = Normalize(row.UserEmail);
-                if (!set.Contains(key) || map.ContainsKey(key)) continue;
-                map[key] = row.Status ?? "Not Uploaded";
-            }
+                map.TryAdd(row.UserId, row.Status ?? "Not Uploaded");
         }
         catch
         {
@@ -371,7 +359,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         _ => "neutral"
     };
 
-    private static string BuildReferralSource(User user, Dictionary<string, User> referrers)
+    private static string BuildReferralSource(User user, Dictionary<int, User> referrers)
     {
         if (string.IsNullOrWhiteSpace(user.Referral.ReferredBy))
             return "Direct";
@@ -380,8 +368,8 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         if (int.TryParse(refBy, out var numericId))
             return "User - " + numericId;
 
-        var key = Normalize(refBy);
-        if (!referrers.TryGetValue(key, out var referrer))
+        if (user.Referral.ReferrerUserId is not int referrerId
+            || !referrers.TryGetValue(referrerId, out var referrer))
             return "User - " + refBy;
 
         return referrer.LoginRole switch
