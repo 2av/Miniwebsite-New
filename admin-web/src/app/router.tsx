@@ -58,8 +58,9 @@ export function AppRouter() {
         <Route path="coupons" element={<CouponsPage />} />
         <Route path="manage-deals" element={<Navigate to="/coupons" replace />} />
         <Route path="deals" element={<Navigate to="/coupons" replace />} />
-        <Route path="manage-pricing" element={<ManagePricingPage />} />
-        <Route path="pricing" element={<Navigate to="/manage-pricing" replace />} />
+        <Route path="plan-pricing" element={<ManagePricingPage />} />
+        <Route path="manage-pricing" element={<Navigate to="/plan-pricing" replace />} />
+        <Route path="pricing" element={<Navigate to="/plan-pricing" replace />} />
         <Route path="plan-commissions" element={<PlanCommissionsPage />} />
         <Route path="manage-faqs" element={<ManageFaqsPage />} />
         <Route path="manage-faq" element={<Navigate to="/manage-faqs" replace />} />

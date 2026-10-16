@@ -17,6 +17,7 @@ public record PlanCommissionPlanOptionDto(
     string PlanName,
     string PlanCategory,
     string ValidityDisplay,
+    decimal OriginalPrice,
     decimal OfferedPrice,
     string Status);
 
@@ -42,6 +43,8 @@ public record PlanCommissionRowDto(
     string PlanName,
     string PlanCategory,
     string ValidityDisplay,
+    decimal OriginalPrice,
+    string OriginalPriceDisplay,
     decimal OfferedPrice,
     string OfferedPriceDisplay,
     string DiscountType,

@@ -485,6 +485,7 @@ export type PlanCommissionPlanOption = {
   planName: string
   planCategory: string
   validityDisplay: string
+  originalPrice: number
   offeredPrice: number
   status: string
 }
@@ -506,6 +507,8 @@ export type PlanCommissionRow = {
   planName: string
   planCategory: string
   validityDisplay: string
+  originalPrice: number
+  originalPriceDisplay: string
   offeredPrice: number
   offeredPriceDisplay: string
   discountType: string

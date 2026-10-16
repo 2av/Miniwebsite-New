@@ -42,6 +42,7 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
                     p.PlanName,
                     p.PlanCategory,
                     PricingFormat.Validity(p.ValidityMonths),
+                    p.OriginalPrice,
                     p.OfferedPrice,
                     p.Status)).ToList(),
                 PlanCommissionValues.DiscountTypes,
@@ -244,11 +245,12 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
         entity.EarningAmount = earningType == PlanCommissionValues.EarningFixed
             ? PricingFormat.RoundMoney(request.EarningAmount)
             : 0;
-        entity.RenewalPrice = request.RenewalPrice is { } renewal ? PricingFormat.RoundMoney(renewal) : null;
-        entity.RenewalPriceGst = entity.RenewalPrice is { } r ? PlanCommissionValues.WithGst(r) : null;
         entity.RenewalEarningPercent = request.RenewalEarningPercent is { } pct
             ? Math.Round(pct, 2, MidpointRounding.AwayFromZero)
             : null;
+        // Renewal % uses list price from plan pricing; RenewalPrice is optional override.
+        entity.RenewalPrice = request.RenewalPrice is { } renewal ? PricingFormat.RoundMoney(renewal) : null;
+        entity.RenewalPriceGst = entity.RenewalPrice is { } r ? PlanCommissionValues.WithGst(r) : null;
     }
 
     private async Task<string?> ValidateAsync(IReadOnlyList<int> roleIds, UpsertPlanCommissionRequest request, CancellationToken ct)
@@ -260,9 +262,7 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
         if (request.DiscountAmount < 0) return "Discount cannot be negative";
         if (request.EarningAmount < 0) return "Earning cannot be negative";
         if (request.RenewalPrice < 0) return "Renewal price cannot be negative";
-        if (request.RenewalEarningPercent is <= 0 or > 100) return "Renewal earning must be between 0 and 100%";
-        if (request.RenewalEarningPercent != null && request.RenewalPrice == null)
-            return "Enter the renewal price to set a renewal earning";
+        if (request.RenewalEarningPercent is <= 0 or > 100) return "Renewal % must be between 0 and 100";
 
         var validRoles = await _db.Roles.CountAsync(
             r => roleIds.Contains(r.RoleId) && r.Prefix != RolePrefixes.Administrator, ct);
@@ -274,7 +274,7 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
         var discount = discountType == PlanCommissionValues.DiscountFixed ? request.DiscountAmount : 0;
         var earning = earningType == PlanCommissionValues.EarningFixed ? request.EarningAmount : 0;
         if (discount + earning > plan.OfferedPrice)
-            return "Discount plus earning cannot be more than the plan price";
+            return "Discount plus commission cannot be more than the list price";
 
         return null;
     }
@@ -314,8 +314,9 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
             sbRevenue = price - discount - c.EarningAmount;
         }
 
-        decimal? renewalEarning = c.RenewalEarningPercent is { } pct && c.RenewalPrice is { } renewal
-            ? Math.Round(renewal * pct / 100m, 2, MidpointRounding.AwayFromZero)
+        var renewalBase = c.RenewalPrice ?? price;
+        decimal? renewalEarning = c.RenewalEarningPercent is { } pct
+            ? Math.Round(renewalBase * pct / 100m, 2, MidpointRounding.AwayFromZero)
             : null;
 
         var status = c.Status == PlanCommissionValues.StatusActive
@@ -330,6 +331,8 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
             plan.PlanName,
             plan.PlanCategory,
             PricingFormat.Validity(plan.ValidityMonths),
+            plan.OriginalPrice,
+            PricingFormat.Money(plan.OriginalPrice),
             price,
             PricingFormat.Money(price),
             c.DiscountType,

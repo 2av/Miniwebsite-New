@@ -11,7 +11,6 @@ import {
 } from '@/features/plan-commissions/api'
 import type { PlanCommissionRow, UpsertPlanCommissionPayload } from '@/shared/types/api'
 import { ApiError } from '@/shared/api/client'
-import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
 import { FiltersButton, FiltersDrawer } from '@/shared/ui/FiltersDrawer'
 import { FormField } from '@/shared/ui/FormField'
 import { useToast } from '@/shared/ui/Toast'
@@ -25,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -56,7 +54,6 @@ import {
 } from '@/components/ui/table'
 
 const FIXED = 'Fixed'
-const DEFAULT_GST_RATE = 1.18
 
 type FormState = {
   roleIds: number[]
@@ -66,9 +63,7 @@ type FormState = {
   discountAmount: string
   earningType: string
   earningAmount: string
-  /** Empty means not renewed */
-  renewalPrice: string
-  /** Empty means no renewal earning */
+  /** Empty means no renewal commission % */
   renewalEarningPercent: string
   status: string
 }
@@ -80,10 +75,19 @@ const emptyForm: FormState = {
   discountAmount: '',
   earningType: FIXED,
   earningAmount: '',
-  renewalPrice: '',
   renewalEarningPercent: '',
   status: 'Active',
 }
+
+const GRID_HEADERS = [
+  'Commission Name',
+  'Original Price',
+  'List Price',
+  'Discount',
+  'Commissions',
+  'Renewal (%)',
+  'Action',
+] as const
 
 type ConfirmState =
   | { mode: 'delete'; id: number; name: string }
@@ -103,8 +107,29 @@ function sanitizeAmount(raw: string) {
 }
 
 function money(n: number | null | undefined) {
-  if (n == null) return '—'
+  if (n == null || !Number.isFinite(n)) return '—'
   return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+}
+
+/** Prefer API display string; fall back to numeric amount (camelCase or PascalCase / string). */
+function priceLabel(
+  row: Record<string, unknown>,
+  displayKeys: string[],
+  amountKeys: string[],
+) {
+  for (const k of displayKeys) {
+    const v = row[k]
+    if (typeof v === 'string' && v.trim() !== '' && !/^[—\-]?$/.test(v.trim())) return v
+  }
+  for (const k of amountKeys) {
+    const v = row[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return money(v)
+    if (typeof v === 'string' && v.trim() !== '') {
+      const n = Number(v)
+      if (Number.isFinite(n)) return money(n)
+    }
+  }
+  return '—'
 }
 
 export function PlanCommissionsPage() {
@@ -163,48 +188,30 @@ export function PlanCommissionsPage() {
   const items = data?.items ?? []
   const pages = data ? Math.max(1, Math.ceil(data.totalCount / data.pageSize)) : 1
   const activeFilterCount =
-    (searchInput.trim() ? 1 : 0) +
-    (roleFilter !== 'all' ? 1 : 0) +
-    (planFilter !== 'all' ? 1 : 0) +
-    (status !== 'all' ? 1 : 0)
+    (searchInput.trim() ? 1 : 0) + (planFilter !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0)
+
+  const resetSecondaryFilters = () => {
+    setSearchInput('')
+    setSearch('')
+    setPlanFilter('all')
+    setStatus('all')
+    setPage(1)
+  }
+
+  const onRoleFilterChange = (value: string) => {
+    setRoleFilter(value)
+    resetSecondaryFilters()
+  }
 
   const roles = metaQuery.data?.roles ?? []
   const plans = metaQuery.data?.plans ?? []
   const discountTypes = metaQuery.data?.discountTypes ?? [FIXED]
   const earningTypes = metaQuery.data?.earningTypes ?? [FIXED]
-  const gstRate = metaQuery.data?.gstRate ?? DEFAULT_GST_RATE
 
   const selectedPlan = plans.find((p) => String(p.id) === form.pricingPlanId)
 
-  const preview = useMemo(() => {
-    if (!selectedPlan) return null
-    const withGst = (n: number) => Math.round(n * gstRate)
-    const price = selectedPlan.offeredPrice
-    const discount = form.discountType === FIXED ? toAmount(form.discountAmount) : 0
-    const fixedEarning = form.earningType === FIXED
-    const earning = toAmount(form.earningAmount)
-    const sbRevenue = fixedEarning ? price - discount - earning : null
-    const renewalPrice = form.renewalPrice.trim() === '' ? null : toAmount(form.renewalPrice)
-    const pct = form.renewalEarningPercent.trim() === '' ? null : Number(form.renewalEarningPercent)
-    return {
-      price,
-      earningGst: fixedEarning ? withGst(earning) : null,
-      sbRevenue,
-      renewalPriceGst: renewalPrice != null ? withGst(renewalPrice) : null,
-      renewalEarning:
-        pct != null && Number.isFinite(pct) && renewalPrice != null
-          ? Math.round(renewalPrice * pct) / 100
-          : null,
-    }
-  }, [selectedPlan, form, gstRate])
-
   const clearFilters = () => {
-    setSearchInput('')
-    setSearch('')
-    setRoleFilter('all')
-    setPlanFilter('all')
-    setStatus('all')
-    setPage(1)
+    resetSecondaryFilters()
   }
 
   const openCreate = () => {
@@ -222,7 +229,6 @@ export function PlanCommissionsPage() {
       discountAmount: row.discountType === FIXED ? String(row.discountAmount) : '',
       earningType: row.earningType,
       earningAmount: row.earningType === FIXED ? String(row.earningAmount) : '',
-      renewalPrice: row.renewalPrice == null ? '' : String(row.renewalPrice),
       renewalEarningPercent: row.renewalEarningPercent == null ? '' : String(row.renewalEarningPercent),
       status: row.status,
     })
@@ -237,16 +243,17 @@ export function PlanCommissionsPage() {
 
   const validate = (): string | null => {
     if (form.roleIds.length === 0) return 'Please select a role'
-    if (!selectedPlan) return 'Please select a plan'
+    if (!selectedPlan) return 'Please select a commission name (plan)'
     if (form.discountType === FIXED && form.discountAmount.trim() === '') return 'Please enter the discount'
-    if (form.earningType === FIXED && form.earningAmount.trim() === '') return 'Please enter the earning'
+    if (form.earningType === FIXED && form.earningAmount.trim() === '') return 'Please enter the commission'
     if (form.renewalEarningPercent.trim() !== '') {
       const pct = Number(form.renewalEarningPercent)
-      if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return 'Renewal earning must be between 0 and 100%'
-      if (form.renewalPrice.trim() === '') return 'Enter the renewal price to set a renewal earning'
+      if (!Number.isFinite(pct) || pct <= 0 || pct > 100) return 'Renewal % must be between 0 and 100'
     }
-    if (preview?.sbRevenue != null && preview.sbRevenue < 0)
-      return 'Discount plus earning cannot be more than the plan price'
+    const discount = form.discountType === FIXED ? toAmount(form.discountAmount) : 0
+    const commission = form.earningType === FIXED ? toAmount(form.earningAmount) : 0
+    if (discount + commission > selectedPlan.offeredPrice)
+      return 'Discount plus commission cannot be more than the list price'
     return null
   }
 
@@ -262,7 +269,7 @@ export function PlanCommissionsPage() {
         discountAmount: form.discountType === FIXED ? toAmount(form.discountAmount) : 0,
         earningType: form.earningType,
         earningAmount: form.earningType === FIXED ? toAmount(form.earningAmount) : 0,
-        renewalPrice: form.renewalPrice.trim() === '' ? null : toAmount(form.renewalPrice),
+        renewalPrice: null,
         renewalEarningPercent:
           form.renewalEarningPercent.trim() === '' ? null : Number(form.renewalEarningPercent),
         status: editing ? form.status : undefined,
@@ -325,6 +332,23 @@ export function PlanCommissionsPage() {
 
       <Card className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden py-0">
         <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-3">
+            <label className="text-sm font-medium text-muted-foreground">Role</label>
+            <Select value={roleFilter} onValueChange={onRoleFilterChange}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="All roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                {roles.map((r) => (
+                  <SelectItem key={r.roleId} value={String(r.roleId)}>
+                    {r.roleName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {listQuery.isError && (
             <div className="m-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
               {(listQuery.error as Error)?.message || 'Failed to load'}
@@ -335,19 +359,7 @@ export function PlanCommissionsPage() {
             <Table className="w-max min-w-full">
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
-                  {[
-                    'Role',
-                    'Plan Name',
-                    'Price (w/o GST)',
-                    'Discount',
-                    'Earning (w/o GST)',
-                    'Earning (w/ GST)',
-                    'SB Revenue',
-                    'Renewal Price (w/o GST)',
-                    'Renewal Earning',
-                    'Status',
-                    'Action',
-                  ].map((h) => (
+                  {GRID_HEADERS.map((h) => (
                     <TableHead key={h} className="text-xs font-semibold tracking-wide text-slate-200 uppercase">
                       {h}
                     </TableHead>
@@ -357,54 +369,43 @@ export function PlanCommissionsPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={GRID_HEADERS.length} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={GRID_HEADERS.length} className="py-10 text-center text-muted-foreground">
                       No plan commissions found.
                     </TableCell>
                   </TableRow>
                 )}
-                {items.map((row) => (
+                {items.map((row) => {
+                  const r = row as PlanCommissionRow & Record<string, unknown>
+                  return (
                   <TableRow key={row.id}>
-                    <TableCell className="max-w-[12rem] whitespace-normal text-sm">{row.roleName}</TableCell>
-                    <TableCell className="max-w-[16rem] whitespace-normal">
-                      <div className="font-medium">{row.planName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.planCategory} · {row.validityDisplay}
-                      </div>
-                    </TableCell>
-                    <TableCell>{row.offeredPriceDisplay}</TableCell>
-                    <TableCell>{row.discountDisplay}</TableCell>
-                    <TableCell>{row.earningDisplay}</TableCell>
-                    <TableCell>{row.earningGstDisplay ?? '—'}</TableCell>
-                    <TableCell>{row.sbRevenueDisplay ?? '—'}</TableCell>
-                    <TableCell>
-                      {row.renewalPriceDisplay ?? '—'}
-                      {row.renewalPriceGstDisplay && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({row.renewalPriceGstDisplay} w/ GST)
-                        </span>
-                      )}
+                    <TableCell className="max-w-[16rem] whitespace-normal font-medium">
+                      {row.planName || String(r.PlanName ?? '')}
                     </TableCell>
                     <TableCell>
-                      {row.renewalEarningPercent == null ? (
-                        '—'
-                      ) : (
-                        <>
-                          {row.renewalEarningDisplay ?? '—'}
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({row.renewalEarningPercent}%)
-                          </span>
-                        </>
-                      )}
+                      {priceLabel(r, ['originalPriceDisplay', 'OriginalPriceDisplay'], [
+                        'originalPrice',
+                        'OriginalPrice',
+                      ])}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={badgeVariantFromTone(row.statusTone)}>{row.status}</Badge>
+                      {priceLabel(r, ['offeredPriceDisplay', 'OfferedPriceDisplay'], [
+                        'offeredPrice',
+                        'OfferedPrice',
+                      ])}
+                    </TableCell>
+                    <TableCell>{row.discountDisplay || String(r.DiscountDisplay ?? '—')}</TableCell>
+                    <TableCell>{row.earningDisplay || String(r.EarningDisplay ?? '—')}</TableCell>
+                    <TableCell>
+                      {row.renewalEarningPercent == null && r.RenewalEarningPercent == null
+                        ? '—'
+                        : `${row.renewalEarningPercent ?? r.RenewalEarningPercent}%`}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -439,7 +440,8 @@ export function PlanCommissionsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
@@ -485,31 +487,9 @@ export function PlanCommissionsPage() {
                 className="pl-8"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Role, plan name…"
+                placeholder="Plan name…"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Role</label>
-            <Select
-              value={roleFilter}
-              onValueChange={(v) => {
-                setRoleFilter(v)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {roles.map((r) => (
-                  <SelectItem key={r.roleId} value={String(r.roleId)}>
-                    {r.roleName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Plan</label>
@@ -560,7 +540,7 @@ export function PlanCommissionsPage() {
           <DrawerHeader>
             <DrawerTitle>{editing ? 'Edit Commission' : 'Add Commission'}</DrawerTitle>
             <DrawerDescription>
-              Amounts are without GST. The plan price comes from Manage Pricing.
+              Original Price and List Price come from Plan Pricing when you pick a commission name.
             </DrawerDescription>
           </DrawerHeader>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2">
@@ -601,13 +581,13 @@ export function PlanCommissionsPage() {
               </FormField>
             )}
 
-            <FormField label="Plan Name *">
+            <FormField label="Commission Name *">
               <Select
                 value={form.pricingPlanId || undefined}
                 onValueChange={(v) => setForm((f) => ({ ...f, pricingPlanId: v }))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Plan" />
+                  <SelectValue placeholder="Select from Plan Pricing" />
                 </SelectTrigger>
                 <SelectContent>
                   {plans.map((p) => (
@@ -619,23 +599,42 @@ export function PlanCommissionsPage() {
                 </SelectContent>
               </Select>
             </FormField>
-            {selectedPlan && (
-              <div className="grid grid-cols-2 gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs">
-                <div>
-                  <div className="text-muted-foreground">Category · Validity</div>
-                  <div className="font-medium">
-                    {selectedPlan.planCategory} · {selectedPlan.validityDisplay}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Price (w/o GST)</div>
-                  <div className="font-medium">{money(selectedPlan.offeredPrice)}</div>
-                </div>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Discount To Customer *">
+              <FormField label="Original Price">
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    selectedPlan
+                      ? priceLabel(selectedPlan as unknown as Record<string, unknown>, [], [
+                          'originalPrice',
+                          'OriginalPrice',
+                        ])
+                      : '—'
+                  }
+                  className="bg-muted/40 text-muted-foreground"
+                />
+              </FormField>
+              <FormField label="List Price">
+                <Input
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    selectedPlan
+                      ? priceLabel(selectedPlan as unknown as Record<string, unknown>, [], [
+                          'offeredPrice',
+                          'OfferedPrice',
+                        ])
+                      : '—'
+                  }
+                  className="bg-muted/40 text-muted-foreground"
+                />
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Discount *">
                 <Select
                   value={form.discountType}
                   onValueChange={(v) => setForm((f) => ({ ...f, discountType: v }))}
@@ -664,7 +663,7 @@ export function PlanCommissionsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Partner Earning *">
+              <FormField label="Commissions *">
                 <Select
                   value={form.earningType}
                   onValueChange={(v) => setForm((f) => ({ ...f, earningType: v }))}
@@ -681,7 +680,7 @@ export function PlanCommissionsPage() {
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField label="Earning (₹, w/o GST)">
+              <FormField label="Commission (₹)">
                 <Input
                   inputMode="decimal"
                   placeholder={form.earningType === FIXED ? '0' : 'Not fixed'}
@@ -692,34 +691,16 @@ export function PlanCommissionsPage() {
               </FormField>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Renewal Price (₹, w/o GST)">
-                <Input
-                  inputMode="decimal"
-                  placeholder="Leave empty if not renewed"
-                  value={form.renewalPrice}
-                  onChange={(e) => setForm((f) => ({ ...f, renewalPrice: sanitizeAmount(e.target.value) }))}
-                />
-              </FormField>
-              <FormField label="With 18% GST">
-                <Input
-                  readOnly
-                  tabIndex={-1}
-                  value={money(preview?.renewalPriceGst)}
-                  className="bg-background text-muted-foreground"
-                />
-              </FormField>
-            </div>
-
-            <FormField label="Renewal Earning (% of renewal price)">
+            <FormField label="Renewal (%)">
               <Input
                 inputMode="decimal"
-                placeholder="Leave empty for no renewal earning"
+                placeholder="Leave empty for no renewal commission"
                 value={form.renewalEarningPercent}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, renewalEarningPercent: sanitizeAmount(e.target.value) }))
                 }
               />
+              <p className="mt-1 text-xs text-muted-foreground">Percent of list price from Plan Pricing.</p>
             </FormField>
 
             {editing && (
@@ -734,22 +715,6 @@ export function PlanCommissionsPage() {
                   </SelectContent>
                 </Select>
               </FormField>
-            )}
-
-            {preview && (
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="mb-2 text-xs font-semibold tracking-wide text-foreground uppercase">Calculated</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <span className="text-muted-foreground">Earning (with GST)</span>
-                  <span className="text-right font-medium">{money(preview.earningGst)}</span>
-                  <span className="text-muted-foreground">SB revenue</span>
-                  <span className={`text-right font-medium ${preview.sbRevenue != null && preview.sbRevenue < 0 ? 'text-destructive' : ''}`}>
-                    {money(preview.sbRevenue)}
-                  </span>
-                  <span className="text-muted-foreground">Renewal earning</span>
-                  <span className="text-right font-medium">{money(preview.renewalEarning)}</span>
-                </div>
-              </div>
             )}
           </div>
           <DrawerFooter className="flex-row gap-2">
