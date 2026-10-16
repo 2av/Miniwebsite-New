@@ -12,7 +12,7 @@ export function fetchManagePricing(query: {
   page?: number
   pageSize?: number
   search?: string
-  roleId?: number
+  category?: string
   status?: string
 }) {
   return apiGet<ManagePricingPage>(BASE, query as Record<string, unknown>)

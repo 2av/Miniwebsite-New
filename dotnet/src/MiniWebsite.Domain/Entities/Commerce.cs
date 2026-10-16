@@ -2,18 +2,48 @@
 
 namespace MiniWebsite.Domain.Entities;
 
+/// <summary>A plan that is sold; the price is the same for every role.</summary>
 public class PricingPlan
 {
     public int Id { get; set; }
-    /// <summary>Plan type: the role this price applies to. Null means All (no role mapped).</summary>
-    public int? RoleId { get; set; }
-    public Role? Role { get; set; }
     public string PlanName { get; set; } = "";
+    /// <summary>One of <see cref="PlanCommissionValues.Categories"/>.</summary>
+    public string PlanCategory { get; set; } = PlanCommissionValues.CategoryDbProfile;
+    /// <summary>Null means lifetime validity.</summary>
+    public int? ValidityMonths { get; set; }
     public decimal OriginalPrice { get; set; }
     public decimal OriginalPriceGst { get; set; }
     public decimal OfferedPrice { get; set; }
     public decimal OfferedPriceGst { get; set; }
     public string Status { get; set; } = "Active";
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>Discount and earning terms for one role on one pricing plan.</summary>
+public class PlanCommission
+{
+    public int Id { get; set; }
+    public int RoleId { get; set; }
+    public Role Role { get; set; } = null!;
+    public int PricingPlanId { get; set; }
+    public PricingPlan PricingPlan { get; set; } = null!;
+    /// <summary>One of <see cref="PlanCommissionValues.DiscountTypes"/>.</summary>
+    public string DiscountType { get; set; } = PlanCommissionValues.DiscountFixed;
+    /// <summary>Discount to the customer, without GST. Used only when the discount type is Fixed.</summary>
+    public decimal DiscountAmount { get; set; }
+    /// <summary>One of <see cref="PlanCommissionValues.EarningTypes"/>.</summary>
+    public string EarningType { get; set; } = PlanCommissionValues.EarningFixed;
+    /// <summary>Partner earning, without GST. Used only when the earning type is Fixed.</summary>
+    public decimal EarningAmount { get; set; }
+    /// <summary>Renewal price for this role on this plan, without GST. Null when not renewed.</summary>
+    public decimal? RenewalPrice { get; set; }
+    public decimal? RenewalPriceGst { get; set; }
+    /// <summary>Percent of <see cref="RenewalPrice"/> earned on renewal. Null means no renewal earning.</summary>
+    public decimal? RenewalEarningPercent { get; set; }
+    /// <summary>The partner pays SB revenue plus GST from their wallet (Franchise Partner).</summary>
+    public bool DeductFromWallet { get; set; }
+    public string Status { get; set; } = PlanCommissionValues.StatusActive;
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

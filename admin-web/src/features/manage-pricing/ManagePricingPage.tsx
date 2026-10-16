@@ -55,12 +55,20 @@ import {
 } from '@/components/ui/table'
 
 const GST_RATE = 1.18
-/** Select value for the "All" plan type, saved as no role. */
-const ALL_ROLES = 'all'
+/** Select value for lifetime validity, saved as no months. */
+const LIFETIME = 'lifetime'
+const VALIDITY_MONTH_OPTIONS = [1, 3, 6, 12, 24, 36, 60]
+
+function validityLabel(months: number) {
+  if (months % 12 === 0) return months === 12 ? '1 Year' : `${months / 12} Years`
+  return months === 1 ? '1 Month' : `${months} Months`
+}
 
 type PricingFormState = {
-  roleId: string
   planName: string
+  planCategory: string
+  /** Months as a string, or LIFETIME */
+  validity: string
   /** Keep as string so the user can clear the field while typing */
   originalPrice: string
   offeredPrice: string
@@ -68,8 +76,9 @@ type PricingFormState = {
 }
 
 const emptyForm: PricingFormState = {
-  roleId: '',
   planName: '',
+  planCategory: '',
+  validity: '',
   originalPrice: '',
   offeredPrice: '',
   status: 'Active',
@@ -113,7 +122,7 @@ export function ManagePricingPage() {
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState('any')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [status, setStatus] = useState('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -141,10 +150,10 @@ export function ManagePricingPage() {
       page,
       pageSize: 10,
       search: search || undefined,
-      roleId: roleFilter === 'any' ? undefined : roleFilter === ALL_ROLES ? 0 : Number(roleFilter),
+      category: categoryFilter === 'all' ? undefined : categoryFilter,
       status: status === 'all' ? undefined : status,
     }),
-    [page, search, roleFilter, status],
+    [page, search, categoryFilter, status],
   )
   const queryKey = useMemo(() => ['manage-pricing', filters] as const, [filters])
 
@@ -164,15 +173,21 @@ export function ManagePricingPage() {
   const pages = data ? Math.max(1, Math.ceil(data.totalCount / data.pageSize)) : 1
   const hasSearch = Boolean(searchInput.trim())
   const activeFilterCount =
-    (hasSearch ? 1 : 0) + (roleFilter !== 'any' ? 1 : 0) + (status !== 'all' ? 1 : 0)
+    (hasSearch ? 1 : 0) + (categoryFilter !== 'all' ? 1 : 0) + (status !== 'all' ? 1 : 0)
 
-  const roles = metaQuery.data?.roles ?? []
+  const categories = metaQuery.data?.categories ?? []
   const existingPlans = metaQuery.data?.existingPlans ?? []
+  const validityOptions = useMemo(() => {
+    const current = Number(form.validity)
+    return Number.isInteger(current) && current > 0 && !VALIDITY_MONTH_OPTIONS.includes(current)
+      ? [...VALIDITY_MONTH_OPTIONS, current].sort((a, b) => a - b)
+      : VALIDITY_MONTH_OPTIONS
+  }, [form.validity])
 
   const clearFilters = () => {
     setSearchInput('')
     setSearch('')
-    setRoleFilter('any')
+    setCategoryFilter('all')
     setStatus('all')
     setPage(1)
   }
@@ -186,8 +201,9 @@ export function ManagePricingPage() {
   const openEdit = (row: ManagePricingRow) => {
     setEditing(row)
     setForm({
-      roleId: row.roleId ? String(row.roleId) : ALL_ROLES,
       planName: row.planName,
+      planCategory: row.planCategory,
+      validity: row.validityMonths == null ? LIFETIME : String(row.validityMonths),
       originalPrice: String(row.originalPrice ?? ''),
       offeredPrice: String(row.offeredPrice ?? ''),
       status: row.status || 'Active',
@@ -197,18 +213,14 @@ export function ManagePricingPage() {
 
   const submitForm = async () => {
     const planName = form.planName.trim()
-    if (!form.roleId || !planName) {
-      return toast.push('Please select plan type and enter plan name', 'error')
+    if (!planName || !form.planCategory || !form.validity) {
+      return toast.push('Please enter plan name, category and validity', 'error')
     }
-    const roleId = form.roleId === ALL_ROLES ? null : Number(form.roleId)
     const duplicate = existingPlans.some(
-      (p) =>
-        p.roleId === roleId &&
-        p.planName.toLowerCase() === planName.toLowerCase() &&
-        p.id !== editing?.id,
+      (p) => p.planName.toLowerCase() === planName.toLowerCase() && p.id !== editing?.id,
     )
     if (duplicate) {
-      return toast.push('This plan type and plan name combination already exists', 'error')
+      return toast.push('A plan with this name already exists', 'error')
     }
     const originalPrice = parsePriceInput(form.originalPrice)
     const offeredPrice = parsePriceInput(form.offeredPrice)
@@ -221,8 +233,9 @@ export function ManagePricingPage() {
     setFormBusy(true)
     try {
       const payload: UpsertPricingPayload = {
-        roleId,
         planName,
+        planCategory: form.planCategory,
+        validityMonths: form.validity === LIFETIME ? null : Number(form.validity),
         originalPrice,
         offeredPrice,
         status: editing ? form.status || 'Active' : undefined,
@@ -298,8 +311,9 @@ export function ManagePricingPage() {
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
                   {[
-                    'Plan Type',
                     'Plan Name',
+                    'Category',
+                    'Validity',
                     'Original (w/o GST)',
                     'Original (w/ GST)',
                     'Offered (w/o GST)',
@@ -316,22 +330,23 @@ export function ManagePricingPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                       No pricing plans found.
                     </TableCell>
                   </TableRow>
                 )}
                 {items.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="max-w-[10rem] whitespace-normal text-sm">{row.planType}</TableCell>
                       <TableCell className="max-w-[14rem] whitespace-normal font-medium">{row.planName}</TableCell>
+                      <TableCell className="text-sm">{row.planCategory}</TableCell>
+                      <TableCell className="text-sm">{row.validityDisplay}</TableCell>
                       <TableCell>{row.originalPriceDisplay}</TableCell>
                       <TableCell>{row.originalPriceGstDisplay}</TableCell>
                       <TableCell>{row.offeredPriceDisplay}</TableCell>
@@ -416,16 +431,16 @@ export function ManagePricingPage() {
                 className="pl-8"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Plan type, plan name…"
+                placeholder="Plan name, category…"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Plan type</label>
+            <label className="text-sm font-medium">Category</label>
             <Select
-              value={roleFilter}
+              value={categoryFilter}
               onValueChange={(v) => {
-                setRoleFilter(v)
+                setCategoryFilter(v)
                 setPage(1)
               }}
             >
@@ -433,11 +448,10 @@ export function ManagePricingPage() {
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="any">Any</SelectItem>
-                <SelectItem value={ALL_ROLES}>All</SelectItem>
-                {roles.map((r) => (
-                  <SelectItem key={r.roleId} value={String(r.roleId)}>
-                    {r.roleName}
+                <SelectItem value="all">All</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -470,37 +484,57 @@ export function ManagePricingPage() {
           <DrawerHeader>
             <DrawerTitle>{editing ? 'Edit Pricing' : 'Add Pricing'}</DrawerTitle>
             <DrawerDescription>
-              GST is auto-calculated at 18%. Plan type is the role this price applies to.
+              GST is auto-calculated at 18%. The price is the same for every role; set partner
+              discounts and earnings in Plan Commissions.
             </DrawerDescription>
           </DrawerHeader>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2">
-            <FormField label="Plan Type *">
-              <Select
-                value={form.roleId || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, roleId: v }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Plan Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_ROLES}>All</SelectItem>
-                  {roles.map((r) => (
-                    <SelectItem key={r.roleId} value={String(r.roleId)}>
-                      {r.roleName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-
             <FormField label="Plan Name *">
               <Input
                 maxLength={200}
                 value={form.planName}
                 onChange={(e) => setForm((f) => ({ ...f, planName: e.target.value }))}
-                placeholder="e.g., ShareBizz 1 Year Plan"
+                placeholder="e.g., DB Profile (1 Year Plan)"
               />
             </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Category *">
+                <Select
+                  value={form.planCategory || undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, planCategory: v }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <FormField label="Validity *">
+                <Select
+                  value={form.validity || undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, validity: v }))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Validity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {validityOptions.map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {validityLabel(m)}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={LIFETIME}>Lifetime</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+            </div>
 
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="mb-2 text-xs font-semibold tracking-wide text-foreground uppercase">

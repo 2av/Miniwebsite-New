@@ -21,6 +21,7 @@ public interface IApplicationDbContext
     DbSet<CardOffer> CardOffers { get; }
     DbSet<CardVideo> CardVideos { get; }
     DbSet<PricingPlan> PricingPlans { get; }
+    DbSet<PlanCommission> PlanCommissions { get; }
     DbSet<JoiningDeal> JoiningDeals { get; }
     DbSet<UserJoiningDeal> UserJoiningDeals { get; }
     DbSet<Wallet> Wallets { get; }

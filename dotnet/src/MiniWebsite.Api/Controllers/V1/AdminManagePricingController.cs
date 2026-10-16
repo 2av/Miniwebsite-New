@@ -31,7 +31,7 @@ public class AdminManagePricingController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         [FromQuery] string? search = null,
-        [FromQuery] int? roleId = null,
+        [FromQuery] string? category = null,
         [FromQuery] string? status = null,
         CancellationToken ct = default)
     {
@@ -40,7 +40,7 @@ public class AdminManagePricingController : ControllerBase
             Page = page,
             PageSize = pageSize,
             Search = search,
-            RoleId = roleId,
+            Category = category,
             Status = status
         }, ct);
         return result.Success ? Ok(result) : BadRequest(result);

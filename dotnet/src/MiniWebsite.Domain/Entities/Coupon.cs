@@ -19,10 +19,6 @@ public class Coupon
     public int CurrentUsage { get; set; }
     /// <summary>Stored as Active or InActive; Expired is derived from <see cref="ValidityDate"/>.</summary>
     public string Status { get; set; } = "Active";
-    /// <summary>Referrer commission paid when a referred user signs up (not shown in the coupons grid).</summary>
-    public decimal BonusAmount { get; set; }
-    /// <summary>Referrer commission on the referee's renewal (not shown in the coupons grid).</summary>
-    public decimal RenewalBonusAmount { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime? CreatedAt { get; set; }
     public ICollection<DealCustomerMapping> CustomerMappings { get; set; } = new List<DealCustomerMapping>();

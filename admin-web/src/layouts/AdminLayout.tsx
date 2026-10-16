@@ -33,6 +33,7 @@ import {
   Search,
   X,
   BadgeIndianRupee,
+  HandCoins,
 } from 'lucide-react'
 import { useMemo, useState, type ComponentType } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -206,7 +207,17 @@ const nav: NavNode[] = [
   },
   { kind: 'link', to: '/manage-referrals', label: 'Manage Referrals', icon: Share2 },
   { kind: 'link', to: '/coupons', label: 'Coupons', icon: Tag },
-  { kind: 'link', to: '/manage-pricing', label: 'Manage Pricing', icon: BadgeIndianRupee },
+  {
+    kind: 'group',
+    id: 'manage-pricing',
+    label: 'Manage Pricing',
+    icon: BadgeIndianRupee,
+    matchPrefixes: ['/manage-pricing', '/plan-commissions'],
+    children: [
+      { kind: 'link', to: '/manage-pricing', label: 'Plan Pricing', icon: BadgeIndianRupee, end: true },
+      { kind: 'link', to: '/plan-commissions', label: 'Plan Commissions', icon: HandCoins },
+    ],
+  },
   { kind: 'link', to: '/recharge-wallet', label: 'Recharge Wallet', icon: BatteryCharging },
   { kind: 'link', to: '/manage-categories', label: 'Category Management', icon: FolderTree },
   { kind: 'link', to: '/role-management', label: 'Role Management', icon: Shield },

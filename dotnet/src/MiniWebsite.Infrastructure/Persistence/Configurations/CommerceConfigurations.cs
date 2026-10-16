@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 
 namespace MiniWebsite.Infrastructure.Persistence.Configurations;
@@ -15,8 +16,6 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         builder.Property(x => x.CouponType).HasMaxLength(50);
         builder.Property(x => x.PromoDiscountType).HasMaxLength(20);
         builder.Property(x => x.PromoDiscountValue).HasPrecision(12, 2);
-        builder.Property(x => x.BonusAmount).HasPrecision(12, 2);
-        builder.Property(x => x.RenewalBonusAmount).HasPrecision(12, 2);
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.CreatedBy).HasMaxLength(200);
         builder.HasIndex(x => x.CouponCode);
@@ -27,6 +26,7 @@ public class CouponConfiguration : IEntityTypeConfiguration<Coupon>
 
 public class CommerceConfigurations :
     IEntityTypeConfiguration<PricingPlan>,
+    IEntityTypeConfiguration<PlanCommission>,
     IEntityTypeConfiguration<DealCustomerMapping>,
     IEntityTypeConfiguration<JoiningDeal>,
     IEntityTypeConfiguration<UserJoiningDeal>,
@@ -41,13 +41,31 @@ public class CommerceConfigurations :
         builder.ToTable("pricing_plans");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.PlanName).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.PlanCategory).HasMaxLength(50).IsRequired()
+            .HasDefaultValue(PlanCommissionValues.CategoryDbProfile);
         builder.Property(x => x.OriginalPrice).HasPrecision(12, 2);
         builder.Property(x => x.OriginalPriceGst).HasPrecision(12, 2);
         builder.Property(x => x.OfferedPrice).HasPrecision(12, 2);
         builder.Property(x => x.OfferedPriceGst).HasPrecision(12, 2);
         builder.Property(x => x.Status).HasMaxLength(20);
-        builder.HasIndex(x => new { x.RoleId, x.PlanName }).IsUnique();
-        builder.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.PlanName).IsUnique();
+    }
+
+    public void Configure(EntityTypeBuilder<PlanCommission> builder)
+    {
+        builder.ToTable("plan_commissions");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.DiscountType).HasMaxLength(30).IsRequired();
+        builder.Property(x => x.DiscountAmount).HasPrecision(12, 2);
+        builder.Property(x => x.EarningType).HasMaxLength(30).IsRequired();
+        builder.Property(x => x.EarningAmount).HasPrecision(12, 2);
+        builder.Property(x => x.RenewalPrice).HasPrecision(12, 2);
+        builder.Property(x => x.RenewalPriceGst).HasPrecision(12, 2);
+        builder.Property(x => x.RenewalEarningPercent).HasPrecision(5, 2);
+        builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.HasIndex(x => new { x.RoleId, x.PricingPlanId }).IsUnique();
+        builder.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(x => x.PricingPlan).WithMany().HasForeignKey(x => x.PricingPlanId).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<DealCustomerMapping> builder)

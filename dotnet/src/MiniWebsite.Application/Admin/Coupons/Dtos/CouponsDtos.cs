@@ -34,8 +34,6 @@ public record CouponRowDto(
     int UsageLimitPerUser,
     string UsageLimitPerUserDisplay,
     int CurrentUsage,
-    decimal ReferrerCommission,
-    decimal RenewalCommission,
     string Status,
     string StatusDisplay,
     string StatusTone);
@@ -51,8 +49,6 @@ public record UpsertCouponRequest(
     int UsageLimitPerCoupon,
     int UsageLimitPerUser,
     string? Status = null,
-    decimal ReferrerCommission = 0,
-    decimal RenewalCommission = 0,
     string? CreatedBy = null);
 
 public record CouponRoleOptionDto(int RoleId, string RoleName);

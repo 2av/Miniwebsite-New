@@ -82,8 +82,6 @@ type CouponForm = {
   usageLimitPerCoupon: string
   usageLimitPerUser: string
   status: string
-  referrerCommission: string
-  renewalCommission: string
 }
 
 type CodeMode = 'custom' | 'random'
@@ -99,8 +97,6 @@ const emptyForm: CouponForm = {
   usageLimitPerCoupon: '0',
   usageLimitPerUser: '0',
   status: 'Active',
-  referrerCommission: '0',
-  renewalCommission: '0',
 }
 
 function toDateInput(value?: string | null) {
@@ -213,8 +209,6 @@ export function CouponsPage() {
       usageLimitPerCoupon: String(row.usageLimitPerCoupon ?? 0),
       usageLimitPerUser: String(row.usageLimitPerUser ?? 0),
       status: row.status === 'Active' ? 'Active' : 'InActive',
-      referrerCommission: String(row.referrerCommission ?? 0),
-      renewalCommission: String(row.renewalCommission ?? 0),
     })
     setCodeMode('custom')
     setFormOpen(true)
@@ -255,10 +249,6 @@ export function CouponsPage() {
     if (!Number.isInteger(perUser) || perUser < 0) return 'Usage limit per user must be 0 or more'
     if (perCoupon > 0 && perUser > perCoupon)
       return 'Usage limit per user cannot be more than the usage limit per coupon'
-    const referrer = toNumber(form.referrerCommission)
-    const renewal = toNumber(form.renewalCommission)
-    if (Number.isNaN(referrer) || referrer < 0) return 'Referrer commission cannot be negative'
-    if (Number.isNaN(renewal) || renewal < 0) return 'Renewal commission cannot be negative'
     return null
   }
 
@@ -278,8 +268,6 @@ export function CouponsPage() {
         usageLimitPerCoupon: toNumber(form.usageLimitPerCoupon),
         usageLimitPerUser: toNumber(form.usageLimitPerUser),
         status: form.status,
-        referrerCommission: toNumber(form.referrerCommission),
-        renewalCommission: toNumber(form.renewalCommission),
       }
       const res = editing ? await updateCoupon(editing.id, payload) : await createCoupon(payload)
       toast.push(res.message || (editing ? 'Coupon updated' : 'Coupon added'), 'success')
@@ -686,30 +674,6 @@ export function CouponsPage() {
                 again.
               </p>
             )}
-
-            <div className="mt-2 border-t pt-3">
-              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Referral commission
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="Referrer Commission (₹)">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.referrerCommission}
-                    onChange={(e) => setForm((f) => ({ ...f, referrerCommission: e.target.value }))}
-                  />
-                </FormField>
-                <FormField label="On Referee Renewal (₹)">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.renewalCommission}
-                    onChange={(e) => setForm((f) => ({ ...f, renewalCommission: e.target.value }))}
-                  />
-                </FormField>
-              </div>
-            </div>
           </div>
           <DrawerFooter>
             <DrawerClose asChild>

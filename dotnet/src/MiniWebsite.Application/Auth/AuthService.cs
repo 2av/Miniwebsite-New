@@ -21,7 +21,7 @@ public class AuthService : IAuthService
     private readonly IJwtTokenService _jwt;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
-    private readonly IDealBonusLookup _deals;
+    private readonly IReferralEarningLookup _earnings;
     private readonly JwtOptions _jwtOptions;
     private readonly AppOptions _app;
 
@@ -31,7 +31,7 @@ public class AuthService : IAuthService
         IJwtTokenService jwt,
         IEmailSender email,
         IEmailTemplateRenderer templates,
-        IDealBonusLookup deals,
+        IReferralEarningLookup earnings,
         IOptions<JwtOptions> jwtOptions,
         IOptions<AppOptions> app)
     {
@@ -40,7 +40,7 @@ public class AuthService : IAuthService
         _jwt = jwt;
         _email = email;
         _templates = templates;
-        _deals = deals;
+        _earnings = earnings;
         _jwtOptions = jwtOptions.Value;
         _app = app.Value;
     }
@@ -102,7 +102,7 @@ public class AuthService : IAuthService
 
         if (referredBy != null)
         {
-            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.ShareBizzUser, "DMW001", ct);
+            var amount = await _earnings.GetSignupEarningAsync(referrerId, PlanCommissionValues.CategoryDbProfile, ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
                 ReferrerUserId = referrerId,

@@ -392,8 +392,6 @@ export type CouponRow = {
   usageLimitPerUser: number
   usageLimitPerUserDisplay: string
   currentUsage: number
-  referrerCommission: number
-  renewalCommission: number
   /** Stored status: Active or InActive. */
   status: string
   /** Active, InActive or Expired (Expired once the validity date has passed). */
@@ -430,35 +428,25 @@ export type UpsertCouponPayload = {
   usageLimitPerCoupon: number
   usageLimitPerUser: number
   status?: string
-  referrerCommission: number
-  renewalCommission: number
-}
-
-export type PricingRoleOption = {
-  roleId: number
-  roleName: string
 }
 
 export type PricingPlanKey = {
   id: number
-  /** Null means All (no role mapped). */
-  roleId: number | null
   planName: string
 }
 
 export type ManagePricingMeta = {
-  roles: PricingRoleOption[]
-  planNames: string[]
+  categories: string[]
   existingPlans: PricingPlanKey[]
 }
 
 export type ManagePricingRow = {
   id: number
-  /** Null means All (no role mapped). */
-  roleId: number | null
-  /** Role name of the plan type, or "All". */
-  planType: string
   planName: string
+  planCategory: string
+  /** Null means lifetime validity. */
+  validityMonths: number | null
+  validityDisplay: string
   originalPrice: number
   originalPriceDisplay: string
   originalPriceGst: number
@@ -480,11 +468,94 @@ export type ManagePricingPage = {
 }
 
 export type UpsertPricingPayload = {
-  /** Null means All (no role mapped). */
-  roleId: number | null
   planName: string
+  planCategory: string
+  /** Null means lifetime validity. */
+  validityMonths: number | null
   originalPrice: number
   offeredPrice: number
+  status?: string
+}
+
+export type PlanCommissionRoleOption = {
+  roleId: number
+  roleName: string
+}
+
+export type PlanCommissionPlanOption = {
+  id: number
+  planName: string
+  planCategory: string
+  validityDisplay: string
+  offeredPrice: number
+  status: string
+}
+
+export type PlanCommissionsMeta = {
+  roles: PlanCommissionRoleOption[]
+  plans: PlanCommissionPlanOption[]
+  discountTypes: string[]
+  earningTypes: string[]
+  gstRate: number
+}
+
+/** Stored terms plus amounts the API calculates from the plan price. */
+export type PlanCommissionRow = {
+  id: number
+  roleId: number
+  roleName: string
+  pricingPlanId: number
+  planName: string
+  planCategory: string
+  validityDisplay: string
+  offeredPrice: number
+  offeredPriceDisplay: string
+  discountType: string
+  discountAmount: number
+  discountDisplay: string
+  earningType: string
+  earningAmount: number
+  earningDisplay: string
+  earningGst: number | null
+  earningGstDisplay: string | null
+  sbRevenue: number | null
+  sbRevenueDisplay: string | null
+  deductFromWallet: boolean
+  walletDeduction: number | null
+  walletDeductionDisplay: string | null
+  renewalPrice: number | null
+  renewalPriceDisplay: string | null
+  renewalPriceGst: number | null
+  renewalPriceGstDisplay: string | null
+  renewalEarningPercent: number | null
+  renewalEarning: number | null
+  renewalEarningDisplay: string | null
+  /** Active or InActive. */
+  status: string
+  statusTone: string
+  createdAtDisplay?: string | null
+}
+
+export type PlanCommissionsPage = {
+  items: PlanCommissionRow[]
+  totalCount: number
+  page: number
+  pageSize: number
+}
+
+export type UpsertPlanCommissionPayload = {
+  /** Create adds one row per role; update takes exactly one. */
+  roleIds: number[]
+  pricingPlanId: number
+  discountType: string
+  discountAmount: number
+  earningType: string
+  earningAmount: number
+  /** Renewal price without GST for this role on this plan. Null when not renewed. */
+  renewalPrice: number | null
+  /** Null means no renewal earning. Requires renewalPrice. */
+  renewalEarningPercent: number | null
+  deductFromWallet: boolean
   status?: string
 }
 

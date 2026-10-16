@@ -188,8 +188,6 @@ public partial class AdminCouponsService : IAdminCouponsService
         entity.PromoDiscountValue = Math.Round(request.PromoDiscountValue, 2);
         entity.UsageLimitPerCoupon = request.UsageLimitPerCoupon;
         entity.UsageLimitPerUser = request.UsageLimitPerUser;
-        entity.BonusAmount = Math.Max(0, request.ReferrerCommission);
-        entity.RenewalBonusAmount = Math.Max(0, request.RenewalCommission);
     }
 
     private static IQueryable<Coupon> ApplyFilters(IQueryable<Coupon> q, CouponsQuery query)
@@ -313,8 +311,6 @@ public partial class AdminCouponsService : IAdminCouponsService
             c.UsageLimitPerUser,
             FormatLimit(c.UsageLimitPerUser),
             c.CurrentUsage,
-            c.BonusAmount,
-            c.RenewalBonusAmount,
             NormalizeStatus(c.Status) ?? CouponValues.StatusInActive,
             status,
             tone);

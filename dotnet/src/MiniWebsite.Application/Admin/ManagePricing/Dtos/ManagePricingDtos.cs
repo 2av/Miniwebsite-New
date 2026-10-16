@@ -5,18 +5,14 @@ public class ManagePricingQuery
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 10;
     public string? Search { get; set; }
-    /// <summary>Positive = that role, 0 = only plans for All (no role mapped), null = no filter.</summary>
-    public int? RoleId { get; set; }
+    public string? Category { get; set; }
     public string? Status { get; set; }
 }
 
-public record PricingRoleOptionDto(int RoleId, string RoleName);
-
-public record PricingPlanKeyDto(int Id, int? RoleId, string PlanName);
+public record PricingPlanKeyDto(int Id, string PlanName);
 
 public record ManagePricingMetaDto(
-    IReadOnlyList<PricingRoleOptionDto> Roles,
-    IReadOnlyList<string> PlanNames,
+    IReadOnlyList<string> Categories,
     IReadOnlyList<PricingPlanKeyDto> ExistingPlans);
 
 public record ManagePricingPageDto(
@@ -27,9 +23,10 @@ public record ManagePricingPageDto(
 
 public record ManagePricingRowDto(
     int Id,
-    int? RoleId,
-    string PlanType,
     string PlanName,
+    string PlanCategory,
+    int? ValidityMonths,
+    string ValidityDisplay,
     decimal OriginalPrice,
     string OriginalPriceDisplay,
     decimal OriginalPriceGst,
@@ -42,10 +39,11 @@ public record ManagePricingRowDto(
     string StatusTone,
     string? CreatedAtDisplay);
 
-/// <param name="RoleId">Null means All (no role mapped).</param>
+/// <param name="ValidityMonths">Null means lifetime validity.</param>
 public record UpsertPricingRequest(
-    int? RoleId,
     string PlanName,
+    string PlanCategory,
+    int? ValidityMonths,
     decimal OriginalPrice,
     decimal OfferedPrice,
     string? Status = null);

@@ -34,7 +34,7 @@ public class RegistrationService : IRegistrationService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
-    private readonly IDealBonusLookup _deals;
+    private readonly IReferralEarningLookup _earnings;
     private readonly AppOptions _app;
 
     public RegistrationService(
@@ -42,14 +42,14 @@ public class RegistrationService : IRegistrationService
         IPasswordHasher passwordHasher,
         IEmailSender email,
         IEmailTemplateRenderer templates,
-        IDealBonusLookup deals,
+        IReferralEarningLookup earnings,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
-        _deals = deals;
+        _earnings = earnings;
         _app = app.Value;
     }
 
@@ -110,7 +110,7 @@ public class RegistrationService : IRegistrationService
         if (!string.IsNullOrWhiteSpace(pending.ReferrerEmail))
         {
             var referrerId = pending.ReferrerUserId ?? await FindUserIdAsync(pending.ReferrerEmail, ct);
-            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.ShareBizzUser, "DMW001", ct);
+            var amount = await _earnings.GetSignupEarningAsync(referrerId, PlanCommissionValues.CategoryDbProfile, ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
                 ReferrerUserId = referrerId,
@@ -192,7 +192,7 @@ public class RegistrationService : IRegistrationService
         if (!string.IsNullOrWhiteSpace(pending.ReferrerEmail))
         {
             var referrerId = pending.ReferrerUserId ?? await FindUserIdAsync(pending.ReferrerEmail, ct);
-            var amount = await _deals.GetBonusAmountAsync(referrerId, RolePrefixes.FranchisePartner, "DFRAN101", ct);
+            var amount = await _earnings.GetSignupEarningAsync(referrerId, PlanCommissionValues.CategoryFranchise, ct);
             _db.ReferralEarnings.Add(new ReferralEarning
             {
                 ReferrerUserId = referrerId,

@@ -42,7 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentGateway, RazorpayPaymentGateway>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, AspNetPasswordHasher>();
-        services.AddScoped<IDealBonusLookup, DealBonusLookup>();
+        services.AddScoped<IReferralEarningLookup, ReferralEarningLookup>();
         services.AddScoped<IWalletBalanceLookup, WalletBalanceLookup>();
         services.AddDataSeeder();
 

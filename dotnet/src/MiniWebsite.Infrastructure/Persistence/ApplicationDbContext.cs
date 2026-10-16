@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<CardOffer> CardOffers => Set<CardOffer>();
     public DbSet<CardVideo> CardVideos => Set<CardVideo>();
     public DbSet<PricingPlan> PricingPlans => Set<PricingPlan>();
+    public DbSet<PlanCommission> PlanCommissions => Set<PlanCommission>();
     public DbSet<JoiningDeal> JoiningDeals => Set<JoiningDeal>();
     public DbSet<UserJoiningDeal> UserJoiningDeals => Set<UserJoiningDeal>();
     public DbSet<Wallet> Wallets => Set<Wallet>();

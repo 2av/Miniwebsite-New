@@ -662,10 +662,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<decimal>("BonusAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
                     b.Property<string>("CouponCode")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -697,10 +693,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<decimal>("PromoDiscountValue")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<decimal>("RenewalBonusAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
@@ -1840,6 +1832,74 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("password_reset_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.PlanCommission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("DeductFromWallet")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("DiscountType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<decimal>("EarningAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("EarningType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("PricingPlanId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("RenewalEarningPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("RenewalPrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal?>("RenewalPriceGst")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PricingPlanId");
+
+                    b.HasIndex("RoleId", "PricingPlanId")
+                        .IsUnique();
+
+                    b.ToTable("plan_commissions", (string)null);
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.PricingPlan", b =>
                 {
                     b.Property<int>("Id")
@@ -1867,13 +1927,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<string>("PlanCategory")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)")
+                        .HasDefaultValue("DB Profile");
+
                     b.Property<string>("PlanName")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
-
-                    b.Property<int?>("RoleId")
-                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1883,9 +1947,12 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("ValidityMonths")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("RoleId", "PlanName")
+                    b.HasIndex("PlanName")
                         .IsUnique();
 
                     b.ToTable("pricing_plans", (string)null);
@@ -2870,12 +2937,21 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.PricingPlan", b =>
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.PlanCommission", b =>
                 {
+                    b.HasOne("MiniWebsite.Domain.Entities.PricingPlan", "PricingPlan")
+                        .WithMany()
+                        .HasForeignKey("PricingPlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("MiniWebsite.Domain.Entities.Role", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PricingPlan");
 
                     b.Navigation("Role");
                 });

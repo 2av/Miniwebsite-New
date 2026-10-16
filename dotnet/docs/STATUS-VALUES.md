@@ -35,6 +35,13 @@ Use only these labels. Do not invent alternatives such as Success, Failed, Inact
 
 The admin chooses only Active or InActive. A coupon shows Expired automatically once its validity date has passed.
 
+## Plan Commission Status
+
+- Active
+- InActive
+
+Only Active terms are used for the referrer's sign-up earning.
+
 ## Document verification
 
 - Not Submitted
