@@ -1843,9 +1843,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<bool>("DeductFromWallet")
-                        .HasColumnType("tinyint(1)");
-
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -2606,87 +2603,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("user_joining_deals", (string)null);
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.Wallet", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Balance")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("wallets", (string)null);
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.WalletTransaction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<decimal>("BalanceAfter")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Ip")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Message")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("OrderId")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("WalletId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WalletId");
-
-                    b.ToTable("wallet_transactions", (string)null);
-                });
-
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Card", b =>
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.User", "FranchiseeUser")
@@ -3199,28 +3115,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.Wallet", b =>
-                {
-                    b.HasOne("MiniWebsite.Domain.Entities.User", "User")
-                        .WithOne("Wallet")
-                        .HasForeignKey("MiniWebsite.Domain.Entities.Wallet", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.WalletTransaction", b =>
-                {
-                    b.HasOne("MiniWebsite.Domain.Entities.Wallet", "Wallet")
-                        .WithMany()
-                        .HasForeignKey("WalletId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Wallet");
-                });
-
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Card", b =>
                 {
                     b.Navigation("GalleryImages");
@@ -3268,8 +3162,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("PasswordResetTokens");
 
                     b.Navigation("RefreshTokens");
-
-                    b.Navigation("Wallet");
                 });
 #pragma warning restore 612, 618
         }

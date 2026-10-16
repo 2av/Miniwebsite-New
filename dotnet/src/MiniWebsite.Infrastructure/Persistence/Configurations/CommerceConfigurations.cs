@@ -30,8 +30,6 @@ public class CommerceConfigurations :
     IEntityTypeConfiguration<DealCustomerMapping>,
     IEntityTypeConfiguration<JoiningDeal>,
     IEntityTypeConfiguration<UserJoiningDeal>,
-    IEntityTypeConfiguration<Wallet>,
-    IEntityTypeConfiguration<WalletTransaction>,
     IEntityTypeConfiguration<Order>,
     IEntityTypeConfiguration<Invoice>,
     IEntityTypeConfiguration<FranchisePayment>
@@ -108,28 +106,6 @@ public class CommerceConfigurations :
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.JoiningDeal).WithMany().HasForeignKey(x => x.JoiningDealId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Invoice>().WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
-    }
-
-    public void Configure(EntityTypeBuilder<Wallet> builder)
-    {
-        builder.ToTable("wallets");
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.UserEmail).HasMaxLength(200);
-        builder.Property(x => x.Balance).HasPrecision(12, 2);
-        builder.HasIndex(x => x.UserId).IsUnique();
-        builder.HasOne(x => x.User).WithOne(x => x.Wallet).HasForeignKey<Wallet>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
-    }
-
-    public void Configure(EntityTypeBuilder<WalletTransaction> builder)
-    {
-        builder.ToTable("wallet_transactions");
-        builder.HasKey(x => x.Id);
-        builder.Property(x => x.Type).HasMaxLength(30);
-        builder.Property(x => x.Amount).HasPrecision(12, 2);
-        builder.Property(x => x.BalanceAfter).HasPrecision(12, 2);
-        builder.Property(x => x.OrderId).HasMaxLength(200);
-        builder.HasIndex(x => x.WalletId);
-        builder.HasOne(x => x.Wallet).WithMany().HasForeignKey(x => x.WalletId).OnDelete(DeleteBehavior.Cascade);
     }
 
     public void Configure(EntityTypeBuilder<Order> builder)

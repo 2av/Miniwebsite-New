@@ -22,20 +22,17 @@ public class PortalService : IPortalService
     };
 
     private readonly IApplicationDbContext _db;
-    private readonly IWalletBalanceLookup _wallet;
     private readonly IAdminKitManagementService _kits;
     private readonly IAdminInvoiceAccessService _invoices;
     private readonly AppOptions _app;
 
     public PortalService(
         IApplicationDbContext db,
-        IWalletBalanceLookup wallet,
         IAdminKitManagementService kits,
         IAdminInvoiceAccessService invoices,
         IOptions<AppOptions> app)
     {
         _db = db;
-        _wallet = wallet;
         _kits = kits;
         _invoices = invoices;
         _app = app.Value;
@@ -302,41 +299,6 @@ public class PortalService : IPortalService
         });
         await _db.SaveChangesAsync(ct);
         return ApiResult.Ok("Bank details saved successfully!");
-    }
-
-    public async Task<ApiResult<WalletPageDto>> GetWalletAsync(string email, CancellationToken ct = default)
-    {
-        var userId = await _db.FindUserIdAsync(email, ct);
-        var balance = await _wallet.GetLatestBalanceAsync(userId, ct);
-
-        var wallet = userId == null
-            ? null
-            : await _db.Wallets.AsNoTracking()
-                .FirstOrDefaultAsync(w => w.UserId == userId, ct);
-
-        var txns = wallet == null
-            ? []
-            : await _db.WalletTransactions.AsNoTracking()
-                .Where(t => t.WalletId == wallet.Id)
-                .OrderByDescending(t => t.Id)
-                .Take(10)
-                .ToListAsync(ct);
-
-        return ApiResult<WalletPageDto>.Ok(new WalletPageDto(
-            balance,
-            balance >= 413,
-            txns.Select(r => new WalletTxnDto(
-                r.Id,
-                string.Equals(r.Type, "deposit", StringComparison.OrdinalIgnoreCase)
-                    ? r.Amount.ToString(CultureInfo.InvariantCulture)
-                    : null,
-                string.Equals(r.Type, "withdraw", StringComparison.OrdinalIgnoreCase)
-                    ? r.Amount.ToString(CultureInfo.InvariantCulture)
-                    : null,
-                r.OrderId,
-                r.BalanceAfter,
-                FormatDate(r.CreatedAt),
-                r.Message)).ToList()));
     }
 
     public async Task<ApiResult<IReadOnlyList<InvoiceListItemDto>>> ListInvoicesForCardAsync(

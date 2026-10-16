@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BatteryCharging, KeyRound, Pencil, Plus, Power, PowerOff, RefreshCw, Search, X } from 'lucide-react'
+import { KeyRound, Pencil, Plus, Power, PowerOff, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { fetchDashboardDetails, fetchReferralDetails } from '@/features/manage-users/api'
@@ -16,10 +16,6 @@ import {
   findSalesChannelPartner,
   type SalesChannelPartnerType,
 } from '@/features/sales-channel-partners/partners'
-import {
-  RechargeWalletDialog,
-  type RechargeWalletTarget,
-} from '@/features/wallet-recharge/RechargeWalletDialog'
 import type { SalesChannelPartnerRow } from '@/shared/types/api'
 import { ApiError } from '@/shared/api/client'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
@@ -175,11 +171,9 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const [newPassword, setNewPassword] = useState('')
   const [resetBusy, setResetBusy] = useState(false)
   const [togglingId, setTogglingId] = useState<number | null>(null)
-  const [rechargeTarget, setRechargeTarget] = useState<RechargeWalletTarget | null>(null)
   const [dashboardEmail, setDashboardEmail] = useState<string | null>(null)
   const [referralEmail, setReferralEmail] = useState<string | null>(null)
   const [documents, setDocuments] = useState<SalesChannelPartnerRow | null>(null)
-  const canRechargeWallet = slug === 'franchisee-partner'
   const isDetailed =
     slug === 'digital-marketing-partner' ||
     slug === 'print-shop-partner' ||
@@ -440,7 +434,6 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                     key={p.id}
                     partner={p}
                     showCoupon={isCoupon}
-                    showWallet={canRechargeWallet}
                     toggling={togglingId === p.id}
                     onEdit={() => openEdit(p)}
                     onToggle={() => void runToggle(p)}
@@ -452,7 +445,6 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                     onDocuments={() => setDocuments(p)}
                     onCommission={() => setReferralEmail(p.email)}
                     onDashboard={() => setDashboardEmail(p.email)}
-                    onRecharge={() => setRechargeTarget({ id: p.id, email: p.email, name: p.name })}
                   />
                 ) : (
                   <TableRow key={p.id}>
@@ -514,18 +506,6 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                         >
                           <KeyRound size={14} />
                         </Button>
-                        {canRechargeWallet && (
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            className={`${ACTION_BTN} text-amber-600 hover:bg-amber-50 hover:text-amber-700`}
-                            title="Recharge Wallet"
-                            aria-label="Recharge Wallet"
-                            onClick={() => setRechargeTarget({ id: p.id, email: p.email, name: p.name })}
-                          >
-                            <BatteryCharging size={14} />
-                          </Button>
-                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -663,8 +643,6 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
         </DialogContent>
       </Dialog>
 
-      <RechargeWalletDialog target={rechargeTarget} onClose={() => setRechargeTarget(null)} />
-
       <Dialog open={!!dashboardEmail} onOpenChange={(open) => !open && setDashboardEmail(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
@@ -766,7 +744,6 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
 function DmpPartnerRow({
   partner: p,
   showCoupon = false,
-  showWallet = false,
   toggling,
   onEdit,
   onToggle,
@@ -775,11 +752,9 @@ function DmpPartnerRow({
   onDocuments,
   onCommission,
   onDashboard,
-  onRecharge,
 }: {
   partner: SalesChannelPartnerRow
   showCoupon?: boolean
-  showWallet?: boolean
   toggling: boolean
   onEdit: () => void
   onToggle: () => void
@@ -788,7 +763,6 @@ function DmpPartnerRow({
   onDocuments: () => void
   onCommission: () => void
   onDashboard: () => void
-  onRecharge?: () => void
 }) {
   const active = p.status === 'ACTIVE'
   const commission = p.commissionStatus || 'Not Eligible'
@@ -871,18 +845,6 @@ function DmpPartnerRow({
           <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Reset password" aria-label="Reset password" onClick={onReset}>
             <KeyRound size={14} />
           </Button>
-          {showWallet && (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              className={`${ACTION_BTN} text-amber-600 hover:bg-amber-50 hover:text-amber-700`}
-              title="Recharge Wallet"
-              aria-label="Recharge Wallet"
-              onClick={onRecharge}
-            >
-              <BatteryCharging size={14} />
-            </Button>
-          )}
         </div>
       </TableCell>
     </TableRow>

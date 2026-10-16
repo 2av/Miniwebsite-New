@@ -52,8 +52,6 @@ type FranchiseeDashboard = {
   email: string
   role: string
   totalCardsCreated: number
-  walletBalance: number
-  hasSufficientBalance: boolean
   managedUsers: FranchiseeManagedUser[]
 }
 
@@ -108,8 +106,6 @@ function normalizeFranchisee(raw: unknown): FranchiseeDashboard {
     email: String(pick(o, 'email', 'Email') ?? ''),
     role: String(pick(o, 'role', 'Role') ?? ''),
     totalCardsCreated: Number(pick(o, 'totalCardsCreated', 'TotalCardsCreated') ?? 0),
-    walletBalance: Number(pick(o, 'walletBalance', 'WalletBalance') ?? 0),
-    hasSufficientBalance: Boolean(pick(o, 'hasSufficientBalance', 'HasSufficientBalance')),
     managedUsers: usersRaw.map((u) => {
       const r = (u ?? {}) as Record<string, unknown>
       return {
@@ -222,7 +218,7 @@ export function DashboardPage() {
             <h1 className="sb-dash-title">{pageTitle}</h1>
             <p className="sb-dash-sub">
               {isFranchisee
-                ? 'Track the ShareBizz websites you created, wallet balance, and managed users.'
+                ? 'Track the ShareBizz websites you created and managed users.'
                 : 'Manage your ShareBizz websites, payments, and sharing from one place.'}
             </p>
           </div>
@@ -261,29 +257,24 @@ export function DashboardPage() {
                     <span>Managed users</span>
                   </div>
                 </div>
-                <div className="sb-stat sb-stat--orange">
-                  <i className="fa fa-inr" aria-hidden />
-                  <div>
-                    <strong>{franchisee.walletBalance.toFixed(0)}</strong>
-                    <span>Wallet balance</span>
-                  </div>
-                </div>
               </div>
               <div className="FranchiseeDashboard-head">
                 <div className="mw-dash-card-grid">
                   <div className="card_area">
-                    <div className={`card${franchisee.hasSufficientBalance ? '' : ' is-disabled'}`} title={franchisee.hasSufficientBalance ? '' : 'Insufficient wallet balance'}>
-                      <div className="img mw-dash-card-icon mw-dash-card-icon--blue" aria-hidden="true">
-                        <i className="fa-solid fa-pen-to-square" />
+                    <Link to="/website/business-name?new=1">
+                      <div className="card">
+                        <div className="img mw-dash-card-icon mw-dash-card-icon--blue" aria-hidden="true">
+                          <i className="fa-solid fa-pen-to-square" />
+                        </div>
+                        <div className="content">
+                          <p>
+                            Create New
+                            <br />
+                            ShareBizz
+                          </p>
+                        </div>
                       </div>
-                      <div className="content">
-                        <p>
-                          Create New
-                          <br />
-                          ShareBizz
-                        </p>
-                      </div>
-                    </div>
+                    </Link>
                   </div>
                   <div className="card_area">
                     <div className="card">
@@ -295,24 +286,6 @@ export function DashboardPage() {
                         <h4 className="marginbottom5">{franchisee.totalCardsCreated}</h4>
                       </div>
                     </div>
-                  </div>
-                  <div className="card_area card_area-wallet">
-                    <Link to="/wallet">
-                      <div className="card">
-                        <div className="img mw-dash-card-icon mw-dash-card-icon--gold" aria-hidden="true">
-                          <i className="fa-solid fa-wallet" />
-                        </div>
-                        <div className="content">
-                          <p>Wallet Balance</p>
-                          <h4>
-                            <i className="fa fa-inr" aria-hidden="true" /> {franchisee.walletBalance.toFixed(2)}
-                          </h4>
-                        </div>
-                      </div>
-                    </Link>
-                    {!franchisee.hasSufficientBalance && (
-                      <p className="low_balance_title">Your balance is low. Please recharge wallet.</p>
-                    )}
                   </div>
                 </div>
               </div>

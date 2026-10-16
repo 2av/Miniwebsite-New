@@ -23,7 +23,6 @@ public class UserService : IUserService
     public async Task<ApiResult<UserDto>> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var user = await _db.Users.AsNoTracking()
-            .Include(u => u.Wallet)
             .FirstOrDefaultAsync(u => u.Id == id, ct);
         return user == null
             ? ApiResult<UserDto>.Fail("User not found.")
@@ -187,7 +186,6 @@ public class UserService : IUserService
         u.Referral.CollaborationEnabled ? "YES" : "NO",
         u.Referral.SaleskitEnabled ? "YES" : "NO",
         u.Referral.Influencer ? "YES" : "NO",
-        u.Wallet?.Balance.ToString(System.Globalization.CultureInfo.InvariantCulture),
         u.SelectService,
         u.Referral.MwReferralId,
         u.Referral.SenderUserId);

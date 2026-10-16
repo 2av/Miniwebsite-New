@@ -45,14 +45,6 @@ public class PortalController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpGet("wallet")]
-    public async Task<ActionResult<ApiResult<WalletPageDto>>> Wallet([FromQuery] string email, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(email)) return BadRequest(ApiResult<WalletPageDto>.Fail("email is required."));
-        var result = await _portal.GetWalletAsync(email, ct);
-        return result.Success ? Ok(result) : BadRequest(result);
-    }
-
     [HttpGet("invoices")]
     public async Task<ActionResult<ApiResult<IReadOnlyList<InvoiceListItemDto>>>> Invoices(
         [FromQuery] string email, [FromQuery] int cardId, CancellationToken ct)

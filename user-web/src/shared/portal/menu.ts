@@ -44,14 +44,6 @@ const MENU: MenuItem[] = [
     alwaysVisible: true,
   },
   {
-    id: 'wallet',
-    label: 'Wallet',
-    icon: 'fa-money',
-    url: '/wallet',
-    roles: ['FRANCHISEE'],
-    alwaysVisible: true,
-  },
-  {
     id: 'franchisee_mw_sales_kit',
     label: 'MW Sales Kit',
     icon: 'fa-folder-open',

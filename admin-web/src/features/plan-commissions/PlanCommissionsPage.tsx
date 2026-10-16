@@ -70,7 +70,6 @@ type FormState = {
   renewalPrice: string
   /** Empty means no renewal earning */
   renewalEarningPercent: string
-  deductFromWallet: boolean
   status: string
 }
 
@@ -83,7 +82,6 @@ const emptyForm: FormState = {
   earningAmount: '',
   renewalPrice: '',
   renewalEarningPercent: '',
-  deductFromWallet: false,
   status: 'Active',
 }
 
@@ -185,18 +183,13 @@ export function PlanCommissionsPage() {
     const discount = form.discountType === FIXED ? toAmount(form.discountAmount) : 0
     const fixedEarning = form.earningType === FIXED
     const earning = toAmount(form.earningAmount)
-    const sbRevenue = fixedEarning
-      ? form.deductFromWallet
-        ? price - earning
-        : price - discount - earning
-      : null
+    const sbRevenue = fixedEarning ? price - discount - earning : null
     const renewalPrice = form.renewalPrice.trim() === '' ? null : toAmount(form.renewalPrice)
     const pct = form.renewalEarningPercent.trim() === '' ? null : Number(form.renewalEarningPercent)
     return {
       price,
       earningGst: fixedEarning ? withGst(earning) : null,
       sbRevenue,
-      wallet: form.deductFromWallet && sbRevenue != null ? withGst(sbRevenue) : null,
       renewalPriceGst: renewalPrice != null ? withGst(renewalPrice) : null,
       renewalEarning:
         pct != null && Number.isFinite(pct) && renewalPrice != null
@@ -231,7 +224,6 @@ export function PlanCommissionsPage() {
       earningAmount: row.earningType === FIXED ? String(row.earningAmount) : '',
       renewalPrice: row.renewalPrice == null ? '' : String(row.renewalPrice),
       renewalEarningPercent: row.renewalEarningPercent == null ? '' : String(row.renewalEarningPercent),
-      deductFromWallet: row.deductFromWallet,
       status: row.status,
     })
     setFormOpen(true)
@@ -254,9 +246,7 @@ export function PlanCommissionsPage() {
       if (form.renewalPrice.trim() === '') return 'Enter the renewal price to set a renewal earning'
     }
     if (preview?.sbRevenue != null && preview.sbRevenue < 0)
-      return form.deductFromWallet
-        ? 'Earning cannot be more than the plan price'
-        : 'Discount plus earning cannot be more than the plan price'
+      return 'Discount plus earning cannot be more than the plan price'
     return null
   }
 
@@ -275,7 +265,6 @@ export function PlanCommissionsPage() {
         renewalPrice: form.renewalPrice.trim() === '' ? null : toAmount(form.renewalPrice),
         renewalEarningPercent:
           form.renewalEarningPercent.trim() === '' ? null : Number(form.renewalEarningPercent),
-        deductFromWallet: form.deductFromWallet,
         status: editing ? form.status : undefined,
       }
       const res = editing
@@ -354,7 +343,6 @@ export function PlanCommissionsPage() {
                     'Earning (w/o GST)',
                     'Earning (w/ GST)',
                     'SB Revenue',
-                    'Wallet Deduction',
                     'Renewal Price (w/o GST)',
                     'Renewal Earning',
                     'Status',
@@ -369,14 +357,14 @@ export function PlanCommissionsPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                       No plan commissions found.
                     </TableCell>
                   </TableRow>
@@ -395,7 +383,6 @@ export function PlanCommissionsPage() {
                     <TableCell>{row.earningDisplay}</TableCell>
                     <TableCell>{row.earningGstDisplay ?? '—'}</TableCell>
                     <TableCell>{row.sbRevenueDisplay ?? '—'}</TableCell>
-                    <TableCell>{row.walletDeductionDisplay ?? '—'}</TableCell>
                     <TableCell>
                       {row.renewalPriceDisplay ?? '—'}
                       {row.renewalPriceGstDisplay && (
@@ -735,21 +722,6 @@ export function PlanCommissionsPage() {
               />
             </FormField>
 
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm">
-              <Checkbox
-                className="mt-0.5"
-                checked={form.deductFromWallet}
-                onCheckedChange={(c) => setForm((f) => ({ ...f, deductFromWallet: c === true }))}
-              />
-              <span>
-                <span className="font-medium">Deduct from wallet</span>
-                <span className="block text-xs text-muted-foreground">
-                  The partner pays SB revenue plus GST from their wallet, and any customer discount comes out of
-                  their earning (Franchise Partner).
-                </span>
-              </span>
-            </label>
-
             {editing && (
               <FormField label="Status">
                 <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
@@ -774,8 +746,6 @@ export function PlanCommissionsPage() {
                   <span className={`text-right font-medium ${preview.sbRevenue != null && preview.sbRevenue < 0 ? 'text-destructive' : ''}`}>
                     {money(preview.sbRevenue)}
                   </span>
-                  <span className="text-muted-foreground">Wallet deduction (with GST)</span>
-                  <span className="text-right font-medium">{money(preview.wallet)}</span>
                   <span className="text-muted-foreground">Renewal earning</span>
                   <span className="text-right font-medium">{money(preview.renewalEarning)}</span>
                 </div>

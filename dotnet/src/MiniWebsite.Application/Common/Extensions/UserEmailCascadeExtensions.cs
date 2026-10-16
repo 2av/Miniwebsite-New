@@ -6,7 +6,7 @@ namespace MiniWebsite.Application.Common.Extensions;
 public static class UserEmailCascadeExtensions
 {
     /// <summary>
-    /// Rewrites every stored copy of a user's email (ownership, referral, wallet, payout and document links)
+    /// Rewrites every stored copy of a user's email (ownership, referral, payout and document links)
     /// to <paramref name="newEmail"/>. Changes are only tracked; the caller's <c>SaveChangesAsync</c> commits
     /// them together with the user row in one transaction. Contact and billing snapshots are left as recorded.
     /// </summary>
@@ -50,9 +50,6 @@ public static class UserEmailCascadeExtensions
 
         foreach (var joining in await db.UserJoiningDeals.Where(d => d.UserEmail == from).ToListAsync(ct))
             joining.UserEmail = to;
-
-        foreach (var wallet in await db.Wallets.Where(w => w.UserEmail == from).ToListAsync(ct))
-            wallet.UserEmail = to;
 
         foreach (var payment in await db.FranchisePayments.Where(p => p.FranchiseEmail == from).ToListAsync(ct))
             payment.FranchiseEmail = to;

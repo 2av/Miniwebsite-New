@@ -35,9 +35,7 @@ public record FranchiseeRowDto(
     int? FranchiseInvoiceId,
     int WebsiteCount,
     string DocumentStatus,
-    string DocumentStatusTone,
-    decimal WalletBalance,
-    string WalletBalanceDisplay);
+    string DocumentStatusTone);
 
 public record CreateFranchiseeRequest(
     string FirstName,

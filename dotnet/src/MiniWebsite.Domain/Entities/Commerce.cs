@@ -41,8 +41,6 @@ public class PlanCommission
     public decimal? RenewalPriceGst { get; set; }
     /// <summary>Percent of <see cref="RenewalPrice"/> earned on renewal. Null means no renewal earning.</summary>
     public decimal? RenewalEarningPercent { get; set; }
-    /// <summary>The partner pays SB revenue plus GST from their wallet (Franchise Partner).</summary>
-    public bool DeductFromWallet { get; set; }
     public string Status { get; set; } = PlanCommissionValues.StatusActive;
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -104,32 +102,6 @@ public class UserJoiningDeal
     public decimal AmountPaid { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-}
-
-public class Wallet
-{
-    public int Id { get; set; }
-    public int UserId { get; set; }
-    public User User { get; set; } = null!;
-    public string UserEmail { get; set; } = "";
-    public decimal Balance { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-}
-
-public class WalletTransaction
-{
-    public int Id { get; set; }
-    public int WalletId { get; set; }
-    public Wallet Wallet { get; set; } = null!;
-    public int UserId { get; set; }
-    public string Type { get; set; } = ""; // deposit|withdraw|adjust
-    public decimal Amount { get; set; }
-    public decimal BalanceAfter { get; set; }
-    public string? OrderId { get; set; }
-    public string? Message { get; set; }
-    public string? Ip { get; set; }
-    public DateTime CreatedAt { get; set; } = AppClock.Now;
 }
 
 public class Order

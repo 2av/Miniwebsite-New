@@ -249,7 +249,6 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
         entity.RenewalEarningPercent = request.RenewalEarningPercent is { } pct
             ? Math.Round(pct, 2, MidpointRounding.AwayFromZero)
             : null;
-        entity.DeductFromWallet = request.DeductFromWallet;
     }
 
     private async Task<string?> ValidateAsync(IReadOnlyList<int> roleIds, UpsertPlanCommissionRequest request, CancellationToken ct)
@@ -274,11 +273,8 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
 
         var discount = discountType == PlanCommissionValues.DiscountFixed ? request.DiscountAmount : 0;
         var earning = earningType == PlanCommissionValues.EarningFixed ? request.EarningAmount : 0;
-        var deducted = request.DeductFromWallet ? earning : discount + earning;
-        if (deducted > plan.OfferedPrice)
-            return request.DeductFromWallet
-                ? "Earning cannot be more than the plan price"
-                : "Discount plus earning cannot be more than the plan price";
+        if (discount + earning > plan.OfferedPrice)
+            return "Discount plus earning cannot be more than the plan price";
 
         return null;
     }
@@ -311,12 +307,11 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
         var isFixedEarning = c.EarningType == PlanCommissionValues.EarningFixed;
         var discount = isFixedDiscount ? c.DiscountAmount : 0;
 
-        decimal? earningGst = null, sbRevenue = null, wallet = null;
+        decimal? earningGst = null, sbRevenue = null;
         if (isFixedEarning)
         {
             earningGst = PlanCommissionValues.WithGst(c.EarningAmount);
-            sbRevenue = c.DeductFromWallet ? price - c.EarningAmount : price - discount - c.EarningAmount;
-            if (c.DeductFromWallet) wallet = PlanCommissionValues.WithGst(sbRevenue.Value);
+            sbRevenue = price - discount - c.EarningAmount;
         }
 
         decimal? renewalEarning = c.RenewalEarningPercent is { } pct && c.RenewalPrice is { } renewal
@@ -347,9 +342,6 @@ public class AdminPlanCommissionsService : IAdminPlanCommissionsService
             PricingFormat.Money(earningGst),
             sbRevenue,
             PricingFormat.Money(sbRevenue),
-            c.DeductFromWallet,
-            wallet,
-            PricingFormat.Money(wallet),
             c.RenewalPrice,
             PricingFormat.Money(c.RenewalPrice),
             c.RenewalPriceGst,

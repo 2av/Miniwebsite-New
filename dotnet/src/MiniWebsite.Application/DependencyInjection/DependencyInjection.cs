@@ -19,7 +19,6 @@ using MiniWebsite.Application.Admin.Coupons;
 using MiniWebsite.Application.Admin.ManagePricing;
 using MiniWebsite.Application.Admin.PlanCommissions;
 using MiniWebsite.Application.Admin.ManageReferrals;
-using MiniWebsite.Application.Admin.WalletRecharge;
 using MiniWebsite.Application.Admin.UserDeletions;
 using MiniWebsite.Application.Auth;
 using MiniWebsite.Application.DigiCards;
@@ -55,7 +54,6 @@ public static class DependencyInjection
         services.AddScoped<IAdminPlanCommissionsService, AdminPlanCommissionsService>();
         services.AddScoped<IAdminEmailTemplatesService, AdminEmailTemplatesService>();
         services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
-        services.AddScoped<IAdminWalletRechargeService, AdminWalletRechargeService>();
         services.AddScoped<IAdminManageFaqsService, AdminManageFaqsService>();
         services.AddScoped<IAdminManageContentService, AdminManageContentService>();
         services.AddScoped<IAdminManageCategoriesService, AdminManageCategoriesService>();

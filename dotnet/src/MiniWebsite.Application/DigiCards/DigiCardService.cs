@@ -24,13 +24,11 @@ public interface IDigiCardService
 public class DigiCardService : IDigiCardService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IWalletBalanceLookup _wallet;
     private readonly AppOptions _app;
 
-    public DigiCardService(IApplicationDbContext db, IWalletBalanceLookup wallet, IOptions<AppOptions> app)
+    public DigiCardService(IApplicationDbContext db, IOptions<AppOptions> app)
     {
         _db = db;
-        _wallet = wallet;
         _app = app.Value;
     }
 
@@ -149,8 +147,6 @@ public class DigiCardService : IDigiCardService
         var totalCards = await _db.Cards.AsNoTracking()
             .CountAsync(c => c.FranchiseeUserId == user.Id, ct);
 
-        var walletBalance = await _wallet.GetLatestBalanceAsync(user.Id, ct);
-
         // Same join as PHP manage-users query
         var managed = await (
             from ud in _db.Users.AsNoTracking().WhereRole(UserRole.Customer)
@@ -182,8 +178,6 @@ public class DigiCardService : IDigiCardService
             user.Email,
             "FRANCHISEE",
             totalCards,
-            walletBalance,
-            walletBalance >= 413m,
             rows));
     }
 

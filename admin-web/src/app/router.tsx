@@ -10,7 +10,6 @@ import { ManageReferralsPage } from '@/features/manage-referrals/ManageReferrals
 import { CouponsPage } from '@/features/coupons/CouponsPage'
 import { ManagePricingPage } from '@/features/manage-pricing/ManagePricingPage'
 import { PlanCommissionsPage } from '@/features/plan-commissions/PlanCommissionsPage'
-import { RechargeWalletPage } from '@/features/wallet-recharge/RechargeWalletPage'
 import { ManageEmailTemplatesPage } from '@/features/email-templates/ManageEmailTemplatesPage'
 import { ManageFaqsPage } from '@/features/manage-faqs/ManageFaqsPage'
 import { ManageContentPage } from '@/features/manage-content/ManageContentPage'
@@ -62,8 +61,6 @@ export function AppRouter() {
         <Route path="manage-pricing" element={<ManagePricingPage />} />
         <Route path="pricing" element={<Navigate to="/manage-pricing" replace />} />
         <Route path="plan-commissions" element={<PlanCommissionsPage />} />
-        <Route path="recharge-wallet" element={<RechargeWalletPage />} />
-        <Route path="add-money" element={<Navigate to="/recharge-wallet" replace />} />
         <Route path="manage-faqs" element={<ManageFaqsPage />} />
         <Route path="manage-faq" element={<Navigate to="/manage-faqs" replace />} />
         <Route path="email-templates" element={<ManageEmailTemplatesPage />} />

@@ -225,7 +225,7 @@ export function ManagePricingPage() {
     const originalPrice = parsePriceInput(form.originalPrice)
     const offeredPrice = parsePriceInput(form.offeredPrice)
     if (form.originalPrice.trim() === '' || form.offeredPrice.trim() === '') {
-      return toast.push('Please enter original and offered prices', 'error')
+      return toast.push('Please enter original and list prices', 'error')
     }
     if (originalPrice < 0 || offeredPrice < 0) {
       return toast.push('Prices cannot be negative', 'error')
@@ -314,10 +314,8 @@ export function ManagePricingPage() {
                     'Plan Name',
                     'Category',
                     'Validity',
-                    'Original (w/o GST)',
-                    'Original (w/ GST)',
-                    'Offered (w/o GST)',
-                    'Offered (w/ GST)',
+                    'Original Price',
+                    'List Price',
                     'Status',
                     'Action',
                   ].map((h) => (
@@ -330,14 +328,14 @@ export function ManagePricingPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       No pricing plans found.
                     </TableCell>
                   </TableRow>
@@ -348,9 +346,7 @@ export function ManagePricingPage() {
                       <TableCell className="text-sm">{row.planCategory}</TableCell>
                       <TableCell className="text-sm">{row.validityDisplay}</TableCell>
                       <TableCell>{row.originalPriceDisplay}</TableCell>
-                      <TableCell>{row.originalPriceGstDisplay}</TableCell>
                       <TableCell>{row.offeredPriceDisplay}</TableCell>
-                      <TableCell>{row.offeredPriceGstDisplay}</TableCell>
                       <TableCell>
                         <Badge variant={badgeVariantFromTone(row.statusTone)}>{row.status}</Badge>
                       </TableCell>
@@ -566,7 +562,7 @@ export function ManagePricingPage() {
 
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="mb-2 text-xs font-semibold tracking-wide text-foreground uppercase">
-                Offered Price
+                List Price
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Without GST *">

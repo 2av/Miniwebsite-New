@@ -30,8 +30,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<PlanCommission> PlanCommissions => Set<PlanCommission>();
     public DbSet<JoiningDeal> JoiningDeals => Set<JoiningDeal>();
     public DbSet<UserJoiningDeal> UserJoiningDeals => Set<UserJoiningDeal>();
-    public DbSet<Wallet> Wallets => Set<Wallet>();
-    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<FranchisePayment> FranchisePayments => Set<FranchisePayment>();

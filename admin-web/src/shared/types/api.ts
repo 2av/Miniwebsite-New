@@ -263,8 +263,6 @@ export type FranchiseeRow = {
   websiteCount: number
   documentStatus: string
   documentStatusTone: string
-  walletBalance: number
-  walletBalanceDisplay: string
 }
 
 export type FranchiseePage = {
@@ -520,9 +518,6 @@ export type PlanCommissionRow = {
   earningGstDisplay: string | null
   sbRevenue: number | null
   sbRevenueDisplay: string | null
-  deductFromWallet: boolean
-  walletDeduction: number | null
-  walletDeductionDisplay: string | null
   renewalPrice: number | null
   renewalPriceDisplay: string | null
   renewalPriceGst: number | null
@@ -555,27 +550,7 @@ export type UpsertPlanCommissionPayload = {
   renewalPrice: number | null
   /** Null means no renewal earning. Requires renewalPrice. */
   renewalEarningPercent: number | null
-  deductFromWallet: boolean
   status?: string
-}
-
-export type FranchiseeWalletLookup = {
-  userId: number
-  email: string
-  name: string
-  phone?: string | null
-  currentBalance: number
-  currentBalanceDisplay: string
-}
-
-export type WalletRechargeResult = {
-  userEmail: string
-  userName: string
-  amountCredited: number
-  newBalance: number
-  amountDisplay: string
-  newBalanceDisplay: string
-  message: string
 }
 
 export type ManageFaqRow = {

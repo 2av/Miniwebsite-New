@@ -3,12 +3,11 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { siteUrl } from '@/lib/utils'
 import { useSiteStyles } from '@/shared/site/useSiteStyles'
 
-type BridgeKind = 'pay' | 'miniwebsite' | 'wallet-recharge' | 'joining-deal'
+type BridgeKind = 'pay' | 'miniwebsite' | 'joining-deal'
 
 const PHP_PATH: Record<BridgeKind, string> = {
   pay: 'payment/pay.php',
   miniwebsite: 'payment/pay_miniwebsite.php',
-  'wallet-recharge': 'payment/wallet_recharge.php',
   'joining-deal': 'payment/joining_deal_pay.php',
 }
 
@@ -29,7 +28,7 @@ export function PaymentBridgePage({ kind }: { kind: BridgeKind }) {
 
   useEffect(() => {
     // Franchise / joining-deal flows that POST form bodies still use live PHP forms.
-    // Query-based checkouts (card id, wallet amount) redirect here.
+    // Query-based checkouts (e.g. card id) redirect here.
     if (location.state && kind === 'joining-deal') {
       // Allow a brief render so POST body isn't lost when opened as a GET shell.
     }

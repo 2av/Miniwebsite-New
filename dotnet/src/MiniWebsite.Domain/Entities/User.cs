@@ -45,7 +45,6 @@ public class User : BaseEntity
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
     public ICollection<Card> Cards { get; set; } = new List<Card>();
-    public Wallet? Wallet { get; set; }
 }
 
 public class UserAddress

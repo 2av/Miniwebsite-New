@@ -91,6 +91,4 @@ public record FranchiseeDashboardDto(
     string Email,
     string Role,
     int TotalCardsCreated,
-    decimal WalletBalance,
-    bool HasSufficientBalance,
     IReadOnlyList<FranchiseeManagedUserDto> ManagedUsers);

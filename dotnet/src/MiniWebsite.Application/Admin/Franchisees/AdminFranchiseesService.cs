@@ -21,7 +21,6 @@ public class AdminFranchiseesService : IAdminFranchiseesService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
-    private readonly IWalletBalanceLookup _wallet;
     private readonly IConfiguration _configuration;
     private readonly AppOptions _app;
 
@@ -30,7 +29,6 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         IPasswordHasher passwordHasher,
         IEmailSender email,
         IEmailTemplateRenderer templates,
-        IWalletBalanceLookup wallet,
         IConfiguration configuration,
         IOptions<AppOptions> app)
     {
@@ -38,7 +36,6 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
-        _wallet = wallet;
         _configuration = configuration;
         _app = app.Value;
     }
@@ -105,7 +102,6 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             docStatus ??= "Not Uploaded";
 
             var isActive = string.Equals(u.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase);
-            var wallet = await _wallet.GetLatestBalanceAsync(u.Id, ct);
             var (payLabel, payTone, paidOn) = ResolvePayment(inv);
             var fee = inv?.Amount ?? 0m;
             var company = first == null
@@ -142,9 +138,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
                 inv?.InvoiceId,
                 userCards.Count,
                 MapDocumentLabel(docStatus),
-                MapDocumentTone(docStatus),
-                wallet,
-                "₹" + wallet.ToString("N2", CultureInfo.CreateSpecificCulture("en-IN"))));
+                MapDocumentTone(docStatus)));
         }
 
         return ApiResult<FranchiseePageDto>.Ok(new FranchiseePageDto(rows, total, query.Page, query.PageSize));

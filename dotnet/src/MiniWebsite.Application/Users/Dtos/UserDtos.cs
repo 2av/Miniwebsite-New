@@ -20,7 +20,6 @@ public record UserDto(
     string CollaborationEnabled,
     string SaleskitEnabled,
     string Influencer,
-    string? WalletBalance,
     string? SelectService,
     int? MwReferralId,
     int? SenderUserId);

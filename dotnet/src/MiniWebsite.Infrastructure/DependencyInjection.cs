@@ -43,7 +43,6 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, AspNetPasswordHasher>();
         services.AddScoped<IReferralEarningLookup, ReferralEarningLookup>();
-        services.AddScoped<IWalletBalanceLookup, WalletBalanceLookup>();
         services.AddDataSeeder();
 
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();

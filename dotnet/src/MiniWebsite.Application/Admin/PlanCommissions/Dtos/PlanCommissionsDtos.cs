@@ -54,9 +54,6 @@ public record PlanCommissionRowDto(
     string? EarningGstDisplay,
     decimal? SbRevenue,
     string? SbRevenueDisplay,
-    bool DeductFromWallet,
-    decimal? WalletDeduction,
-    string? WalletDeductionDisplay,
     decimal? RenewalPrice,
     string? RenewalPriceDisplay,
     decimal? RenewalPriceGst,
@@ -82,5 +79,4 @@ public record UpsertPlanCommissionRequest(
     decimal EarningAmount,
     decimal? RenewalPrice,
     decimal? RenewalEarningPercent,
-    bool DeductFromWallet,
     string? Status = null);

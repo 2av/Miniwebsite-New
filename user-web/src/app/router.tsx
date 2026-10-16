@@ -17,7 +17,6 @@ import { AgreementPage } from '@/features/content/AgreementPage'
 import { DocsRedirectPage } from '@/features/content/DocsRedirectPage'
 import { ChangePasswordPage } from '@/features/portal/ChangePasswordPage'
 import { ReferralPage } from '@/features/portal/ReferralPage'
-import { WalletPage } from '@/features/portal/WalletPage'
 import { KitPage } from '@/features/portal/KitPage'
 import { VerificationPage } from '@/features/portal/VerificationPage'
 import { IdCardPage } from '@/features/portal/IdCardPage'
@@ -66,7 +65,6 @@ export function AppRouter() {
 
       <Route path="payment/pay" element={<PaymentBridgePage kind="pay" />} />
       <Route path="payment/miniwebsite" element={<PaymentBridgePage kind="miniwebsite" />} />
-      <Route path="payment/wallet-recharge" element={<PaymentBridgePage kind="wallet-recharge" />} />
       <Route path="payment/joining-deal" element={<PaymentBridgePage kind="joining-deal" />} />
       <Route path="payment/joining-deal/success" element={<PaymentSuccessPage kind="joining-deal" />} />
       <Route path="payment/distributor/success" element={<PaymentSuccessPage kind="distributor" />} />
@@ -131,7 +129,6 @@ export function AppRouter() {
         <Route path="change-password" element={<ChangePasswordPage />} />
         <Route path="referral" element={<ReferralPage />} />
         <Route path="collaboration" element={<ReferralPage />} />
-        <Route path="wallet" element={<WalletPage />} />
         <Route path="kit" element={<KitPage />} />
         <Route path="verification" element={<VerificationPage />} />
         <Route path="id-card" element={<IdCardPage />} />

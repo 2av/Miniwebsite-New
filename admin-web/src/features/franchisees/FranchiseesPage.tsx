@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, ExternalLink, Eye, Pencil, Plus, RefreshCw, Search, Share2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   activateFranchisee,
   createFranchisee,
@@ -194,7 +193,6 @@ export function FranchiseesPage() {
                     'Invoice',
                     'SB',
                     'Documents',
-                    'Wallet',
                     'Dashboard',
                     'Password',
                   ].map((h) => (
@@ -210,21 +208,21 @@ export function FranchiseesPage() {
               <TableBody>
                 {listQuery.isLoading && (
                   <TableRow>
-                    <TableCell colSpan={17} className="px-4 py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={16} className="px-4 py-10 text-center text-muted-foreground">
                       Loading…
                     </TableCell>
                   </TableRow>
                 )}
                 {listQuery.isError && (
                   <TableRow>
-                    <TableCell colSpan={17} className="px-4 py-10 text-center text-destructive">
+                    <TableCell colSpan={16} className="px-4 py-10 text-center text-destructive">
                       {(listQuery.error as Error).message}
                     </TableCell>
                   </TableRow>
                 )}
                 {!listQuery.isLoading && !listQuery.isError && rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={17} className="px-4 py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={16} className="px-4 py-10 text-center text-muted-foreground">
                       No franchisees found
                     </TableCell>
                   </TableRow>
@@ -564,15 +562,6 @@ function Row({
       <TableCell className="px-3 py-3 text-center font-semibold">{f.websiteCount}</TableCell>
       <TableCell className="px-3 py-3">
         <Badge variant={badgeVariantFromTone(f.documentStatusTone)}>{f.documentStatus}</Badge>
-      </TableCell>
-      <TableCell className="px-3 py-3">
-        <Link
-          to={`/recharge-wallet?email=${encodeURIComponent(f.email)}&id=${f.id}`}
-          className="font-medium text-rose-600 hover:underline"
-          title="Recharge wallet"
-        >
-          {f.walletBalanceDisplay}
-        </Link>
       </TableCell>
       <TableCell className="px-3 py-3">
         {f.websiteCount > 0 ? (

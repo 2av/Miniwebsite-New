@@ -83,20 +83,6 @@ public record SaveBankDetailsRequest(
     string UpiId,
     string UpiName);
 
-public record WalletTxnDto(
-    int Id,
-    string? Deposit,
-    string? Withdraw,
-    string? OrderId,
-    decimal Balance,
-    string? DateDisplay,
-    string? Message);
-
-public record WalletPageDto(
-    decimal Balance,
-    bool HasSufficientBalance,
-    IReadOnlyList<WalletTxnDto> Transactions);
-
 public record InvoiceListItemDto(
     int Id,
     string? InvoiceNumber,

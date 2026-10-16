@@ -24,8 +24,6 @@ public interface IApplicationDbContext
     DbSet<PlanCommission> PlanCommissions { get; }
     DbSet<JoiningDeal> JoiningDeals { get; }
     DbSet<UserJoiningDeal> UserJoiningDeals { get; }
-    DbSet<Wallet> Wallets { get; }
-    DbSet<WalletTransaction> WalletTransactions { get; }
     DbSet<Order> Orders { get; }
     DbSet<Invoice> Invoices { get; }
     DbSet<FranchisePayment> FranchisePayments { get; }

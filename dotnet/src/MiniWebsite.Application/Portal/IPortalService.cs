@@ -10,7 +10,6 @@ public interface IPortalService
     Task<ApiResult<PortalMeDto>> GetMeAsync(string email, CancellationToken ct = default);
     Task<ApiResult<ReferralPageDto>> GetReferralAsync(string email, CancellationToken ct = default);
     Task<ApiResult> SaveBankDetailsAsync(SaveBankDetailsRequest request, CancellationToken ct = default);
-    Task<ApiResult<WalletPageDto>> GetWalletAsync(string email, CancellationToken ct = default);
     Task<ApiResult<IReadOnlyList<InvoiceListItemDto>>> ListInvoicesForCardAsync(string email, int cardId, CancellationToken ct = default);
     Task<ApiResult<InvoiceDetailDto>> GetInvoiceAsync(string email, int invoiceId, CancellationToken ct = default);
     Task<ApiResult<InvoiceHtmlResult>> GetInvoiceHtmlAsync(string email, int invoiceId, CancellationToken ct = default);
