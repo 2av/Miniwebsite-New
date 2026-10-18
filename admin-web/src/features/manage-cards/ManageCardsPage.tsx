@@ -48,10 +48,9 @@ const COLUMNS = [
   'Date Created',
   'Expiry Date',
   'DB Profile Status',
-  'User Payment Status',
+  'Profile Payment Status',
   'Order Value',
-  'Coupon Code',
-  'Bill Details',
+  'Product Invoice Details',
   'Actions',
 ]
 
@@ -254,8 +253,16 @@ export function ManageCardsPage() {
   )
 }
 
+function paymentTone(label: string): 'neutral' | 'ok' | 'danger' | 'warn' {
+  if (label.startsWith('Paid')) return 'ok'
+  if (label === 'Rejected') return 'danger'
+  if (label === 'Pending') return 'warn'
+  return 'neutral'
+}
+
 function CardRow({ card: c }: { card: ManageCardRow }) {
-  const payment = c.paymentLabel || 'Unpaid'
+  const raw = c.paymentLabel || 'Pending'
+  const payment = raw === 'Unpaid' ? 'Pending' : raw
   return (
     <TableRow className="hover:bg-rose-50/30">
       <TableCell className="px-3 py-3 whitespace-nowrap">{c.userIdDisplay}</TableCell>
@@ -271,10 +278,9 @@ function CardRow({ card: c }: { card: ManageCardRow }) {
         <Badge variant={badgeVariantFromTone(c.statusTone)}>{c.statusText}</Badge>
       </TableCell>
       <TableCell className="px-3 py-3 whitespace-nowrap">
-        <Badge variant={badgeVariantFromTone(payment.startsWith('Paid') ? 'ok' : 'neutral')}>{payment}</Badge>
+        <Badge variant={badgeVariantFromTone(paymentTone(payment))}>{payment}</Badge>
       </TableCell>
       <TableCell className="px-3 py-3 whitespace-nowrap">{c.orderValueDisplay || '₹ 0'}</TableCell>
-      <TableCell className="px-3 py-3 whitespace-nowrap">{c.couponCode}</TableCell>
       <TableCell className="px-3 py-3">
         <Button variant="outline" size="sm" disabled={!c.hasInvoice} onClick={() => openInvoiceByCardId(c.id)}>
           View

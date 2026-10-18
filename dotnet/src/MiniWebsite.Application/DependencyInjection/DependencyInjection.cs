@@ -26,6 +26,7 @@ using MiniWebsite.Application.Registration;
 using MiniWebsite.Application.Users;
 using MiniWebsite.Application.Website;
 using MiniWebsite.Application.PublicSite;
+using MiniWebsite.Application.Payments;
 using MiniWebsite.Application.Portal;
 using System.Reflection;
 
@@ -65,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IPublicSiteService, PublicSiteService>();
         services.AddScoped<IPublicCardService, PublicCardService>();
         services.AddScoped<IPortalService, PortalService>();
+        services.AddScoped<IDbProfileCheckoutService, DbProfileCheckoutService>();
         return services;
     }
 }

@@ -58,7 +58,12 @@ public record ManageUserRowDto(
     string MwPaymentStatusLabel,
     string CommissionStatus,
     MappedDealDto? MwDeal,
-    MappedDealDto? FranchiseDeal);
+    MappedDealDto? FranchiseDeal,
+    string DocumentStatus,
+    string DocumentStatusTone,
+    int TotalReferred,
+    string PayoutStatus,
+    int? InvoiceId);
 
 public record MappedDealDto(int MappingId, int DealId, string DealName, string? CouponCode);
 

@@ -84,7 +84,57 @@ const ACTION_BTN =
 
 const COLUMNS = ['User ID', 'Name', 'Email', 'Mobile', 'District', 'State', 'Status', 'Created', 'Actions']
 
-const DMP_COLUMNS = [
+function planColumns(paymentHeader: string) {
+  return [
+    'User ID',
+    'User Email',
+    'User Name',
+    'User Number',
+    'Joined On',
+    'State',
+    'District',
+    'Referral Source',
+    'User Dashboard',
+    'User Status',
+    'Plan Status',
+    'Plan Payment Status',
+    'Date Created',
+    'Expiry Date',
+    'Joining Fees',
+    'Product Invoice Details',
+    'No. of DB',
+    'Documents Status',
+    'Total Referred',
+    'Total Commission Earning',
+    'Referrer Commission Status',
+    paymentHeader,
+    'Partner Invoice Details',
+    'Refund',
+    'Actions',
+  ]
+}
+
+const DMP_COLUMNS = planColumns('SB Payout Status')
+const SB_PAYMENT_COLUMNS = planColumns('SB Payment Status')
+
+const FIELD_SALES_COLUMNS = [
+  'User ID',
+  'User Email',
+  'User Name',
+  'User Number',
+  'Joined On',
+  'State',
+  'District',
+  'No. of DB',
+  'User Dashboard',
+  'User Status',
+  'Documents Status',
+  'Total Sales',
+  'Total Sales Amount',
+  'Actions',
+]
+
+const SOCIAL_COLUMNS = [
   'User ID',
   'User Email',
   'User Name',
@@ -93,19 +143,15 @@ const DMP_COLUMNS = [
   'State',
   'District',
   'Referral Source',
-  'Date Created',
-  'Expiry Date',
+  'User Dashboard',
   'User Status',
-  'User Payment Status',
-  'Joining Fees',
-  'Promo Discount',
-  'Bill Details',
   'No. of DB',
   'Documents Status',
   'Total Referred',
-  'Total Referral Earning',
-  'Commission Status',
-  'User Dashboard',
+  'Total Commission Earning',
+  'Referrer Commission Status',
+  'SB Payment Status',
+  'Partner Invoice Details',
   'Refund',
   'Actions',
 ]
@@ -140,8 +186,17 @@ function commissionTone(label: string): 'neutral' | 'ok' | 'danger' {
   return 'neutral'
 }
 
-function paymentTone(label: string): 'neutral' | 'ok' {
-  return label.startsWith('Paid') ? 'ok' : 'neutral'
+function paymentTone(label: string): 'neutral' | 'ok' | 'danger' | 'warn' {
+  if (label.startsWith('Paid')) return 'ok'
+  if (label === 'Rejected') return 'danger'
+  if (label === 'Pending') return 'warn'
+  return 'neutral'
+}
+
+function planTone(label: string): 'neutral' | 'ok' | 'warn' {
+  if (label === 'Active') return 'ok'
+  if (label.startsWith('Expired')) return 'warn'
+  return 'neutral'
 }
 
 export function SalesChannelPartnerRoute() {
@@ -174,15 +229,23 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   const [dashboardEmail, setDashboardEmail] = useState<string | null>(null)
   const [referralEmail, setReferralEmail] = useState<string | null>(null)
   const [documents, setDocuments] = useState<SalesChannelPartnerRow | null>(null)
-  const isDetailed =
-    slug === 'digital-marketing-partner' ||
-    slug === 'print-shop-partner' ||
-    slug === 'field-sales-partner'
-  const isCoupon =
-    slug === 'social-media-partner' ||
-    slug === 'field-sales-team' ||
-    slug === 'franchisee-partner'
-  const columns = isDetailed ? DMP_COLUMNS : isCoupon ? COUPON_COLUMNS : COLUMNS
+  const isDmp = slug === 'digital-marketing-partner'
+  const isSbPayment = slug === 'print-shop-partner' || slug === 'franchisee-partner'
+  const isPlanTable = isDmp || isSbPayment
+  const isSocial = slug === 'social-media-partner'
+  const isFieldSales = slug === 'field-sales-partner'
+  const isCoupon = slug === 'field-sales-team'
+  const columns = isDmp
+    ? DMP_COLUMNS
+    : isSbPayment
+      ? SB_PAYMENT_COLUMNS
+      : isSocial
+        ? SOCIAL_COLUMNS
+        : isFieldSales
+          ? FIELD_SALES_COLUMNS
+          : isCoupon
+            ? COUPON_COLUMNS
+            : COLUMNS
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -429,11 +492,11 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                     </TableCell>
                   </TableRow>
                 )}
-                {partners.map((p) => isDetailed || isCoupon ? (
+                {partners.map((p) => isPlanTable || isSocial || isFieldSales || isCoupon ? (
                   <DmpPartnerRow
                     key={p.id}
                     partner={p}
-                    showCoupon={isCoupon}
+                    layout={isPlanTable ? 'dmp' : isSocial ? 'social' : isFieldSales ? 'field' : 'coupon'}
                     toggling={togglingId === p.id}
                     onEdit={() => openEdit(p)}
                     onToggle={() => void runToggle(p)}
@@ -743,7 +806,7 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
 
 function DmpPartnerRow({
   partner: p,
-  showCoupon = false,
+  layout,
   toggling,
   onEdit,
   onToggle,
@@ -754,7 +817,7 @@ function DmpPartnerRow({
   onDashboard,
 }: {
   partner: SalesChannelPartnerRow
-  showCoupon?: boolean
+  layout: 'dmp' | 'social' | 'field' | 'detailed' | 'coupon'
   toggling: boolean
   onEdit: () => void
   onToggle: () => void
@@ -766,6 +829,174 @@ function DmpPartnerRow({
 }) {
   const active = p.status === 'ACTIVE'
   const commission = p.commissionStatus || 'Not Eligible'
+  const showCoupon = layout === 'coupon'
+  if (layout === 'dmp') {
+    return (
+      <TableRow>
+        <TableCell className="font-mono font-medium whitespace-nowrap">{p.userCode}</TableCell>
+        <TableCell className="max-w-[200px] truncate">{p.email}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.name}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.phone}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.joinedOnDisplay}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.state}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.district}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.referralSource || 'Direct'}</TableCell>
+        <TableCell>
+          <Button variant="outline" size="sm" onClick={onDashboard}>
+            View
+          </Button>
+        </TableCell>
+        <TableCell>
+          <Badge variant={badgeVariantFromTone(p.statusTone)}>{p.userStatusLabel || (active ? 'Active' : 'InActive')}</Badge>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          <Badge variant={badgeVariantFromTone(planTone(p.planStatus || 'InActive'))}>{p.planStatus || 'InActive'}</Badge>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          <Badge variant={badgeVariantFromTone(paymentTone(p.planPaymentStatus || 'Pending'))}>
+            {p.planPaymentStatus || 'Pending'}
+          </Badge>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">{p.dateCreatedDisplay}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.expiryDateDisplay}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.joiningFeesDisplay || '₹ 0.00'}</TableCell>
+        <TableCell>
+          <Button variant="outline" size="sm" disabled={!p.invoiceId} onClick={onBill}>
+            View
+          </Button>
+        </TableCell>
+        <TableCell className="text-center font-semibold">{p.dbCount ?? 0}</TableCell>
+        <TableCell className="whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={badgeVariantFromTone(p.documentStatusTone)}>{p.documentStatus || 'Not Submitted'}</Badge>
+            <Button variant="link" size="sm" className="h-auto px-1" onClick={onDocuments}>
+              View
+            </Button>
+          </span>
+        </TableCell>
+        <TableCell className="text-center font-semibold">{p.totalReferred ?? 0}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.totalReferralEarningDisplay || '₹ 0'}</TableCell>
+        <TableCell className="whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={badgeVariantFromTone(commissionTone(commission))}>{commission}</Badge>
+            <Button variant="link" size="sm" className="h-auto px-1" onClick={onCommission}>
+              [View]
+            </Button>
+          </span>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          <Badge variant={badgeVariantFromTone(paymentTone(p.payoutStatus || 'Pending'))}>{p.payoutStatus || 'Pending'}</Badge>
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!p.partnerInvoiceId}
+            onClick={() => p.partnerInvoiceId && openInvoiceById(p.partnerInvoiceId)}
+          >
+            View
+          </Button>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">{p.refundStatus}</TableCell>
+        <TableCell>
+          <PartnerActions active={active} toggling={toggling} onEdit={onEdit} onToggle={onToggle} onReset={onReset} />
+        </TableCell>
+      </TableRow>
+    )
+  }
+  if (layout === 'social') {
+    return (
+      <TableRow>
+        <TableCell className="font-mono font-medium whitespace-nowrap">{p.userCode}</TableCell>
+        <TableCell className="max-w-[200px] truncate">{p.email}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.name}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.phone}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.joinedOnDisplay}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.state}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.district}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.referralSource || 'Direct'}</TableCell>
+        <TableCell>
+          <Button variant="outline" size="sm" onClick={onDashboard}>
+            View
+          </Button>
+        </TableCell>
+        <TableCell>
+          <Badge variant={badgeVariantFromTone(p.statusTone)}>{p.userStatusLabel || (active ? 'Active' : 'InActive')}</Badge>
+        </TableCell>
+        <TableCell className="text-center font-semibold">{p.dbCount ?? 0}</TableCell>
+        <TableCell className="whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={badgeVariantFromTone(p.documentStatusTone)}>{p.documentStatus || 'Not Submitted'}</Badge>
+            <Button variant="link" size="sm" className="h-auto px-1" onClick={onDocuments}>
+              View
+            </Button>
+          </span>
+        </TableCell>
+        <TableCell className="text-center font-semibold">{p.totalReferred ?? 0}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.totalReferralEarningDisplay || '₹ 0'}</TableCell>
+        <TableCell className="whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={badgeVariantFromTone(commissionTone(commission))}>{commission}</Badge>
+            <Button variant="link" size="sm" className="h-auto px-1" onClick={onCommission}>
+              [View]
+            </Button>
+          </span>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          <Badge variant={badgeVariantFromTone(paymentTone(p.payoutStatus || 'Pending'))}>{p.payoutStatus || 'Pending'}</Badge>
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!p.partnerInvoiceId}
+            onClick={() => p.partnerInvoiceId && openInvoiceById(p.partnerInvoiceId)}
+          >
+            View
+          </Button>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">{p.refundStatus}</TableCell>
+        <TableCell>
+          <PartnerActions active={active} toggling={toggling} onEdit={onEdit} onToggle={onToggle} onReset={onReset} />
+        </TableCell>
+      </TableRow>
+    )
+  }
+  if (layout === 'field') {
+    return (
+      <TableRow>
+        <TableCell className="font-mono font-medium whitespace-nowrap">{p.userCode}</TableCell>
+        <TableCell className="max-w-[200px] truncate">{p.email}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.name}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.phone}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.joinedOnDisplay}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.state}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.district}</TableCell>
+        <TableCell className="text-center font-semibold">{p.dbCount ?? 0}</TableCell>
+        <TableCell>
+          <Button variant="outline" size="sm" onClick={onDashboard}>
+            View
+          </Button>
+        </TableCell>
+        <TableCell>
+          <Badge variant={badgeVariantFromTone(p.statusTone)}>{p.userStatusLabel || (active ? 'Active' : 'InActive')}</Badge>
+        </TableCell>
+        <TableCell className="whitespace-nowrap">
+          <span className="inline-flex items-center gap-1">
+            <Badge variant={badgeVariantFromTone(p.documentStatusTone)}>{p.documentStatus || 'Not Submitted'}</Badge>
+            <Button variant="link" size="sm" className="h-auto px-1" onClick={onDocuments}>
+              View
+            </Button>
+          </span>
+        </TableCell>
+        <TableCell className="text-center font-semibold">{p.totalSales ?? 0}</TableCell>
+        <TableCell className="whitespace-nowrap">{p.totalSalesAmountDisplay || '₹ 0.00'}</TableCell>
+        <TableCell>
+          <PartnerActions active={active} toggling={toggling} onEdit={onEdit} onToggle={onToggle} onReset={onReset} />
+        </TableCell>
+      </TableRow>
+    )
+  }
   return (
     <TableRow>
       <TableCell className="font-mono font-medium whitespace-nowrap">{p.userCode}</TableCell>
@@ -823,31 +1054,49 @@ function DmpPartnerRow({
       </TableCell>
       <TableCell className="whitespace-nowrap">{p.refundStatus}</TableCell>
       <TableCell>
-        <div className="flex gap-1">
-          <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Edit" aria-label="Edit" onClick={onEdit}>
-            <Pencil size={14} />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className={
-              active
-                ? `${ACTION_BTN} text-red-600 hover:bg-red-50 hover:text-red-700`
-                : `${ACTION_BTN} text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700`
-            }
-            title={active ? 'Deactivate' : 'Activate'}
-            aria-label={active ? 'Deactivate' : 'Activate'}
-            disabled={toggling}
-            onClick={onToggle}
-          >
-            {toggling ? <RefreshCw size={14} className="animate-spin" /> : active ? <PowerOff size={14} /> : <Power size={14} />}
-          </Button>
-          <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Reset password" aria-label="Reset password" onClick={onReset}>
-            <KeyRound size={14} />
-          </Button>
-        </div>
+        <PartnerActions active={active} toggling={toggling} onEdit={onEdit} onToggle={onToggle} onReset={onReset} />
       </TableCell>
     </TableRow>
+  )
+}
+
+function PartnerActions({
+  active,
+  toggling,
+  onEdit,
+  onToggle,
+  onReset,
+}: {
+  active: boolean
+  toggling: boolean
+  onEdit: () => void
+  onToggle: () => void
+  onReset: () => void
+}) {
+  return (
+    <div className="flex gap-1">
+      <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Edit" aria-label="Edit" onClick={onEdit}>
+        <Pencil size={14} />
+      </Button>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        className={
+          active
+            ? `${ACTION_BTN} text-red-600 hover:bg-red-50 hover:text-red-700`
+            : `${ACTION_BTN} text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700`
+        }
+        title={active ? 'Deactivate' : 'Activate'}
+        aria-label={active ? 'Deactivate' : 'Activate'}
+        disabled={toggling}
+        onClick={onToggle}
+      >
+        {toggling ? <RefreshCw size={14} className="animate-spin" /> : active ? <PowerOff size={14} /> : <Power size={14} />}
+      </Button>
+      <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Reset password" aria-label="Reset password" onClick={onReset}>
+        <KeyRound size={14} />
+      </Button>
+    </div>
   )
 }
 

@@ -204,7 +204,7 @@ const nav: NavNode[] = [
       },
     ],
   },
-  { kind: 'link', to: '/referrals-management', label: 'Referrals Management', icon: Share2 },
+  { kind: 'link', to: '/referral-commissions', label: 'Referral Commissions', icon: Share2 },
   
   {
     kind: 'group',

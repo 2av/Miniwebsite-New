@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
+import { openInvoiceById } from '@/shared/lib/invoiceDownload'
 import { FiltersButton, FiltersDrawer } from '@/shared/ui/FiltersDrawer'
 
 const emptyFilters: ManageUsersQuery = {
@@ -51,6 +52,33 @@ function commissionTone(label: string): 'neutral' | 'ok' | 'danger' {
 function statusTone(label: string): 'neutral' | 'ok' {
   return label === 'Active' ? 'ok' : 'neutral'
 }
+
+function payoutTone(label: string): 'neutral' | 'ok' | 'danger' | 'warn' {
+  if (label.startsWith('Paid')) return 'ok'
+  if (label === 'Rejected') return 'danger'
+  return 'warn'
+}
+
+const COLUMNS = [
+  'User ID',
+  'User Email',
+  'User Name',
+  'User Number',
+  'Joined On',
+  'State',
+  'District',
+  'Referral Source',
+  'User Status',
+  'No. of DB',
+  'Documents Status',
+  'User Dashboard',
+  'Total Referred',
+  'Total Commission Earning',
+  'Referrer Commission Status',
+  'SB Payout Status',
+  'Partner Invoice Details',
+  'Actions',
+]
 
 function formatJoined(value?: string | null) {
   if (!value) return ''
@@ -204,22 +232,7 @@ export function ManageUsersPage() {
             <Table className="w-max min-w-full">
               <TableHeader className="sticky top-0 z-10 bg-slate-900">
                 <TableRow className="border-slate-800 hover:bg-slate-900">
-                {[
-                  'User ID',
-                  'User Email',
-                  'User Name',
-                  'User Number',
-                  'Joined On',
-                  'State',
-                  'District',
-                  'Referral Source',
-                  'User Status',
-                  'Total DB Referred',
-                  'Referral Amt.',
-                  'Commission Status',
-                  'User Dashboard',
-                  'Actions',
-                ].map((h) => (
+                {COLUMNS.map((h) => (
                   <TableHead key={h} className="px-3 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-200 uppercase">
                     {h}
                   </TableHead>
@@ -229,14 +242,14 @@ export function ManageUsersPage() {
               <TableBody>
               {listQuery.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={14} className="px-4 py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={COLUMNS.length} className="px-4 py-10 text-center text-muted-foreground">
                     Loading users…
                   </TableCell>
                 </TableRow>
               )}
               {listQuery.isError && (
                 <TableRow>
-                  <TableCell colSpan={14} className="px-4 py-10 text-center text-destructive">
+                  <TableCell colSpan={COLUMNS.length} className="px-4 py-10 text-center text-destructive">
                     {(listQuery.error as Error).message}
                     <div className="mt-1 text-xs text-muted-foreground">Start the .NET API on localhost:5209</div>
                   </TableCell>
@@ -244,7 +257,7 @@ export function ManageUsersPage() {
               )}
               {!listQuery.isLoading && !listQuery.isError && users.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={14} className="px-4 py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={COLUMNS.length} className="px-4 py-10 text-center text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -390,6 +403,15 @@ function UserRow({
         <Badge variant={badgeVariantFromTone(statusTone(u.status))}>{u.status}</Badge>
       </TableCell>
       <TableCell className="px-3 text-center font-semibold">{u.websiteCount}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">
+        <Badge variant={badgeVariantFromTone(u.documentStatusTone)}>{u.documentStatus || 'Not Submitted'}</Badge>
+      </TableCell>
+      <TableCell className="px-3">
+        <Button variant="outline" size="sm" onClick={onDashboard}>
+          View
+        </Button>
+      </TableCell>
+      <TableCell className="px-3 text-center font-semibold">{u.totalReferred ?? 0}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{formatRupee(u.totalReferralAmount)}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">
         <span className="inline-flex items-center gap-1">
@@ -399,8 +421,11 @@ function UserRow({
           </Button>
         </span>
       </TableCell>
+      <TableCell className="px-3 whitespace-nowrap">
+        <Badge variant={badgeVariantFromTone(payoutTone(u.payoutStatus || 'Pending'))}>{u.payoutStatus || 'Pending'}</Badge>
+      </TableCell>
       <TableCell className="px-3">
-        <Button variant="outline" size="sm" onClick={onDashboard}>
+        <Button variant="outline" size="sm" disabled={!u.invoiceId} onClick={() => u.invoiceId && openInvoiceById(u.invoiceId)}>
           View
         </Button>
       </TableCell>

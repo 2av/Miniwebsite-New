@@ -36,7 +36,18 @@ public record ManageReferralRowDto(
     decimal PendingAmount,
     bool CanAddPayment,
     bool HasPaymentHistory,
-    string Comment);
+    string Comment,
+    string CgstDisplay,
+    string SgstDisplay,
+    string IgstDisplay,
+    string DocumentStatus,
+    string DocumentStatusTone,
+    string CommissionGstDisplay,
+    string TdsDisplay,
+    string TotalPayableDisplay,
+    string PartnerInvoiceApproval,
+    string PartnerInvoiceApprovalTone,
+    int? PartnerInvoiceId);
 
 public record UpdateReferralCommentRequest(string? Comment);
 

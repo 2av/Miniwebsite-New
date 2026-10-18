@@ -61,6 +61,11 @@ export type ManageUserRow = {
   commissionStatus: string
   mwDeal?: MappedDeal | null
   franchiseDeal?: MappedDeal | null
+  documentStatus?: string
+  documentStatusTone?: string
+  totalReferred?: number
+  payoutStatus?: string
+  invoiceId?: number | null
 }
 
 export type ManageUsersPage = {
@@ -221,12 +226,13 @@ export type AllOrderRow = {
   cardId?: number | null
   dbIdDisplay: string
   referralSource: string
-  referralAmountDisplay: string
   orderDescription: string
   listPriceDisplay: string
   promoDiscountDisplay: string
   netPriceDisplay: string
-  gstDisplay: string
+  cgstDisplay: string
+  sgstDisplay: string
+  igstDisplay: string
   totalAmount: number
   totalAmountDisplay: string
   invoiceNumber: string
@@ -311,6 +317,17 @@ export type ManageReferralRow = {
   canAddPayment: boolean
   hasPaymentHistory: boolean
   comment: string
+  cgstDisplay?: string
+  sgstDisplay?: string
+  igstDisplay?: string
+  documentStatus?: string
+  documentStatusTone?: string
+  commissionGstDisplay?: string
+  tdsDisplay?: string
+  totalPayableDisplay?: string
+  partnerInvoiceApproval?: string
+  partnerInvoiceApprovalTone?: string
+  partnerInvoiceId?: number | null
 }
 
 export type ManageReferralsPage = {
@@ -1065,6 +1082,13 @@ export type SalesChannelPartnerRow = {
   totalReferralEarningDisplay?: string
   commissionStatus?: string
   refundStatus?: string
+  planStatus?: string
+  planPaymentStatus?: string
+  payoutStatus?: string
+  partnerInvoiceId?: number | null
+  totalSales?: number
+  totalSalesAmount?: number
+  totalSalesAmountDisplay?: string
 }
 
 export type SalesChannelPartnersPage = {

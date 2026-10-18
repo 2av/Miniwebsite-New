@@ -114,7 +114,7 @@ public class AdminManageCardsService : IAdminManageCardsService
             User? user = null;
             if (c.UserId is { } ownerId) userById.TryGetValue(ownerId, out user);
             invoices.TryGetValue(c.Id, out var inv);
-            inv ??= new InvoiceSummary(null, null, false, "", null, false);
+            inv ??= new InvoiceSummary(null, null, false, "", null, false, false);
 
             var expiry = ExpiryDate(c);
             var status = ResolveProfileStatus(c, expiry);
@@ -122,7 +122,11 @@ public class AdminManageCardsService : IAdminManageCardsService
             var company = c.CompanyName ?? "";
             var paidOn = c.PaymentDate ?? inv.PaymentDate;
             var paid = IsPaid(c.PaymentStatus) || inv.Paid;
+            var rejected = !paid && (IsRejected(c.PaymentStatus) || inv.Rejected);
             var orderAmount = inv.HasInvoice ? inv.TotalAmount : ParseAmount(c.PaymentAmount);
+            var paymentLabel = paid
+                ? "Paid on " + (paidOn ?? c.CreatedAt ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                : rejected ? "Rejected" : "Pending";
 
             rows.Add(new ManageCardRowDto(
                 c.Id,
@@ -144,9 +148,7 @@ public class AdminManageCardsService : IAdminManageCardsService
                 false,
                 validity.Display,
                 validity.Tone,
-                paid
-                    ? "Paid on " + (paidOn ?? c.CreatedAt ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                    : "Unpaid",
+                paymentLabel,
                 orderAmount?.ToString(CultureInfo.InvariantCulture),
                 inv.HasInvoice,
                 !paid,
@@ -214,7 +216,8 @@ public class AdminManageCardsService : IAdminManageCardsService
                     true,
                     latest.PromoCode ?? "",
                     latest.PaymentDate,
-                    IsPaid(latest.PaymentStatus));
+                    IsPaid(latest.PaymentStatus),
+                    IsRejected(latest.PaymentStatus));
             }
         }
         catch
@@ -267,6 +270,9 @@ public class AdminManageCardsService : IAdminManageCardsService
     private static bool IsPaid(string? status) =>
         string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRejected(string? status) =>
+        string.Equals(status, "Rejected", StringComparison.OrdinalIgnoreCase);
 
     private static decimal? ParseAmount(string? amount)
     {
@@ -337,5 +343,6 @@ public class AdminManageCardsService : IAdminManageCardsService
         bool HasInvoice,
         string PromoCode,
         DateTime? PaymentDate,
-        bool Paid);
+        bool Paid,
+        bool Rejected);
 }

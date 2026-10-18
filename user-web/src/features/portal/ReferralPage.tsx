@@ -152,13 +152,13 @@ export function ReferralPage({ title }: { title?: string } = {}) {
     if (isTeam) {
       return [
         { label: 'Total Sales', icon: 'cart-shopping', value: String(data.totalSales), currency: false },
-        { label: 'Total MW Created', icon: 'circle-check', value: String(data.totalMwCreated), currency: false },
+        { label: 'Total DB Profiles', icon: 'circle-check', value: String(data.totalMwCreated), currency: false },
       ]
     }
     return [
       { label: 'Pending Amount', icon: 'clock', value: formatInr(data.pendingAmount), currency: true },
       { label: 'Total Referral Earning', icon: 'indian-rupee-sign', value: formatInr(data.totalEarning), currency: true },
-      { label: 'Referred MW', icon: 'users', value: String(data.referralCount), currency: false },
+      { label: 'Referred DB Profiles', icon: 'users', value: String(data.referralCount), currency: false },
     ]
   }, [data, isTeam])
 
@@ -328,7 +328,7 @@ export function ReferralPage({ title }: { title?: string } = {}) {
                   <thead>
                     <tr>
                       <th className="text-center">User ID</th>
-                      <th className="text-center">MW ID/FR ID</th>
+                      <th className="text-center">DB ID/FR ID</th>
                       <th className="text-center">User Email</th>
                       <th className="text-center">User Type</th>
                       <th className="text-center">User Name</th>
@@ -337,12 +337,12 @@ export function ReferralPage({ title }: { title?: string } = {}) {
                       {!isTeam ? <th className="text-center">Referral Source</th> : null}
                       <th className="text-center">Date Created</th>
                       <th className="text-center">Validity Date</th>
-                      <th className="text-center">MW Status</th>
+                      <th className="text-center">DB Profile Status</th>
                       <th className="text-center">User Payment Status</th>
                       {!isTeam ? (
                         <>
                           <th className="text-center">Referral Amt.</th>
-                          <th className="text-center">MW Payment Status</th>
+                          <th className="text-center">DB Profile Payment Status</th>
                         </>
                       ) : null}
                     </tr>

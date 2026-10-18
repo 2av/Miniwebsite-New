@@ -339,7 +339,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             .Where(c =>
                 (c.UserId != null && ownerIds.Contains(c.UserId.Value))
                 || (c.FranchiseeUserId != null && userIds.Contains(c.FranchiseeUserId.Value)))
-            .Select(c => new { c.Id, c.UserId, c.FranchiseeUserId })
+            .Select(c => new { c.Id, c.UserId, c.FranchiseeUserId, c.PaymentStatus, c.PaymentDate, c.PaymentAmount })
             .ToListAsync(ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
@@ -347,6 +347,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             .Select(r => new { UserId = r.ReferrerUserId!.Value, r.Amount, r.Status })
             .ToListAsync(ct);
         var earningsByUser = earnings.GroupBy(r => r.UserId).ToDictionary(g => g.Key, g => g.ToList());
+        var payouts = await GetPayoutTotalsAsync(userIds, ct);
 
         var docs = await _db.FranchiseVerifications.AsNoTracking()
             .Where(v => userIds.Contains(v.UserId))
@@ -387,6 +388,10 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 .Select(i => new { i.Id, i.OriginalAmount, i.PromoDiscount, i.PromoCode, i.PaymentStatus, i.PaymentDate, i.InvoiceDate })
                 .ToListAsync(ct);
         var invoiceById = invoices.ToDictionary(i => i.Id);
+        var ownedInvoices = await _db.Invoices.AsNoTracking()
+            .Where(i => i.UserId != null && userIds.Contains(i.UserId.Value))
+            .Select(i => new { UserId = i.UserId!.Value, i.Id })
+            .ToListAsync(ct);
 
         foreach (var user in users)
         {
@@ -400,6 +405,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
 
             referredByPartner.TryGetValue(user.Id, out var referredIds);
             referredIds ??= [];
+            var soldCards = cards
+                .Where(c => c.UserId is int ownerId
+                            && referredIds.Contains(ownerId)
+                            && IsPaid(c.PaymentStatus)
+                            && c.PaymentDate != null)
+                .ToList();
+            var totalSales = soldCards.Select(c => c.UserId).Distinct().Count();
+            var totalSalesAmount = soldCards.Sum(c => ParseAmount(c.PaymentAmount));
             var dbCount = cards.Count(c =>
                 c.UserId == user.Id
                 || c.FranchiseeUserId == user.Id
@@ -428,6 +441,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             var dateCreated = "";
             var expiry = "";
             var payment = "Unpaid";
+            var planStatus = "InActive";
             decimal fees = 0;
             decimal promo = 0;
             var coupon = "";
@@ -438,6 +452,9 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 expiry = FormatDay(deal.Expiry);
                 fees = deal.Fees;
                 invoiceId = deal.InvoiceId;
+                planStatus = deal.Expiry is { Year: > 1 } planExpiry && planExpiry.Date < AppClock.Today
+                    ? "Expired on " + planExpiry.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                    : "Active";
                 var paid = IsPaid(deal.PaymentStatus);
                 DateTime? paidOn = deal.PaymentDate;
                 if (deal.InvoiceId is int id && invoiceById.TryGetValue(id, out var invoice))
@@ -448,9 +465,19 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                     paid = paid || IsPaid(invoice.PaymentStatus);
                     paidOn ??= invoice.PaymentDate ?? invoice.InvoiceDate;
                 }
-                if (paid)
+                if (IsRejected(deal.PaymentStatus))
+                    payment = "Rejected";
+                else if (paid)
                     payment = "Paid on " + (paidOn ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             }
+
+            payouts.TryGetValue(user.Id, out var payout);
+            var payoutStatus = BuildPayoutStatus(earningTotal, payout.Paid, payout.Last, userEarnings.Count, rejected);
+            var partnerInvoiceId = ownedInvoices
+                .Where(i => i.UserId == user.Id && i.Id != invoiceId)
+                .Select(i => (int?)i.Id)
+                .DefaultIfEmpty()
+                .Max();
 
             var refund = user.RefundStatus;
             if (string.IsNullOrWhiteSpace(refund) || refund.Equals("None", StringComparison.OrdinalIgnoreCase))
@@ -477,7 +504,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 earningTotal,
                 FormatMoney(earningTotal, false),
                 commission,
-                refund);
+                refund,
+                planStatus,
+                PlanPaymentLabel(payment),
+                payoutStatus,
+                partnerInvoiceId,
+                totalSales,
+                totalSalesAmount,
+                FormatMoney(totalSalesAmount, true));
         }
 
         return map;
@@ -582,7 +616,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             extra.TotalReferralEarning,
             extra.TotalReferralEarningDisplay,
             extra.CommissionStatus,
-            extra.RefundStatus);
+            extra.RefundStatus,
+            extra.PlanStatus,
+            extra.PlanPaymentStatus,
+            extra.PayoutStatus,
+            extra.PartnerInvoiceId,
+            extra.TotalSales,
+            extra.TotalSalesAmount,
+            extra.TotalSalesAmountDisplay);
     }
 
     private sealed record PartnerRowFacts(
@@ -606,11 +647,78 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         decimal TotalReferralEarning,
         string TotalReferralEarningDisplay,
         string CommissionStatus,
-        string RefundStatus)
+        string RefundStatus,
+        string PlanStatus,
+        string PlanPaymentStatus,
+        string PayoutStatus,
+        int? PartnerInvoiceId,
+        int TotalSales,
+        decimal TotalSalesAmount,
+        string TotalSalesAmountDisplay)
     {
         public static PartnerRowFacts Empty { get; } = new(
             "Direct", "", "", "Unpaid", 0, "₹ 0.00", 0, "₹ 0.00", "", null, 0,
-            "Not Submitted", "neutral", null, null, null, 0, 0, "₹ 0", "Not Eligible", "");
+            "Not Submitted", "neutral", null, null, null, 0, 0, "₹ 0", "Not Eligible", "",
+            "InActive", "Pending", "Pending", null, 0, 0, "₹ 0.00");
+    }
+
+    private static decimal ParseAmount(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return 0;
+        var cleaned = value.Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal).Trim();
+        return decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
+            ? amount
+            : 0;
+    }
+
+    private async Task<Dictionary<int, (decimal Paid, DateTime? Last)>> GetPayoutTotalsAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
+    {
+        var map = new Dictionary<int, (decimal Paid, DateTime? Last)>();
+        if (userIds.Count == 0) return map;
+        try
+        {
+            var rows = await (
+                from p in _db.ReferralPayments.AsNoTracking()
+                join e in _db.ReferralEarnings.AsNoTracking() on p.ReferralEarningId equals e.Id
+                where e.ReferrerUserId != null && userIds.Contains(e.ReferrerUserId.Value)
+                group p by e.ReferrerUserId!.Value into g
+                select new { UserId = g.Key, Paid = g.Sum(x => x.Amount), Last = g.Max(x => (DateTime?)x.PaymentDate) })
+                .ToListAsync(ct);
+            foreach (var row in rows)
+                map[row.UserId] = (row.Paid, row.Last);
+        }
+        catch
+        {
+            // referral_payments may be missing in some environments
+        }
+
+        return map;
+    }
+
+    private static bool IsRejected(string? status) =>
+        status != null && status.Trim().Equals("Rejected", StringComparison.OrdinalIgnoreCase);
+
+    private static string PlanPaymentLabel(string payment)
+    {
+        if (payment.StartsWith("Paid", StringComparison.OrdinalIgnoreCase)) return payment;
+        if (payment.Equals("Rejected", StringComparison.OrdinalIgnoreCase)) return "Rejected";
+        return "Pending";
+    }
+
+    private static string BuildPayoutStatus(decimal earned, decimal paid, DateTime? paidOn, int earningCount, int rejectedCount)
+    {
+        if (earned > 0 && paid >= earned)
+        {
+            var date = paidOn?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                       ?? AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            return "Paid on " + date;
+        }
+
+        if (earningCount > 0 && rejectedCount == earningCount && paid <= 0)
+            return "Rejected";
+
+        return "Pending";
     }
 
     private static string? NormalizeStatusFilter(string? value)

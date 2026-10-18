@@ -218,8 +218,8 @@ export function DashboardPage() {
             <h1 className="sb-dash-title">{pageTitle}</h1>
             <p className="sb-dash-sub">
               {isFranchisee
-                ? 'Track the ShareBizz websites you created and managed users.'
-                : 'Manage your ShareBizz websites, payments, and sharing from one place.'}
+                ? 'Track the DB Profiles you created and the users you manage.'
+                : 'Manage your DB Profiles, payments, and sharing from one place.'}
             </p>
           </div>
           <div>
@@ -230,7 +230,7 @@ export function DashboardPage() {
             </nav>
             {!isFranchisee ? (
               <Link className="sb-btn-primary" to="/website/business-name?new=1">
-                <i className="fa fa-plus" aria-hidden /> Create ShareBizz
+                <i className="fa fa-plus" aria-hidden /> Create DB Profile
               </Link>
             ) : null}
           </div>
@@ -247,7 +247,7 @@ export function DashboardPage() {
                   <i className="fa fa-id-card" aria-hidden />
                   <div>
                     <strong>{franchisee.totalCardsCreated}</strong>
-                    <span>Websites created</span>
+                    <span>DB Profiles created</span>
                   </div>
                 </div>
                 <div className="sb-stat sb-stat--green">
@@ -270,7 +270,7 @@ export function DashboardPage() {
                           <p>
                             Create New
                             <br />
-                            ShareBizz
+                            DB Profile
                           </p>
                         </div>
                       </div>
@@ -282,7 +282,7 @@ export function DashboardPage() {
                         <i className="fa-solid fa-circle-check" />
                       </div>
                       <div className="content">
-                        <p>MW Created</p>
+                        <p>DB Profiles</p>
                         <h4 className="marginbottom5">{franchisee.totalCardsCreated}</h4>
                       </div>
                     </div>
@@ -297,13 +297,13 @@ export function DashboardPage() {
                     <thead className="bg-secondary">
                       <tr>
                         <th className="text-left">User ID</th>
-                        <th className="text-left">MW ID</th>
+                        <th className="text-left">DB ID</th>
                         <th className="text-left">User Email</th>
                         <th className="text-left">User Name</th>
                         <th className="text-left">User Number</th>
                         <th className="text-left">Date Created</th>
                         <th className="text-left">Validity Date</th>
-                        <th className="text-left">MW Status</th>
+                        <th className="text-left">DB Profile Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -357,7 +357,7 @@ export function DashboardPage() {
                   <i className="fa fa-th-large" aria-hidden />
                   <div>
                     <strong>{filteredCards.length}</strong>
-                    <span>Total websites</span>
+                    <span>DB Profiles</span>
                   </div>
                 </div>
                 <div className="sb-stat sb-stat--green">
@@ -401,7 +401,7 @@ export function DashboardPage() {
                           <p>
                             Create New
                             <br />
-                            ShareBizz
+                            DB Profile
                           </p>
                         </div>
                       </div>
@@ -414,11 +414,11 @@ export function DashboardPage() {
                 <table id="ReferredUsers" className="display table mb-0" style={{ textAlign: 'center' }}>
                   <thead className="bg-secondary">
                     <tr>
-                      <th>MW ID</th>
+                      <th>DB ID</th>
                       <th>Company Name</th>
                       <th>Date Created</th>
                       <th>Validity Date</th>
-                      <th>MW Status</th>
+                      <th>DB Profile Status</th>
                       <th>View/Edit/Share</th>
                       <th>User Payment Status</th>
                       {customer.showInvoiceColumn && <th>Invoice</th>}
@@ -429,7 +429,7 @@ export function DashboardPage() {
                     {filteredCards.length === 0 ? (
                       <tr>
                         <td colSpan={customer.showInvoiceColumn ? (showRefundCol ? 9 : 8) : showRefundCol ? 8 : 7} className="text-center">
-                          No ShareBizz websites found. Create your first one!
+                          No DB Profiles found. Create your first one!
                         </td>
                       </tr>
                     ) : (
@@ -478,9 +478,7 @@ export function DashboardPage() {
                               {!paid ? (
                                 <Link
                                   className="btn btn-primary paynow_btn"
-                                  to={`/payment/miniwebsite?id=${card.id}&source=${encodeURIComponent((session?.role || 'customer').toLowerCase())}`}
-                                  target="_blank"
-                                  rel="noreferrer"
+                                  to={`/payment/db-profile?id=${card.id}`}
                                 >
                                   Pay Now
                                 </Link>

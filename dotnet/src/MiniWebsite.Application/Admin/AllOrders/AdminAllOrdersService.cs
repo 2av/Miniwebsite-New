@@ -1,7 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Admin.AllOrders.Dtos;
-using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Common;
@@ -64,7 +63,9 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                     i.PromoDiscount,
                     i.DiscountAmount,
                     i.SubTotal,
-                    i.IgstAmount + i.CgstAmount + i.SgstAmount,
+                    i.CgstAmount,
+                    i.SgstAmount,
+                    i.IgstAmount,
                     i.TotalAmount,
                     i.AdminComment))
                 .ToListAsync(ct);
@@ -93,32 +94,6 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                     .Where(u => referrerIds.Contains(u.Id))
                     .ToDictionaryAsync(u => u.Id, u => UserCodeGenerator.FormatDisplay(u.UserCode), ct);
 
-            var earnings = buyerIds.Count == 0
-                ? []
-                : await _db.ReferralEarnings.AsNoTracking()
-                    .Where(r => r.ReferredUserId != null && buyerIds.Contains(r.ReferredUserId.Value))
-                    .Select(r => new { Referred = r.ReferredUserId!.Value, Referrer = r.ReferrerUserId, r.Amount, r.InvoiceId, r.ReferralDate })
-                    .ToListAsync(ct);
-
-            var buyerInvoices = earnings.Count == 0
-                ? new Dictionary<int, List<(int Id, DateTime InvoiceDate)>>()
-                : (await _db.Invoices.AsNoTracking()
-                    .Where(i => i.UserId != null && buyerIds.Contains(i.UserId.Value))
-                    .Select(i => new { i.Id, UserId = i.UserId!.Value, i.InvoiceDate })
-                    .ToListAsync(ct))
-                .GroupBy(i => i.UserId)
-                .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList());
-            var commissions = earnings
-                .Select(e => new
-                {
-                    e.Referred,
-                    e.Referrer,
-                    e.Amount,
-                    InvoiceId = ReferralOrderMatching.ResolveInvoiceId(
-                        e.InvoiceId, e.ReferralDate, buyerInvoices.GetValueOrDefault(e.Referred) ?? []),
-                })
-                .ToList();
-
             var cardIds = invoices.Where(i => i.CardId is > 0).Select(i => i.CardId!.Value).Distinct().ToList();
             var slugByCard = cardIds.Count == 0
                 ? new Dictionary<int, string?>()
@@ -131,15 +106,11 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                 var user = inv.UserId is { } buyerId ? userById.GetValueOrDefault(buyerId) : null;
 
                 var referralSource = "Direct";
-                decimal referralAmount = 0;
                 if (user?.ReferrerId is { } referrerId)
                 {
                     referralSource = referrerCodes.TryGetValue(referrerId, out var code) && code.Length > 0
                         ? code
                         : "Ref: " + (user.ReferredBy ?? "").Trim();
-                    referralAmount = commissions
-                        .Where(e => e.InvoiceId == inv.Id && e.Referred == user.Id && e.Referrer == referrerId)
-                        .Sum(e => e.Amount);
                 }
                 else if (!string.IsNullOrWhiteSpace(user?.ReferredBy))
                 {
@@ -163,12 +134,13 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                     inv.CardId is > 0 ? inv.CardId : null,
                     dbId,
                     referralSource,
-                    FormatRupees(referralAmount),
                     Describe(inv),
                     FormatNumber(inv.OriginalAmount),
                     FormatNumber(inv.PromoDiscount),
                     FormatNumber(net),
-                    FormatRupees(inv.Gst),
+                    FormatRupees(inv.Cgst),
+                    FormatRupees(inv.Sgst),
+                    FormatRupees(inv.Igst),
                     inv.TotalAmount,
                     FormatRupees(inv.TotalAmount),
                     inv.InvoiceNumber ?? "",
@@ -240,7 +212,9 @@ public class AdminAllOrdersService : IAdminAllOrdersService
         decimal PromoDiscount,
         decimal DiscountAmount,
         decimal SubTotal,
-        decimal Gst,
+        decimal Cgst,
+        decimal Sgst,
+        decimal Igst,
         decimal TotalAmount,
         string? AdminComment);
 }

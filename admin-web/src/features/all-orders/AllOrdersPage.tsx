@@ -34,16 +34,17 @@ const COLUMNS = [
   'User ID',
   'User Email',
   'DB ID',
-  'Referral Source',
-  'Referral Amt.',
   'Order Description',
-  'List Price',
+  'Product Price',
   'Promo Discount',
   'Net Price',
-  'GST',
-  'Total Amount',
+  'CGST @ 9%',
+  'SGST @ 9%',
+  'IGST @ 18%',
+  'Order Amount',
   'Invoice No.',
   'User Dashboard',
+  'Referral Source',
   'Any Comment',
 ]
 
@@ -313,13 +314,13 @@ function OrderRow({
       <TableCell className="px-3 whitespace-nowrap">{o.userIdDisplay}</TableCell>
       <TableCell className="max-w-[200px] truncate px-3">{o.userEmail}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{o.dbIdDisplay}</TableCell>
-      <TableCell className="px-3 whitespace-nowrap">{o.referralSource || 'Direct'}</TableCell>
-      <TableCell className="px-3 whitespace-nowrap">{o.referralAmountDisplay}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{o.orderDescription}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{o.listPriceDisplay}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{o.promoDiscountDisplay}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">{o.netPriceDisplay}</TableCell>
-      <TableCell className="px-3 whitespace-nowrap">{o.gstDisplay}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{o.cgstDisplay || '₹ 0'}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{o.sgstDisplay || '₹ 0'}</TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{o.igstDisplay || '₹ 0'}</TableCell>
       <TableCell className="px-3 font-semibold whitespace-nowrap">{o.totalAmountDisplay}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">
         {o.invoiceNumber ? (
@@ -333,6 +334,7 @@ function OrderRow({
           View
         </Button>
       </TableCell>
+      <TableCell className="px-3 whitespace-nowrap">{o.referralSource || 'Direct'}</TableCell>
       <TableCell className="px-3">
         <div className="flex max-w-[240px] items-center gap-1">
           <span className="truncate" title={o.comment}>{o.comment}</span>

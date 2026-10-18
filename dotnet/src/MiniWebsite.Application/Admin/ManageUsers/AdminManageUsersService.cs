@@ -63,6 +63,8 @@ public class AdminManageUsersService : IAdminManageUsersService
         var franchiseDealsByUser = await GetMappedDealsAsync(userIds, RolePrefixes.FranchisePartner, ct);
         var refSummaries = await GetReferralSummariesAsync(userIds, ct);
         var referralSources = await BuildReferralSourcesAsync(pageUsers, ct);
+        var documents = await GetDocumentStatusesAsync(userIds, ct);
+        var invoices = await GetLatestInvoiceIdsAsync(userIds, ct);
 
         var rows = new List<ManageUserRowDto>(pageUsers.Count);
         foreach (var u in pageUsers)
@@ -75,6 +77,9 @@ public class AdminManageUsersService : IAdminManageUsersService
             mwDealsByUser.TryGetValue(u.Id, out var mwDeal);
             franchiseDealsByUser.TryGetValue(u.Id, out var frDeal);
             referralSources.TryGetValue(u.Id, out var referralSource);
+            if (!documents.TryGetValue(u.Id, out var document))
+                document = ("Not Submitted", "neutral");
+            invoices.TryGetValue(u.Id, out var invoiceId);
 
             rows.Add(new ManageUserRowDto(
                 u.Id,
@@ -100,7 +105,12 @@ public class AdminManageUsersService : IAdminManageUsersService
                 BuildMwPaymentLabel(summary),
                 BuildCommissionStatus(summary),
                 mwDeal,
-                frDeal));
+                frDeal,
+                document.Status,
+                document.Tone,
+                summary.EarningCount,
+                BuildPayoutStatus(summary),
+                invoiceId == 0 ? null : invoiceId));
         }
 
         var mwDeals = await ListActiveDealsAsync(RolePrefixes.ShareBizzUser, ct);
@@ -489,7 +499,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         var rows = result.Data?.Users ?? [];
 
         var sb = new StringBuilder();
-        sb.AppendLine("User ID,User Email,User Name,User Number,Joined On,State,District,Referral Source,User Status,Total DB Referred,Referral Amt.,Commission Status");
+        sb.AppendLine("User ID,User Email,User Name,User Number,Joined On,State,District,Referral Source,User Status,No. of DB,Documents Status,Total Referred,Total Commission Earning,Referrer Commission Status,SB Payout Status");
         foreach (var u in rows)
         {
             sb.AppendLine(string.Join(",",
@@ -503,8 +513,11 @@ public class AdminManageUsersService : IAdminManageUsersService
                 Csv(u.ReferralSourceDisplay),
                 Csv(u.Status),
                 u.WebsiteCount,
+                Csv(u.DocumentStatus),
+                u.TotalReferred,
                 u.TotalReferralAmount.ToString("0", CultureInfo.InvariantCulture),
-                Csv(u.CommissionStatus)));
+                Csv(u.CommissionStatus),
+                Csv(u.PayoutStatus)));
         }
 
         var bytes = Encoding.UTF8.GetBytes(sb.ToString());
@@ -769,6 +782,77 @@ public class AdminManageUsersService : IAdminManageUsersService
             return "InActive";
 
         return string.IsNullOrWhiteSpace(status) ? "InActive" : status.Trim();
+    }
+
+    private async Task<Dictionary<int, (string Status, string Tone)>> GetDocumentStatusesAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
+    {
+        var map = new Dictionary<int, (string Status, string Tone)>();
+        if (userIds.Count == 0) return map;
+
+        var docs = await _db.FranchiseVerifications.AsNoTracking()
+            .Where(v => userIds.Contains(v.UserId))
+            .Select(v => new { v.UserId, v.Id, v.Status })
+            .ToListAsync(ct);
+
+        foreach (var group in docs.GroupBy(d => d.UserId))
+        {
+            var latest = group.OrderByDescending(d => d.Id).First();
+            var status = MapDocumentStatus(latest.Status);
+            map[group.Key] = (status, MapDocumentTone(status));
+        }
+
+        return map;
+    }
+
+    private async Task<Dictionary<int, int>> GetLatestInvoiceIdsAsync(
+        IReadOnlyList<int> userIds, CancellationToken ct)
+    {
+        var map = new Dictionary<int, int>();
+        if (userIds.Count == 0) return map;
+
+        var invoices = await _db.Invoices.AsNoTracking()
+            .Where(i => i.UserId != null && userIds.Contains(i.UserId.Value))
+            .Select(i => new { UserId = i.UserId!.Value, i.Id })
+            .ToListAsync(ct);
+
+        foreach (var group in invoices.GroupBy(i => i.UserId))
+            map[group.Key] = group.Max(i => i.Id);
+
+        return map;
+    }
+
+    private static string MapDocumentStatus(string? status) => (status ?? "").Trim().ToLowerInvariant() switch
+    {
+        "submitted" or "pending" or "pending review" => "Pending Review",
+        "approved" or "verified" => "Approved",
+        "resubmission" or "resubmission required" or "resubmit" => "Resubmission Required",
+        "rejected" => "Rejected",
+        _ => "Not Submitted",
+    };
+
+    private static string MapDocumentTone(string label) => label switch
+    {
+        "Approved" => "ok",
+        "Rejected" => "danger",
+        "Pending Review" or "Resubmission Required" => "warn",
+        _ => "neutral",
+    };
+
+    /// <summary>SB Payment Details: Pending, Paid on {date}, or Rejected.</summary>
+    private static string BuildPayoutStatus(ReferralSummary s)
+    {
+        if (s.TotalAmount > 0 && s.PaidAmount >= s.TotalAmount)
+        {
+            var date = s.LastPaymentDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+                       ?? AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            return "Paid on " + date;
+        }
+
+        if (s.EarningCount > 0 && s.RejectedCount == s.EarningCount && s.PaidAmount <= 0)
+            return "Rejected";
+
+        return "Pending";
     }
 
     private static string BuildCommissionStatus(ReferralSummary s)

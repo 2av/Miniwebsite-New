@@ -7,6 +7,7 @@ import { FranchiseDistributorsPage } from '@/features/franchise-distributors/Fra
 import { FranchiseesPage } from '@/features/franchisees/FranchiseesPage'
 import { AllOrdersPage } from '@/features/all-orders/AllOrdersPage'
 import { ManageReferralsPage } from '@/features/manage-referrals/ManageReferralsPage'
+import { ReferralCommissionsPage } from '@/features/referral-commissions/ReferralCommissionsPage'
 import { CouponsPage } from '@/features/coupons/CouponsPage'
 import { ManagePricingPage } from '@/features/manage-pricing/ManagePricingPage'
 import { PlanCommissionsPage } from '@/features/plan-commissions/PlanCommissionsPage'
@@ -55,6 +56,8 @@ export function AppRouter() {
         <Route path="sales-channel/influencer-partner" element={<FranchiseDistributorsPage />} />
         <Route path="all-orders" element={<AllOrdersPage />} />
         <Route path="manage-referrals" element={<ManageReferralsPage />} />
+        <Route path="referral-commissions" element={<ReferralCommissionsPage />} />
+        <Route path="referrals-management" element={<Navigate to="/referral-commissions" replace />} />
         <Route path="coupons" element={<CouponsPage />} />
         <Route path="manage-deals" element={<Navigate to="/coupons" replace />} />
         <Route path="deals" element={<Navigate to="/coupons" replace />} />

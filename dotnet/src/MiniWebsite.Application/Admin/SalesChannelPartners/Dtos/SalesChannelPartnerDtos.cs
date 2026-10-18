@@ -58,7 +58,14 @@ public record SalesChannelPartnerRowDto(
     decimal TotalReferralEarning,
     string TotalReferralEarningDisplay,
     string CommissionStatus,
-    string RefundStatus);
+    string RefundStatus,
+    string PlanStatus,
+    string PlanPaymentStatus,
+    string PayoutStatus,
+    int? PartnerInvoiceId,
+    int TotalSales,
+    decimal TotalSalesAmount,
+    string TotalSalesAmountDisplay);
 
 public record CreateSalesChannelPartnerRequest(
     string FirstName,

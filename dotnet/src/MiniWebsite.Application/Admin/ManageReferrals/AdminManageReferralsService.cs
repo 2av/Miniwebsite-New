@@ -79,6 +79,9 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                     i.DiscountAmount,
                     i.SubTotal,
                     i.IgstAmount + i.CgstAmount + i.SgstAmount,
+                    i.CgstAmount,
+                    i.SgstAmount,
+                    i.IgstAmount,
                     i.TotalAmount))
                 .ToListAsync(ct);
         var invoiceById = invoices.ToDictionary(i => i.Id);
@@ -104,6 +107,21 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         var paymentsByEarning = payments
             .GroupBy(p => p.ReferralEarningId)
             .ToDictionary(g => g.Key, g => (Paid: g.Sum(x => x.Amount), Last: g.Max(x => x.PaymentDate)));
+
+        var referrerIds = earnings.Where(e => e.ReferrerUserId != null).Select(e => e.ReferrerUserId!.Value).Distinct().ToList();
+        var docRows = await _db.FranchiseVerifications.AsNoTracking()
+            .Where(v => referrerIds.Contains(v.UserId))
+            .OrderByDescending(v => v.Id)
+            .Select(v => new { v.UserId, v.Status })
+            .ToListAsync(ct);
+        var docByUser = new Dictionary<int, string>();
+        foreach (var doc in docRows)
+            docByUser.TryAdd(doc.UserId, doc.Status);
+
+        var partnerInvoiceRows = await _db.Invoices.AsNoTracking()
+            .Where(i => i.UserId != null && referrerIds.Contains(i.UserId.Value))
+            .Select(i => new { UserId = i.UserId!.Value, i.Id, i.PaymentStatus })
+            .ToListAsync(ct);
 
         var rows = earnings.Select(e =>
         {
@@ -155,6 +173,22 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                     ? order.SubTotal
                     : Math.Max(0, order.OriginalAmount - order.PromoDiscount - order.DiscountAmount);
 
+            var documentStatus = "Not Submitted";
+            if (e.ReferrerUserId is { } docUserId && docByUser.TryGetValue(docUserId, out var docStatus))
+                documentStatus = MapDocumentStatus(docStatus);
+
+            var partnerInvoice = e.ReferrerUserId is { } invoiceUserId
+                ? partnerInvoiceRows
+                    .Where(i => i.UserId == invoiceUserId && i.Id != order?.Id)
+                    .OrderByDescending(i => i.Id)
+                    .FirstOrDefault()
+                : null;
+            var (approval, approvalTone) = PartnerInvoiceApproval(partnerInvoice?.PaymentStatus, partnerInvoice != null);
+
+            var commissionGst = decimal.Round(e.Amount * 0.18m, 2, MidpointRounding.AwayFromZero);
+            var tds = decimal.Round(e.Amount * 0.02m, 2, MidpointRounding.AwayFromZero);
+            var payable = e.Amount + commissionGst - tds;
+
             return new ManageReferralRowDto(
                 e.Id,
                 e.CommissionCode ?? "",
@@ -178,7 +212,18 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                 pending,
                 commission == "Eligible" && pending > 0,
                 pay.Paid > 0,
-                e.AdminComment ?? "");
+                e.AdminComment ?? "",
+                order == null ? "" : FormatRupees(order.Cgst),
+                order == null ? "" : FormatRupees(order.Sgst),
+                order == null ? "" : FormatRupees(order.Igst),
+                documentStatus,
+                MapDocumentTone(documentStatus),
+                FormatRupees(commissionGst),
+                FormatRupees(tds),
+                FormatRupees(payable),
+                approval,
+                approvalTone,
+                partnerInvoice?.Id);
         }).ToList();
 
         return ApiResult<ManageReferralsPageDto>.Ok(new ManageReferralsPageDto(
@@ -497,5 +542,34 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         decimal DiscountAmount,
         decimal SubTotal,
         decimal Gst,
+        decimal Cgst,
+        decimal Sgst,
+        decimal Igst,
         decimal TotalAmount);
+
+    private static string MapDocumentStatus(string? status) => (status ?? "").Trim().ToLowerInvariant() switch
+    {
+        "submitted" or "pending review" => "Pending Review",
+        "approved" or "verified" => "Approved",
+        "resubmission" or "resubmission required" or "resubmit" => "Resubmission Required",
+        "rejected" => "Rejected",
+        _ => "Not Submitted",
+    };
+
+    private static string MapDocumentTone(string label) => label switch
+    {
+        "Approved" => "ok",
+        "Rejected" => "danger",
+        "Pending Review" or "Resubmission Required" => "warn",
+        _ => "neutral",
+    };
+
+    private static (string Label, string Tone) PartnerInvoiceApproval(string? paymentStatus, bool hasInvoice)
+    {
+        if (!hasInvoice) return ("Pending", "warn");
+        if (string.Equals(paymentStatus, "Rejected", StringComparison.OrdinalIgnoreCase))
+            return ("Rejected", "danger");
+        if (IsPaid(paymentStatus)) return ("Approved", "ok");
+        return ("Pending", "warn");
+    }
 }
