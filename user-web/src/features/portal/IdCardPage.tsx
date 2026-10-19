@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { apiGet, apiUploadForm } from '@/shared/api/client'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { assetUrl } from '@/lib/utils'
 import { ProfileImageCropModal } from '@/features/portal/ProfileImageCropModal'
@@ -422,19 +422,7 @@ export function IdCardPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <span className="heading mw-page-title">ID Card</span>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <Link to="/dashboard">ShareBizz</Link>
-            </li>
-            <li className="breadcrumb-item active" aria-current="page">
-              ID Card
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title="ID Card" />
 
       {error && <div className="alert alert-danger">{error}</div>}
       {alert && (

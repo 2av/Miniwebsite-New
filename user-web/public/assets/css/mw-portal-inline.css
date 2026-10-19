@@ -1055,18 +1055,24 @@
             color: var(--mw-color-nav-active);
         }
         .sb-sidenav .sb-sidenav-menu .nav .nav-link.active,
-        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active {
-            color: var(--mw-color-nav-active) !important;
-            background-color: color-mix(in srgb, var(--mw-color-nav-active) 10%, transparent) !important;
-            border-left-color: var(--mw-color-nav-active) !important;
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active,
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.active:hover,
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active:hover {
+            color: #fff !important;
+            background: var(--sb-gradient) !important;
+            border-left-color: transparent !important;
         }
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.active span,
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active span,
         .sb-sidenav .sb-sidenav-menu .nav .nav-link.active .mw-nav-icon,
-        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active .mw-nav-icon {
-            color: var(--mw-color-nav-active) !important;
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active .mw-nav-icon,
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.active .sb-nav-chevron,
+        .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active .sb-nav-chevron {
+            color: #fff !important;
         }
         .sb-sidenav .sb-sidenav-menu .nav .nav-link.active .sb-nav-link-icon,
         .sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active .sb-nav-link-icon {
-            background-color: color-mix(in srgb, var(--mw-color-nav-active) 14%, transparent) !important;
+            background-color: rgb(255 255 255 / 0.18) !important;
         }
 
         /* App footer (user/includes/footer.php) */

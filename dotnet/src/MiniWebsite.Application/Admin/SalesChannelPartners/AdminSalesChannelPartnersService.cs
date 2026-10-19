@@ -530,7 +530,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     private static (string? Pan, string? Front, string? Back) SplitDocuments(string? documentPath)
     {
         if (string.IsNullOrWhiteSpace(documentPath)) return (null, null, null);
-        var parts = documentPath.Split('|', 3, StringSplitOptions.None);
+        var parts = documentPath.Split('|');
         string? At(int i) => parts.Length > i && !string.IsNullOrWhiteSpace(parts[i]) ? parts[i].Trim() : null;
         return (At(0), At(1), At(2));
     }

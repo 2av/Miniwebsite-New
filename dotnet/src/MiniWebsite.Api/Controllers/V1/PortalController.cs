@@ -79,9 +79,14 @@ public class PortalController : ControllerBase
 
     [HttpGet("kit")]
     public async Task<ActionResult<ApiResult<KitExplorerDto>>> Kit(
-        [FromQuery] string category = "sales", [FromQuery] int folderId = 0, CancellationToken ct = default)
+        [FromQuery] string email,
+        [FromQuery] string category = "marketing",
+        [FromQuery] int folderId = 0,
+        CancellationToken ct = default)
     {
-        var result = await _portal.GetKitExplorerAsync(category, folderId, ct);
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(ApiResult<KitExplorerDto>.Fail("email is required."));
+        var result = await _portal.GetKitExplorerAsync(email, category, folderId, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 

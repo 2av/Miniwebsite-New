@@ -60,6 +60,7 @@ export function LoginPage() {
         refreshToken: auth.refreshToken,
         role: (auth.role as UserRole) || 'CUSTOMER',
         roleName: auth.roleName || undefined,
+        rolePrefix: auth.rolePrefix || undefined,
         email: auth.email,
         name: auth.name,
         userId: auth.userId,

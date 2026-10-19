@@ -319,7 +319,8 @@ public class AuthService : IAuthService
             expiresAt,
             user.Referral.CollaborationEnabled ? "YES" : "NO",
             user.Referral.SaleskitEnabled ? "YES" : "NO",
-            user.AssignedRole?.RoleName);
+            user.AssignedRole?.RoleName,
+            user.AssignedRole?.Prefix);
     }
 
     private bool VerifyPassword(string password, User user)

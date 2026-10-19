@@ -82,15 +82,18 @@ public class PortalService : IPortalService
             ToPublicProfileUrl(user.ProfileImage),
             franchiseInvoiceId.HasValue,
             franchiseInvoiceId,
-            user.AssignedRole?.RoleName));
+            user.AssignedRole?.RoleName,
+            user.AssignedRole?.Prefix));
     }
 
     public async Task<ApiResult<ReferralPageDto>> GetReferralAsync(string email, CancellationToken ct = default)
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<ReferralPageDto>.Fail("User not found.");
+        if (!PortalMenu.AllowsReferralArea(user.AssignedRole?.Prefix))
+            return ApiResult<ReferralPageDto>.Fail("You do not have access to this page.");
 
-        var isTeam = user.LoginRole == UserRole.Team;
+        var isTeam = PortalMenu.IsSalesDetails(user.AssignedRole?.Prefix);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
             .Where(re => re.ReferrerUserId == user.Id)
@@ -259,6 +262,11 @@ public class PortalService : IPortalService
     public async Task<ApiResult> SaveBankDetailsAsync(SaveBankDetailsRequest request, CancellationToken ct = default)
     {
         var email = request.Email.Trim().ToLowerInvariant();
+        var bankUser = await FindUserAsync(email, ct);
+        if (bankUser == null) return ApiResult.Fail("No account found for this email.");
+        if (!PortalMenu.AllowsReferralArea(bankUser.AssignedRole?.Prefix))
+            return ApiResult.Fail("You do not have access to this page.");
+
         if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.AccountHolder)
             || string.IsNullOrWhiteSpace(request.AccountNumber) || string.IsNullOrWhiteSpace(request.IfscCode)
             || string.IsNullOrWhiteSpace(request.UpiId) || string.IsNullOrWhiteSpace(request.UpiName))
@@ -378,13 +386,22 @@ public class PortalService : IPortalService
         return await _invoices.GetInvoiceHtmlByIdAsync(invoiceId.Value, ct);
     }
 
-    public Task<ApiResult<KitExplorerDto>> GetKitExplorerAsync(string category, int folderId, CancellationToken ct = default) =>
-        _kits.GetExplorerAsync(category, folderId, ct);
+    public async Task<ApiResult<KitExplorerDto>> GetKitExplorerAsync(
+        string email, string category, int folderId, CancellationToken ct = default)
+    {
+        var user = await FindUserAsync(email, ct);
+        if (user == null) return ApiResult<KitExplorerDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Marketing))
+            return ApiResult<KitExplorerDto>.Fail("You do not have access to this page.");
+        return await _kits.GetExplorerAsync(category, folderId, ct);
+    }
 
     public async Task<ApiResult<VerificationStatusDto>> GetVerificationAsync(string email, CancellationToken ct = default)
     {
         var me = await GetMeAsync(email, ct);
         if (!me.Success || me.Data == null) return ApiResult<VerificationStatusDto>.Fail(me.Message ?? "User not found.");
+        if (!PortalMenu.Allows(me.Data.RolePrefix, PortalMenu.Verification))
+            return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
 
         var agreementPaid = me.Data.FranchiseAgreementPaid;
         // Non-franchisee: page may still be opened; treat agreement as N/A (true) unless franchisee
@@ -393,8 +410,19 @@ public class PortalService : IPortalService
 
         var status = "pending";
         string? message = null;
-        string? pan = null, front = null, back = null, remarks = null, reviewedAt = null, reviewedBy = null;
+        string? pan = null, front = null, back = null, gstDoc = null, agreementDoc = null;
+        string? remarks = null, reviewedAt = null, reviewedBy = null;
+        var accepted = false;
         var isLocked = false;
+
+        var profile = await _db.Users.AsNoTracking()
+            .Where(u => u.Id == me.Data.UserId)
+            .Select(u => new { u.Address.Gst })
+            .FirstOrDefaultAsync(ct);
+        var bank = await _db.UserBankDetails.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.UserId == me.Data.UserId, ct);
+        var gstNumber = profile?.Gst?.Trim();
+        var bankComplete = IsBankComplete(bank);
 
         try
         {
@@ -406,22 +434,29 @@ public class PortalService : IPortalService
             if (row != null)
             {
                 status = string.IsNullOrWhiteSpace(row.Status) ? "pending" : row.Status.Trim();
-                var (p, f, b) = ParseVerificationDocs(row.DocumentPath);
-                pan = p;
-                front = f;
-                back = b;
+                var docs = ParseVerificationDocs(row.DocumentPath);
+                pan = docs.Pan;
+                front = docs.Front;
+                back = docs.Back;
+                gstDoc = docs.Gst;
+                agreementDoc = docs.Agreement;
+                accepted = docs.Accepted;
                 remarks = row.AdminRemarks;
                 reviewedAt = FormatDateTime(row.ReviewedAt);
                 reviewedBy = row.ReviewedBy;
-                var allDocs = !string.IsNullOrWhiteSpace(pan) && !string.IsNullOrWhiteSpace(front) && !string.IsNullOrWhiteSpace(back);
+                var allDocs = !string.IsNullOrWhiteSpace(pan)
+                    && !string.IsNullOrWhiteSpace(front)
+                    && !string.IsNullOrWhiteSpace(back)
+                    && !string.IsNullOrWhiteSpace(gstDoc)
+                    && !string.IsNullOrWhiteSpace(agreementDoc)
+                    && accepted
+                    && !string.IsNullOrWhiteSpace(gstNumber)
+                    && bankComplete;
                 isLocked = string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(status, "verified", StringComparison.OrdinalIgnoreCase)
                            || (string.Equals(status, "submitted", StringComparison.OrdinalIgnoreCase) && allDocs);
                 if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
                     isLocked = false;
-            }
-            else
-            {
-                status = "pending";
             }
         }
         catch
@@ -434,7 +469,7 @@ public class PortalService : IPortalService
             "approved" or "verified" => "Congratulations! Your documents have been approved successfully.",
             "rejected" => "Your documents have been rejected. Please upload new documents.",
             "submitted" => "Thanks for sharing the Documents. Our team will verify it and confirm within 48 hrs.",
-            "pending" => "Upload your PAN Card and Aadhaar Card (Front & Back) for verification.",
+            "pending" => "Submit PAN, Aadhaar, GST details, agreement, bank and UPI details, and electronic acceptance.",
             _ => "Please submit your KYC documents."
         };
 
@@ -453,7 +488,17 @@ public class PortalService : IPortalService
             ToVerificationPublicUrl(back),
             remarks,
             reviewedAt,
-            reviewedBy));
+            reviewedBy,
+            ToVerificationPublicUrl(gstDoc),
+            ToVerificationPublicUrl(agreementDoc),
+            gstNumber,
+            bank?.BankName,
+            bank?.AccountHolderName,
+            bank?.AccountNumber,
+            bank?.IfscCode,
+            bank?.UpiId,
+            bank?.UpiName,
+            accepted));
     }
 
     public async Task<ApiResult<VerificationStatusDto>> SubmitVerificationAsync(
@@ -484,12 +529,30 @@ public class PortalService : IPortalService
             return ApiResult<VerificationStatusDto>.Fail("Cannot create upload folder: " + ex.Message);
         }
 
-        string? panFile = null, frontFile = null, backFile = null;
+        var gstNumber = (request.GstNumber ?? "").Trim().ToUpperInvariant();
+        if (gstNumber.Length != 15 || gstNumber.Any(c => !char.IsLetterOrDigit(c)))
+            return ApiResult<VerificationStatusDto>.Fail("Enter a valid 15-character GSTIN.");
+        if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.AccountHolder)
+            || string.IsNullOrWhiteSpace(request.AccountNumber) || string.IsNullOrWhiteSpace(request.IfscCode)
+            || string.IsNullOrWhiteSpace(request.UpiId) || string.IsNullOrWhiteSpace(request.UpiName))
+            return ApiResult<VerificationStatusDto>.Fail("Bank name, account holder, account number, IFSC, UPI ID, and UPI name are required.");
+        if (!request.AccountNumber.Trim().All(char.IsDigit))
+            return ApiResult<VerificationStatusDto>.Fail("Account number should contain only numbers.");
+        if (request.IfscCode.Trim().Length != 11)
+            return ApiResult<VerificationStatusDto>.Fail("IFSC code should be exactly 11 characters.");
+        if (!request.UpiId.Contains('@'))
+            return ApiResult<VerificationStatusDto>.Fail("Please enter a valid UPI ID (e.g., user@paytm).");
+        if (!request.ElectronicAcceptance)
+            return ApiResult<VerificationStatusDto>.Fail("Electronic acceptance is required.");
+
+        string? panFile = null, frontFile = null, backFile = null, gstFile = null, agreementFile = null;
         try
         {
             panFile = await SaveVerificationImageAsync(fsDir, request.PanCardBase64, "pan", ct);
             frontFile = await SaveVerificationImageAsync(fsDir, request.AadhaarFrontBase64, "aadhaar_front", ct);
             backFile = await SaveVerificationImageAsync(fsDir, request.AadhaarBackBase64, "aadhaar_back", ct);
+            gstFile = await SaveVerificationImageAsync(fsDir, request.GstCertificateBase64, "gst", ct);
+            agreementFile = await SaveVerificationImageAsync(fsDir, request.AgreementBase64, "agreement", ct);
         }
         catch (Exception ex)
         {
@@ -500,26 +563,32 @@ public class PortalService : IPortalService
         var existingPan = Path.GetFileName(current.Data.PanCardUrl ?? "");
         var existingFront = Path.GetFileName(current.Data.AadhaarFrontUrl ?? "");
         var existingBack = Path.GetFileName(current.Data.AadhaarBackUrl ?? "");
+        var existingGst = Path.GetFileName(current.Data.GstCertificateUrl ?? "");
+        var existingAgreement = Path.GetFileName(current.Data.AgreementUrl ?? "");
         var finalPan = panFile ?? (string.IsNullOrWhiteSpace(existingPan) ? null : existingPan);
         var finalFront = frontFile ?? (string.IsNullOrWhiteSpace(existingFront) ? null : existingFront);
         var finalBack = backFile ?? (string.IsNullOrWhiteSpace(existingBack) ? null : existingBack);
+        var finalGst = gstFile ?? (string.IsNullOrWhiteSpace(existingGst) ? null : existingGst);
+        var finalAgreement = agreementFile ?? (string.IsNullOrWhiteSpace(existingAgreement) ? null : existingAgreement);
 
-        if (string.IsNullOrWhiteSpace(finalPan) || string.IsNullOrWhiteSpace(finalFront) || string.IsNullOrWhiteSpace(finalBack))
-            return ApiResult<VerificationStatusDto>.Fail("All three documents are mandatory (PAN, Aadhaar Front, Aadhaar Back).");
+        if (string.IsNullOrWhiteSpace(finalPan) || string.IsNullOrWhiteSpace(finalFront) || string.IsNullOrWhiteSpace(finalBack)
+            || string.IsNullOrWhiteSpace(finalGst) || string.IsNullOrWhiteSpace(finalAgreement))
+            return ApiResult<VerificationStatusDto>.Fail("PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory.");
 
         try
         {
-            var userId = await _db.Users.AsNoTracking()
-                .Where(u => u.Email == email)
-                .Select(u => (int?)u.Id)
-                .FirstOrDefaultAsync(ct);
-            if (userId == null)
+            var user = await FindUserAsync(email, ct);
+            if (user == null)
                 return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
 
+            user.Address.Gst = gstNumber;
+            user.UpdatedAt = AppClock.Now;
+            await SaveVerificationBankAsync(user.Id, request, ct);
+
             var entity = await _db.FranchiseVerifications
-                .FirstOrDefaultAsync(v => v.UserId == userId, ct);
+                .FirstOrDefaultAsync(v => v.UserId == user.Id, ct);
             var now = AppClock.Now;
-            var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!);
+            var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!, finalGst!, finalAgreement!, true);
 
             if (entity != null)
             {
@@ -532,7 +601,7 @@ public class PortalService : IPortalService
             {
                 _db.FranchiseVerifications.Add(new Domain.Entities.FranchiseVerification
                 {
-                    UserId = userId.Value,
+                    UserId = user.Id,
                     DocumentPath = docPath,
                     Status = "submitted",
                     SubmittedAt = now,
@@ -611,6 +680,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<IdCardProfileDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.IdCard))
+            return ApiResult<IdCardProfileDto>.Fail("You do not have access to this page.");
 
         var isFranchisee = user.LoginRole == UserRole.Franchisee;
         var employeeId = isFranchisee
@@ -746,6 +817,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<CustomerTrackerPageDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult<CustomerTrackerPageDto>.Fail("You do not have access to this page.");
 
         var role = RoleApi(user.LoginRole);
         var collaboration = user.Referral.CollaborationEnabled;
@@ -834,6 +907,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(request.OwnerEmail, ct);
         if (user == null) return ApiResult<CustomerManagerRowDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult<CustomerManagerRowDto>.Fail("You do not have access to this page.");
 
         var name = (request.CustomerName ?? "").Trim();
         var phone = PhoneDigits(request.PhoneNumber ?? "");
@@ -937,6 +1012,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
         {
@@ -963,6 +1040,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<IReadOnlyList<CustomerFollowupRowDto>>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult<IReadOnlyList<CustomerFollowupRowDto>>.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
         {
@@ -998,6 +1077,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(request.OwnerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult.Fail("You do not have access to this page.");
 
         var methods = new[] { "Call", "Visited", "WhatsApp", "Email" };
         var statuses = new[] { "Followup required", "Phone Busy/Not Picked", "Important", "Joined", "Interested", "Not Interested" };
@@ -1048,6 +1129,8 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+            return ApiResult.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
         {
@@ -1205,16 +1288,59 @@ public class PortalService : IPortalService
         }
     }
 
-    private static (string? Pan, string? Front, string? Back) ParseVerificationDocs(string? documentPath)
+    private readonly record struct VerificationDocs(
+        string? Pan, string? Front, string? Back, string? Gst, string? Agreement, bool Accepted);
+
+    private static VerificationDocs ParseVerificationDocs(string? documentPath)
     {
-        if (string.IsNullOrWhiteSpace(documentPath)) return (null, null, null);
-        var parts = documentPath.Split('|', 3, StringSplitOptions.None);
+        if (string.IsNullOrWhiteSpace(documentPath)) return new(null, null, null, null, null, false);
+        var parts = documentPath.Split('|');
         string? At(int i) => parts.Length > i && !string.IsNullOrWhiteSpace(parts[i]) ? parts[i].Trim() : null;
-        return (At(0), At(1), At(2));
+        return new(At(0), At(1), At(2), At(3), At(4), At(5) == "1");
     }
 
-    private static string EncodeVerificationDocs(string pan, string front, string back) =>
-        $"{pan}|{front}|{back}";
+    private static string EncodeVerificationDocs(
+        string pan, string front, string back, string gst, string agreement, bool accepted) =>
+        $"{pan}|{front}|{back}|{gst}|{agreement}|{(accepted ? "1" : "0")}";
+
+    private static bool IsBankComplete(Domain.Entities.UserBankDetails? bank) =>
+        bank != null
+        && !string.IsNullOrWhiteSpace(bank.BankName)
+        && !string.IsNullOrWhiteSpace(bank.AccountHolderName)
+        && !string.IsNullOrWhiteSpace(bank.AccountNumber)
+        && !string.IsNullOrWhiteSpace(bank.IfscCode)
+        && !string.IsNullOrWhiteSpace(bank.UpiId)
+        && !string.IsNullOrWhiteSpace(bank.UpiName);
+
+    private async Task SaveVerificationBankAsync(int userId, SubmitVerificationRequest request, CancellationToken ct)
+    {
+        var entity = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserId == userId, ct);
+        var now = AppClock.Now;
+        if (entity == null)
+        {
+            _db.UserBankDetails.Add(new Domain.Entities.UserBankDetails
+            {
+                UserId = userId,
+                BankName = request.BankName!.Trim(),
+                AccountHolderName = request.AccountHolder!.Trim(),
+                AccountNumber = request.AccountNumber!.Trim(),
+                IfscCode = request.IfscCode!.Trim().ToUpperInvariant(),
+                UpiId = request.UpiId!.Trim(),
+                UpiName = request.UpiName!.Trim(),
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        entity.BankName = request.BankName!.Trim();
+        entity.AccountHolderName = request.AccountHolder!.Trim();
+        entity.AccountNumber = request.AccountNumber!.Trim();
+        entity.IfscCode = request.IfscCode!.Trim().ToUpperInvariant();
+        entity.UpiId = request.UpiId!.Trim();
+        entity.UpiName = request.UpiName!.Trim();
+        entity.UpdatedAt = now;
+    }
 
     private async Task<Domain.Entities.User?> FindUserAsync(string email, CancellationToken ct) =>
         await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email.Trim().ToLowerInvariant(), ct);

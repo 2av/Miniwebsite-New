@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiGet, apiSend, ApiError } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { siteUrl } from '@/lib/utils'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type VerificationData = {
   status: string
@@ -12,12 +13,32 @@ type VerificationData = {
   panCardUrl?: string | null
   aadhaarFrontUrl?: string | null
   aadhaarBackUrl?: string | null
+  gstCertificateUrl?: string | null
+  agreementUrl?: string | null
+  gstNumber?: string | null
+  bankName?: string | null
+  accountHolder?: string | null
+  accountNumber?: string | null
+  ifscCode?: string | null
+  upiId?: string | null
+  upiName?: string | null
+  electronicAcceptance: boolean
   adminRemarks?: string | null
   reviewedAtDisplay?: string | null
   reviewedBy?: string | null
 }
 
-type DocSlot = 'pan' | 'front' | 'back'
+type DocSlot = 'pan' | 'front' | 'back' | 'gst' | 'agreement'
+type DocPreview = Partial<Record<DocSlot, string>>
+
+type BankForm = {
+  bankName: string
+  accountHolder: string
+  accountNumber: string
+  ifscCode: string
+  upiId: string
+  upiName: string
+}
 
 function pick(o: Record<string, unknown>, camel: string, pascal: string) {
   return o[camel] ?? o[pascal]
@@ -34,6 +55,16 @@ function normalize(raw: unknown): VerificationData {
     panCardUrl: (pick(o, 'panCardUrl', 'PanCardUrl') as string | null) ?? null,
     aadhaarFrontUrl: (pick(o, 'aadhaarFrontUrl', 'AadhaarFrontUrl') as string | null) ?? null,
     aadhaarBackUrl: (pick(o, 'aadhaarBackUrl', 'AadhaarBackUrl') as string | null) ?? null,
+    gstCertificateUrl: (pick(o, 'gstCertificateUrl', 'GstCertificateUrl') as string | null) ?? null,
+    agreementUrl: (pick(o, 'agreementUrl', 'AgreementUrl') as string | null) ?? null,
+    gstNumber: (pick(o, 'gstNumber', 'GstNumber') as string | null) ?? null,
+    bankName: (pick(o, 'bankName', 'BankName') as string | null) ?? null,
+    accountHolder: (pick(o, 'accountHolder', 'AccountHolder') as string | null) ?? null,
+    accountNumber: (pick(o, 'accountNumber', 'AccountNumber') as string | null) ?? null,
+    ifscCode: (pick(o, 'ifscCode', 'IfscCode') as string | null) ?? null,
+    upiId: (pick(o, 'upiId', 'UpiId') as string | null) ?? null,
+    upiName: (pick(o, 'upiName', 'UpiName') as string | null) ?? null,
+    electronicAcceptance: Boolean(pick(o, 'electronicAcceptance', 'ElectronicAcceptance')),
     adminRemarks: (pick(o, 'adminRemarks', 'AdminRemarks') as string | null) ?? null,
     reviewedAtDisplay: (pick(o, 'reviewedAtDisplay', 'ReviewedAtDisplay') as string | null) ?? null,
     reviewedBy: (pick(o, 'reviewedBy', 'ReviewedBy') as string | null) ?? null,
@@ -51,10 +82,10 @@ function fileToBase64(file: File): Promise<string> {
 
 function statusBadge(status: string) {
   const s = status.toLowerCase()
-  if (s === 'submitted') {
+  if (s === 'submitted' || s === 'pending review') {
     return (
       <span className="badge bg-warning text-dark">
-        <i className="fa fa-clock" aria-hidden /> Under Review
+        <i className="fa fa-clock" aria-hidden /> Pending Review
       </span>
     )
   }
@@ -72,9 +103,16 @@ function statusBadge(status: string) {
       </span>
     )
   }
+  if (s === 'resubmission' || s === 'resubmission required') {
+    return (
+      <span className="badge bg-warning text-dark">
+        <i className="fa fa-refresh" aria-hidden /> Resubmission Required
+      </span>
+    )
+  }
   return (
     <span className="badge bg-secondary">
-      <i className="fa fa-hourglass-half" aria-hidden /> Pending
+      <i className="fa fa-hourglass-half" aria-hidden /> Not Submitted
     </span>
   )
 }
@@ -85,13 +123,25 @@ export function VerificationPage() {
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [preview, setPreview] = useState<{ pan?: string; front?: string; back?: string }>({})
-  const [pendingB64, setPendingB64] = useState<{ pan?: string; front?: string; back?: string }>({})
+  const [preview, setPreview] = useState<DocPreview>({})
+  const [pendingB64, setPendingB64] = useState<DocPreview>({})
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [gstNumber, setGstNumber] = useState('')
+  const [accepted, setAccepted] = useState(false)
+  const [bank, setBank] = useState<BankForm>({
+    bankName: '',
+    accountHolder: '',
+    accountNumber: '',
+    ifscCode: '',
+    upiId: '',
+    upiName: '',
+  })
 
   const panRef = useRef<HTMLInputElement>(null)
   const frontRef = useRef<HTMLInputElement>(null)
   const backRef = useRef<HTMLInputElement>(null)
+  const gstRef = useRef<HTMLInputElement>(null)
+  const agreementRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     if (!session?.email) return
@@ -104,6 +154,18 @@ export function VerificationPage() {
         pan: page.panCardUrl || undefined,
         front: page.aadhaarFrontUrl || undefined,
         back: page.aadhaarBackUrl || undefined,
+        gst: page.gstCertificateUrl || undefined,
+        agreement: page.agreementUrl || undefined,
+      })
+      setGstNumber(page.gstNumber || '')
+      setAccepted(page.electronicAcceptance)
+      setBank({
+        bankName: page.bankName || '',
+        accountHolder: page.accountHolder || '',
+        accountNumber: page.accountNumber || '',
+        ifscCode: page.ifscCode || '',
+        upiId: page.upiId || '',
+        upiName: page.upiName || '',
       })
       setPendingB64({})
     } catch (e) {
@@ -144,9 +206,14 @@ export function VerificationPage() {
     setPreview((p) => {
       const next = { ...p }
       // Restore server URL if present
-      if (slot === 'pan') next.pan = data?.panCardUrl || undefined
-      if (slot === 'front') next.front = data?.aadhaarFrontUrl || undefined
-      if (slot === 'back') next.back = data?.aadhaarBackUrl || undefined
+      const saved: Record<DocSlot, string | null | undefined> = {
+        pan: data?.panCardUrl,
+        front: data?.aadhaarFrontUrl,
+        back: data?.aadhaarBackUrl,
+        gst: data?.gstCertificateUrl,
+        agreement: data?.agreementUrl,
+      }
+      next[slot] = saved[slot] || undefined
       if (!next[slot]) delete next[slot]
       return next
     })
@@ -158,8 +225,34 @@ export function VerificationPage() {
     const panOk = pendingB64.pan || data.panCardUrl
     const frontOk = pendingB64.front || data.aadhaarFrontUrl
     const backOk = pendingB64.back || data.aadhaarBackUrl
-    if (!panOk || !frontOk || !backOk) {
-      setError('All documents are mandatory (PAN, Aadhaar Front, Aadhaar Back).')
+    const gstOk = pendingB64.gst || data.gstCertificateUrl
+    const agreementOk = pendingB64.agreement || data.agreementUrl
+    if (!panOk || !frontOk || !backOk || !gstOk || !agreementOk) {
+      setError('PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory.')
+      return
+    }
+    if (!/^[0-9A-Za-z]{15}$/.test(gstNumber.trim())) {
+      setError('Enter a valid 15-character GSTIN.')
+      return
+    }
+    if (!bank.bankName.trim() || !bank.accountHolder.trim() || !bank.accountNumber.trim() || !bank.ifscCode.trim() || !bank.upiId.trim() || !bank.upiName.trim()) {
+      setError('Bank name, account holder, account number, IFSC, UPI ID, and UPI name are required.')
+      return
+    }
+    if (!/^\d+$/.test(bank.accountNumber.trim())) {
+      setError('Account number should contain only numbers.')
+      return
+    }
+    if (bank.ifscCode.trim().length !== 11) {
+      setError('IFSC code should be exactly 11 characters.')
+      return
+    }
+    if (!bank.upiId.includes('@')) {
+      setError('Please enter a valid UPI ID (e.g., user@paytm).')
+      return
+    }
+    if (!accepted) {
+      setError('Electronic acceptance is required.')
       return
     }
     setBusy(true)
@@ -171,6 +264,16 @@ export function VerificationPage() {
         panCardBase64: pendingB64.pan || null,
         aadhaarFrontBase64: pendingB64.front || null,
         aadhaarBackBase64: pendingB64.back || null,
+        gstCertificateBase64: pendingB64.gst || null,
+        agreementBase64: pendingB64.agreement || null,
+        gstNumber: gstNumber.trim().toUpperCase(),
+        bankName: bank.bankName.trim(),
+        accountHolder: bank.accountHolder.trim(),
+        accountNumber: bank.accountNumber.trim(),
+        ifscCode: bank.ifscCode.trim().toUpperCase(),
+        upiId: bank.upiId.trim(),
+        upiName: bank.upiName.trim(),
+        electronicAcceptance: true,
       })
       setMsg(res.message || 'Documents submitted successfully.')
       await load()
@@ -256,19 +359,10 @@ export function VerificationPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <h1 className="heading mw-page-title">Franchise Verification</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <a href="#">ShareBizz</a>
-            </li>
-            <li className="breadcrumb-item active" aria-current="page">
-              Verification
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader
+        title="Document Verification"
+        subtitle="Submit PAN, Aadhaar, GST details, agreement, bank and UPI details, and electronic acceptance."
+      />
 
       {!data && !error ? <p className="mw-helper-text">Loading…</p> : null}
       {error ? (
@@ -294,40 +388,96 @@ export function VerificationPage() {
               </div>
             ) : null}
 
-            <h4 className="mb-0 heading" style={{ fontSize: 22 }}>
-              Document Verification
-            </h4>
+            <h2 className="heading mw-section-title mb-1">KYC documents</h2>
             <p className="text-muted mb-4 page_title_description">
-              Upload your PAN Card and Aadhaar Card (Front &amp; Back) for verification.{' '}
-              <strong className="text-danger">All documents are mandatory.</strong>
+              <strong className="text-danger">All items are mandatory.</strong>
             </p>
 
             <form id="verificationForm" onSubmit={onSubmit}>
               <div className="row">
-                <DocCard slot="pan" label="PAN CARD" title="Add PAN Card" inputRef={panRef} />
-                <DocCard
-                  slot="front"
-                  label="AADHAAR FRONT"
-                  title="Add Aadhaar Front"
-                  inputRef={frontRef}
-                />
-                <DocCard
-                  slot="back"
-                  label="AADHAAR BACK"
-                  title="Add Aadhaar Back"
-                  inputRef={backRef}
-                />
+                <DocCard slot="pan" label="PAN CARD" title="PAN" inputRef={panRef} />
+                <DocCard slot="front" label="AADHAAR FRONT" title="Aadhaar front" inputRef={frontRef} />
+                <DocCard slot="back" label="AADHAAR BACK" title="Aadhaar back" inputRef={backRef} />
+                <DocCard slot="gst" label="GST CERTIFICATE" title="GST certificate" inputRef={gstRef} />
+                <DocCard slot="agreement" label="AGREEMENT" title="Agreement" inputRef={agreementRef} />
               </div>
+
+              <section className="mw-bank-details-section mb-4 pt-2">
+                <h2 className="heading mw-section-title">GST details</h2>
+                <div className="mw-form-grid-2">
+                  <div className="mw-form-group">
+                    <label className="mw-label" htmlFor="gstNumber">
+                      GSTIN <span className="req">*</span>
+                    </label>
+                    <input
+                      id="gstNumber"
+                      className="form-control mw-input"
+                      value={gstNumber}
+                      maxLength={15}
+                      placeholder="15-character GSTIN"
+                      readOnly={locked}
+                      onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="mw-bank-details-section mb-4 pt-2 border-t border-border">
+                <h2 className="heading mw-section-title">Bank and UPI details</h2>
+                <div className="mw-form-grid-2">
+                  {(
+                    [
+                      ['bankName', 'Bank name', 'Enter bank name'],
+                      ['accountHolder', 'Account holder name', 'Account holder name'],
+                      ['accountNumber', 'Account number', 'Enter account number'],
+                      ['ifscCode', 'IFSC code', '11-character IFSC'],
+                      ['upiId', 'UPI ID', 'name@bank'],
+                      ['upiName', 'UPI name', 'Name on UPI'],
+                    ] as const
+                  ).map(([key, label, placeholder]) => (
+                    <div className="mw-form-group" key={key}>
+                      <label className="mw-label" htmlFor={key}>
+                        {label} <span className="req">*</span>
+                      </label>
+                      <input
+                        id={key}
+                        className="form-control mw-input"
+                        placeholder={placeholder}
+                        value={bank[key]}
+                        readOnly={locked}
+                        onChange={(e) => setBank((current) => ({ ...current, [key]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="mb-4 pt-2 border-t border-border">
+                <h2 className="heading mw-section-title">Electronic acceptance</h2>
+                <label className="flex items-start gap-3 text-sm text-sb-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={accepted}
+                    disabled={locked}
+                    onChange={(e) => setAccepted(e.target.checked)}
+                  />
+                  <span>
+                    I confirm that the PAN, Aadhaar, GST details, agreement, and bank/UPI details submitted here are
+                    true, and I electronically accept them for ShareBizz verification.
+                  </span>
+                </label>
+              </section>
 
               {!locked ? (
                 <div className="text-center">
                   <button
                     type="submit"
                     name="submit_documents"
-                    className="btn btn-warning btn-lg px-5 fw-bold"
+                    className="sb-btn-primary px-6"
                     disabled={busy || !data.agreementPaid}
                   >
-                    {busy ? 'Submitting…' : 'SUBMIT'}
+                    {busy ? 'Submitting…' : 'Submit all KYC documents'}
                   </button>
                 </div>
               ) : null}

@@ -5,6 +5,7 @@ import { setCardInProcess, stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { assetUrl, siteUrl } from '@/lib/utils'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 function publicUrlForSlug(slug: string) {
   const clean = slug.replace(/^\//, '')
@@ -104,19 +105,7 @@ export function BusinessNamePage() {
 
   return (
     <>
-      <div className="main-top mw-page-header">
-        <h1 className="heading mw-page-title">Business Name</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item mw-breadcrumb-item">
-              <a href="#">ShareBizz</a>
-            </li>
-            <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
-              Website Builder
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title="Business Name" subtitle="Website Builder" />
 
       {err && (
         <div className="alert alert-danger mw-alert mw-alert-danger" role="alert">

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { apiGet } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { TablePagination, useClientPagination } from '@/components/table'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type InvoiceRow = {
   id: number
@@ -47,17 +48,7 @@ export function InvoiceHistoryPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <h1 className="heading mw-page-title">Invoice History</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <Link to="/dashboard">Dashboard</Link>
-            </li>
-            <li className="breadcrumb-item active">Invoices</li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title="Invoice History" />
 
       {!cardId && <div className="alert alert-warning">Open invoices from a ShareBizz row (card id required).</div>}
       {error && <div className="alert alert-danger">{error}</div>}
@@ -142,17 +133,7 @@ export function InvoiceDetailPage({ invoiceId }: { invoiceId: number }) {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <h1 className="heading mw-page-title">Invoice Details</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <Link to="/dashboard">Dashboard</Link>
-            </li>
-            <li className="breadcrumb-item active">Invoice #{invoiceId}</li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title="Invoice Details" subtitle={invoiceId ? `Invoice #${invoiceId}` : undefined} />
       {error && <div className="alert alert-danger">{error}</div>}
       {data && (
         <div className="card">

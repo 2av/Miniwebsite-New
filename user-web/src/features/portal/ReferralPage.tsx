@@ -3,6 +3,7 @@ import { apiGet, apiSend, ApiError } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { siteUrl } from '@/lib/utils'
 import { TablePagination, useClientPagination } from '@/components/table'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type BankForm = {
   bankName: string
@@ -140,8 +141,9 @@ export function ReferralPage({ title }: { title?: string } = {}) {
     void load()
   }, [session?.email])
 
-  const pageTitle = title || data?.pageTitle || (session?.role === 'TEAM' ? 'Sales Details' : 'Referral Details')
-  const isTeam = data?.isTeamView ?? session?.role === 'TEAM'
+  const salesDetails = (session?.rolePrefix || '').toUpperCase() === 'FST'
+  const pageTitle = title || data?.pageTitle || (salesDetails ? 'Sales Details' : 'Referral Details')
+  const isTeam = data?.isTeamView ?? salesDetails
   const bankLocked = Boolean(data?.bankDetailsComplete)
   const referredUsers = data?.referredUsers ?? []
   const pager = useClientPagination(referredUsers.length, { resetKey: `${session?.email ?? ''}:${isTeam ? 't' : 'c'}` })
@@ -202,19 +204,7 @@ export function ReferralPage({ title }: { title?: string } = {}) {
 
   return (
     <>
-      <div className="main-top mw-page-header">
-        <h1 className="heading mw-page-title">{pageTitle}</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item mw-breadcrumb-item">
-              <a href="#">ShareBizz</a>
-            </li>
-            <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
-              {pageTitle}
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title={pageTitle} />
 
       {error ? (
         <div className="mw-alert mw-alert-danger" role="alert">

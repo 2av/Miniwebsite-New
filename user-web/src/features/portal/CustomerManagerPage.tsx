@@ -4,6 +4,7 @@ import { apiGet, apiSend, ApiError } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { siteUrl } from '@/lib/utils'
 import { TablePagination, useClientPagination } from '@/components/table'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type CustomerRow = {
   id: number
@@ -548,19 +549,7 @@ export function CustomerManagerPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header">
-        <h1 className="heading mw-page-title">Customer Tracker</h1>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item mw-breadcrumb-item">
-              <Link to="/dashboard">ShareBizz</Link>
-            </li>
-            <li className="breadcrumb-item mw-breadcrumb-item active" aria-current="page">
-              Customer Manager
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader title="Customer Manager" />
 
       {error ? (
         <div className="mw-alert mw-alert-danger mb-3" role="alert">
@@ -1234,9 +1223,7 @@ export function CustomerTrackerRedirectPage() {
 export function GrowWithMwPage() {
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <h1 className="heading mw-page-title">Grow with MW</h1>
-      </div>
+      <PortalPageHeader title="Grow with MW" />
       <div className="mw-card">
         <div className="mw-card-body">
           <p>Documentation hub is available on the live site while the public docs API is finalized.</p>

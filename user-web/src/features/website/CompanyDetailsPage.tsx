@@ -4,6 +4,7 @@ import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 const FIELDS = [
   ['firstName', 'First Name'],
@@ -75,9 +76,10 @@ export function CompanyDetailsPage() {
   }
 
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title="Company Details" />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">Company Details</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {msg && <div className="alert alert-success">{msg}</div>}
         <form onSubmit={save} className="row g-3">
@@ -122,5 +124,6 @@ export function CompanyDetailsPage() {
         <p className="small text-muted mt-3">Image binary upload still uses the live site upload flow; save the returned filename here.</p>
       </div>
     </div>
+    </>
   )
 }

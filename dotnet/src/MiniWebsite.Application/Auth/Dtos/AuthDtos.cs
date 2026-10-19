@@ -32,4 +32,5 @@ public record AuthResponse(
     DateTime AccessTokenExpiresAt,
     string? CollaborationEnabled = null,
     string? SaleskitEnabled = null,
-    string? RoleName = null);
+    string? RoleName = null,
+    string? RolePrefix = null);

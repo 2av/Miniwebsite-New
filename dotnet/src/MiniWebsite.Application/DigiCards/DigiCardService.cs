@@ -7,6 +7,7 @@ using MiniWebsite.Application.DigiCards.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common;
+using MiniWebsite.Application.Portal;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Domain.Common;
 
@@ -104,6 +105,9 @@ public class DigiCardService : IDigiCardService
         if (user == null)
             return ApiResult<CustomerDashboardDto>.Fail("User not found.");
 
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Dashboard))
+            return ApiResult<CustomerDashboardDto>.Fail("You do not have access to this page.");
+
         if (user.LoginRole is not (UserRole.Customer or UserRole.Team))
             return ApiResult<CustomerDashboardDto>.Fail("Use franchisee dashboard for this role.");
 
@@ -147,7 +151,8 @@ public class DigiCardService : IDigiCardService
             .FirstOrDefaultAsync(u => u.Email.ToLower() == email, ct);
         if (user == null)
             return ApiResult<FranchiseeDashboardDto>.Fail("User not found.");
-        if (user.LoginRole != UserRole.Franchisee)
+        if (user.LoginRole != UserRole.Franchisee
+            || !PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Dashboard))
             return ApiResult<FranchiseeDashboardDto>.Fail("User is not a franchisee.");
 
         var totalCards = await _db.Cards.AsNoTracking()

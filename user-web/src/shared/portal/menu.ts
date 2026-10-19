@@ -1,5 +1,3 @@
-import type { UserRole } from '@/shared/types/api'
-
 export type PortalFlags = {
   collaborationEnabled: boolean
   saleskitEnabled: boolean
@@ -7,165 +5,111 @@ export type PortalFlags = {
   mwPaid: boolean
 }
 
-type MenuItem = {
-  id: string
+/** Role prefix from `roles.Prefix`. SBPU menu is dashboard-only until it is confirmed. */
+export type UserTypePrefix = 'SBU' | 'SBPU' | 'FRP' | 'DMP' | 'PSP' | 'SMP' | 'FST' | 'FSP'
+
+export type PortalFeature =
+  | 'dashboard'
+  | 'referral'
+  | 'sales'
+  | 'verification'
+  | 'customers'
+  | 'marketing'
+  | 'id-card'
+
+export type PortalMenuItem = {
+  id: PortalFeature
   label: string
   icon: string
   url: string
-  roles: UserRole[]
-  alwaysVisible?: boolean
-  conditions?: Partial<Record<UserRole, Record<string, boolean>>>
 }
 
-/** Mirrors user/menu_config.json visibility rules. */
-const MENU: MenuItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: 'fa-line-chart',
-    url: '/dashboard',
-    roles: ['CUSTOMER', 'FRANCHISEE', 'TEAM'],
-    alwaysVisible: true,
-  },
-  {
-    id: 'collaboration',
-    label: 'Referral Details',
-    icon: 'fa-exchange',
-    url: '/collaboration',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: true } },
-  },
-  {
+const ITEMS: Record<PortalFeature, PortalMenuItem> = {
+  dashboard: { id: 'dashboard', label: 'Dashboard', icon: 'fa-line-chart', url: '/dashboard' },
+  referral: { id: 'referral', label: 'Referral Details', icon: 'fa-share-alt', url: '/referral' },
+  sales: { id: 'sales', label: 'Sales Details', icon: 'fa-bar-chart', url: '/referral' },
+  verification: {
     id: 'verification',
-    label: 'Verification',
+    label: 'Document Verification',
     icon: 'fa-check-square-o',
     url: '/verification',
-    roles: ['FRANCHISEE'],
-    alwaysVisible: true,
   },
-  {
-    id: 'franchisee_mw_sales_kit',
-    label: 'MW Sales Kit',
-    icon: 'fa-folder-open',
-    url: '/kit',
-    roles: ['FRANCHISEE'],
-  },
-  {
-    id: 'franchisee_franchise_sales_kit',
-    label: 'Franchisee Sales Kit',
-    icon: 'fa-suitcase',
-    url: '/kit?kit=franchise_sales',
-    roles: ['FRANCHISEE'],
-  },
-  {
-    id: 'referral_customer',
-    label: 'Referral Details',
-    icon: 'fa-share-alt',
-    url: '/referral',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: false } },
-  },
-  {
-    id: 'sales_details_team',
-    label: 'Sales Details',
-    icon: 'fa-bar-chart',
-    url: '/referral',
-    roles: ['TEAM'],
-    alwaysVisible: true,
-  },
-  {
-    id: 'customer_tracker',
-    label: 'Customer Manager',
-    icon: 'fa-users',
-    url: '/customer-manager',
-    roles: ['TEAM', 'FRANCHISEE'],
-  },
-  {
-    id: 'customer_tracker_collaboration',
-    label: 'Customer Manager',
-    icon: 'fa-users',
-    url: '/customer-manager',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: true, mw_paid: true } },
-  },
-  {
-    id: 'customer_tracker_customer',
-    label: 'Customer Manager',
-    icon: 'fa-users',
-    url: '/customer-manager',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: false, mw_paid: true } },
-  },
-  {
-    id: 'kit',
-    label: 'MW Sales Kit',
-    icon: 'fa-folder-open',
-    url: '/kit',
-    roles: ['TEAM'],
-  },
-  {
-    id: 'franchisee_sales_kit_team',
-    label: 'Franchisee Sales Kit',
-    icon: 'fa-suitcase',
-    url: '/kit?kit=franchise_sales',
-    roles: ['TEAM'],
-  },
-  {
-    id: 'sales_kit_customer',
-    label: 'Sales Kit',
-    icon: 'fa-folder-open',
-    url: '/kit',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { saleskit_enabled: true, collaboration_enabled: false } },
-  },
-  {
-    id: 'idcard',
-    label: 'ID Card',
-    icon: 'fa-id-card',
-    url: '/id-card',
-    roles: ['TEAM', 'FRANCHISEE'],
-  },
-  {
-    id: 'idcard_customer',
-    label: 'ID Card',
-    icon: 'fa-id-card',
-    url: '/id-card',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: true, influencer: false } },
-  },
-  {
-    id: 'marketing_kit',
-    label: 'Creator Kit',
-    icon: 'fa-bullhorn',
-    url: '/kit',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: true } },
-  },
-  {
-    id: 'mw_sales_kit_influencer',
-    label: 'MW Sales Kit',
-    icon: 'fa-folder-open',
-    url: '/kit?kit=mw_sales',
-    roles: ['CUSTOMER'],
-    conditions: { CUSTOMER: { collaboration_enabled: true, influencer: true } },
-  },
-]
-
-function matchesConditions(item: MenuItem, role: UserRole, flags: PortalFlags) {
-  if (item.alwaysVisible) return true
-  const cond = item.conditions?.[role]
-  if (!cond) return true
-  const map: Record<string, boolean> = {
-    collaboration_enabled: flags.collaborationEnabled,
-    saleskit_enabled: flags.saleskitEnabled,
-    influencer: flags.influencer,
-    mw_paid: flags.mwPaid,
-  }
-  return Object.entries(cond).every(([k, v]) => map[k] === v)
+  customers: { id: 'customers', label: 'Customer Manager', icon: 'fa-users', url: '/customer-manager' },
+  marketing: { id: 'marketing', label: 'Marketing Resources', icon: 'fa-bullhorn', url: '/kit' },
+  'id-card': { id: 'id-card', label: 'ID Card', icon: 'fa-id-card', url: '/id-card' },
 }
 
-export function getPortalMenu(role: UserRole, flags: PortalFlags) {
-  return MENU.filter((item) => item.roles.includes(role) && matchesConditions(item, role, flags))
+const PARTNER_MENU: PortalFeature[] = [
+  'dashboard',
+  'verification',
+  'referral',
+  'customers',
+  'id-card',
+  'marketing',
+]
+
+/**
+ * Single place to add or remove a menu item for a user type.
+ * Must stay aligned with `PortalMenu.cs`.
+ */
+const MENU_BY_PREFIX: Record<UserTypePrefix, PortalFeature[]> = {
+  SBU: ['dashboard', 'referral', 'customers', 'verification', 'marketing'],
+  SBPU: ['dashboard'],
+  FRP: PARTNER_MENU,
+  DMP: PARTNER_MENU,
+  PSP: PARTNER_MENU,
+  SMP: PARTNER_MENU,
+  FSP: PARTNER_MENU,
+  FST: ['dashboard', 'sales', 'customers', 'id-card', 'marketing'],
+}
+
+export function normalizeRolePrefix(prefix?: string | null): UserTypePrefix | null {
+  const value = (prefix || '').trim().toUpperCase()
+  return value in MENU_BY_PREFIX ? (value as UserTypePrefix) : null
+}
+
+export function portalFeaturesFor(prefix?: string | null): PortalFeature[] {
+  const key = normalizeRolePrefix(prefix)
+  return key ? MENU_BY_PREFIX[key] : ['dashboard']
+}
+
+export function hasPortalFeature(prefix: string | null | undefined, feature: PortalFeature) {
+  return portalFeaturesFor(prefix).includes(feature)
+}
+
+export function getPortalMenu(prefix?: string | null): PortalMenuItem[] {
+  return portalFeaturesFor(prefix).map((id) => ITEMS[id])
+}
+
+/** Account pages and the website builder stay available to every signed-in user. */
+function isOpenPortalPath(pathname: string) {
+  return pathname === '/change-password' || pathname === '/website' || pathname.startsWith('/website/')
+}
+
+function pathFeature(pathname: string): PortalFeature | 'referral-area' | null {
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return 'dashboard'
+  if (pathname === '/referral' || pathname.startsWith('/referral/') || pathname === '/collaboration')
+    return 'referral-area'
+  if (pathname === '/verification' || pathname.startsWith('/verification/')) return 'verification'
+  if (
+    pathname === '/customer-manager' ||
+    pathname.startsWith('/customer-manager/') ||
+    pathname === '/customer-tracker' ||
+    pathname === '/grow-with-mw'
+  )
+    return 'customers'
+  if (pathname === '/kit' || pathname.startsWith('/kit/')) return 'marketing'
+  if (pathname === '/id-card' || pathname === '/idcard') return 'id-card'
+  return null
+}
+
+/** True when this user type may open the path. Unknown portal paths are closed. */
+export function canAccessPortalPath(prefix: string | null | undefined, pathname: string) {
+  if (isOpenPortalPath(pathname)) return true
+  const feature = pathFeature(pathname)
+  if (!feature) return false
+  if (feature === 'referral-area') return hasPortalFeature(prefix, 'referral') || hasPortalFeature(prefix, 'sales')
+  return hasPortalFeature(prefix, feature)
 }
 
 /** Sidebar item for website builder (mirrors menu_config.json website_menu_items + PHP extras). */

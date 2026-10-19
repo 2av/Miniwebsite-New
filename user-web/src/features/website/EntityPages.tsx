@@ -5,6 +5,7 @@ import { stepPath } from '@/features/website/cardContext'
 import { websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { TablePagination, useClientPagination } from '@/components/table'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 function asList(raw: unknown) {
   return Array.isArray(raw) ? raw : []
@@ -310,9 +311,10 @@ function CrudShell({
   children: React.ReactNode
 }) {
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title={title} />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">{title}</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {children}
         <div className="d-flex gap-2 mt-3">
@@ -325,6 +327,7 @@ function CrudShell({
         </div>
       </div>
     </div>
+    </>
   )
 }
 

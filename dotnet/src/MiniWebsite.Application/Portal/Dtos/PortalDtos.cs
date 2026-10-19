@@ -15,7 +15,8 @@ public record PortalMeDto(
     string? ProfileImageUrl = null,
     bool FranchiseInvoiceAvailable = false,
     int? FranchiseInvoiceId = null,
-    string? RoleName = null);
+    string? RoleName = null,
+    string? RolePrefix = null);
 
 public record ProfileImageUploadDto(string ImagePath, string ProfileImageUrl);
 
@@ -113,13 +114,33 @@ public record VerificationStatusDto(
     string? AadhaarBackUrl = null,
     string? AdminRemarks = null,
     string? ReviewedAtDisplay = null,
-    string? ReviewedBy = null);
+    string? ReviewedBy = null,
+    string? GstCertificateUrl = null,
+    string? AgreementUrl = null,
+    string? GstNumber = null,
+    string? BankName = null,
+    string? AccountHolder = null,
+    string? AccountNumber = null,
+    string? IfscCode = null,
+    string? UpiId = null,
+    string? UpiName = null,
+    bool ElectronicAcceptance = false);
 
 public record SubmitVerificationRequest(
     string Email,
     string? PanCardBase64 = null,
     string? AadhaarFrontBase64 = null,
-    string? AadhaarBackBase64 = null);
+    string? AadhaarBackBase64 = null,
+    string? GstCertificateBase64 = null,
+    string? AgreementBase64 = null,
+    string? GstNumber = null,
+    string? BankName = null,
+    string? AccountHolder = null,
+    string? AccountNumber = null,
+    string? IfscCode = null,
+    string? UpiId = null,
+    string? UpiName = null,
+    bool ElectronicAcceptance = false);
 
 public record IdCardProfileDto(
     string Name,

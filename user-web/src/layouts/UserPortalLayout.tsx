@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom'
 import { apiGet, apiUploadForm } from '@/shared/api/client'
-import { clearAuthSession, LOGIN_PATH, isSessionValid, redirectToLogin } from '@/shared/auth/session'
+import { clearAuthSession, getAuthSession, LOGIN_PATH, isSessionValid, redirectToLogin, setAuthSession } from '@/shared/auth/session'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { assetUrl, mediaUrl } from '@/lib/utils'
 import { getCardInProcess, setCardInProcess } from '@/features/website/cardContext'
 import {
+  canAccessPortalPath,
   getPortalMenu,
   getWebsiteBuilderMenu,
+  normalizeRolePrefix,
   type PortalFlags,
   type WebsiteNavItem,
 } from '@/shared/portal/menu'
@@ -50,6 +52,21 @@ function navIconClass(icon: string) {
   return aliases[raw] || raw
 }
 
+function PortalPageGate({
+  ready,
+  prefix,
+  pathname,
+}: {
+  ready: boolean
+  prefix?: string | null
+  pathname: string
+}) {
+  const allowed = canAccessPortalPath(prefix, pathname)
+  if (!ready && !allowed) return null
+  if (!allowed) return <Navigate to="/dashboard" replace />
+  return <Outlet />
+}
+
 export function UserPortalLayout() {
   usePortalStyles()
   const session = useAuthSession()
@@ -75,6 +92,8 @@ export function UserPortalLayout() {
   })
   const [franchiseInvoiceAvailable, setFranchiseInvoiceAvailable] = useState(false)
   const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
+  const [rolePrefix, setRolePrefix] = useState(session?.rolePrefix ?? '')
+  const [accessReady, setAccessReady] = useState(() => Boolean(normalizeRolePrefix(session?.rolePrefix)))
 
   const inWebsiteBuilder = location.pathname.startsWith('/website')
 
@@ -110,8 +129,19 @@ export function UserPortalLayout() {
         if (img) setProfileImageUrl(img)
         const roleName = String(pick(raw, 'roleName', 'RoleName') ?? '').trim()
         if (roleName) setMappedRoleName(roleName)
+        const prefix = String(pick(raw, 'rolePrefix', 'RolePrefix') ?? '').trim().toUpperCase()
+        if (prefix) {
+          setRolePrefix(prefix)
+          setAccessReady(true)
+          const current = getAuthSession()
+          if (current && current.rolePrefix !== prefix) {
+            setAuthSession({ ...current, rolePrefix: prefix, roleName: roleName || current.roleName })
+          }
+        } else if (!cancelled) {
+          setAccessReady(true)
+        }
       } catch {
-        // keep session flags
+        if (!cancelled) setAccessReady(true)
       }
       try {
         const cards = await apiGet<unknown[]>('/api/v1/digi-cards', { userEmail: session.email })
@@ -167,10 +197,7 @@ export function UserPortalLayout() {
     document.body.classList.toggle('sb-sidenav-toggled')
   }
 
-  const portalMenu = useMemo(
-    () => (session ? getPortalMenu(session.role, flags) : []),
-    [session, flags],
-  )
+  const portalMenu = useMemo(() => getPortalMenu(rolePrefix || session?.rolePrefix), [rolePrefix, session?.rolePrefix])
 
   const websiteMenu = useMemo(
     () => getWebsiteBuilderMenu(builderCardId, flags, builderSlug),
@@ -554,7 +581,7 @@ export function UserPortalLayout() {
                 ) : (
                   <>
                     {portalMenu.map(renderPortalNavItem)}
-                    {session?.role === 'FRANCHISEE' ? (
+                    {(rolePrefix === 'FRP' || (!rolePrefix && session?.role === 'FRANCHISEE')) ? (
                       <div className="mw-sidebar-invoice">
                         {franchiseInvoiceAvailable && session.email ? (
                           <a
@@ -588,7 +615,11 @@ export function UserPortalLayout() {
         <div id="layoutSidenav_content">
           <main className="Dashboard mw-page">
             <div className="container-fluid customer_content_area">
-              <Outlet />
+              <PortalPageGate
+                ready={accessReady}
+                prefix={rolePrefix || session?.rolePrefix}
+                pathname={location.pathname}
+              />
             </div>
           </main>
           <footer className="mw-portal-footer py-4 mt-auto" role="contentinfo">

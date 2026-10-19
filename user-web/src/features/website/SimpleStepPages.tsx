@@ -4,6 +4,7 @@ import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 export function VideosPage() {
   const { cardId, email } = useOutletContext<WebsiteOutletContext>()
@@ -40,9 +41,10 @@ export function VideosPage() {
   }
 
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title="YouTube Videos" />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">YouTube Videos</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {msg && <div className="alert alert-success">{msg}</div>}
         <form onSubmit={save} className="row g-2">
@@ -70,6 +72,7 @@ export function VideosPage() {
         </form>
       </div>
     </div>
+    </>
   )
 }
 
@@ -121,9 +124,10 @@ export function PaymentDetailsPage() {
   }
 
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title="Payment Details" />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">Payment Details</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {msg && <div className="alert alert-success">{msg}</div>}
         <form onSubmit={save} className="row g-3">
@@ -158,6 +162,7 @@ export function PaymentDetailsPage() {
         </form>
       </div>
     </div>
+    </>
   )
 }
 
@@ -205,9 +210,10 @@ export function SocialLinksPage() {
   }
 
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title="Social Links" />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">Social Links</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {msg && <div className="alert alert-success">{msg}</div>}
         <form onSubmit={save} className="row g-3">
@@ -240,5 +246,6 @@ export function SocialLinksPage() {
         </form>
       </div>
     </div>
+    </>
   )
 }

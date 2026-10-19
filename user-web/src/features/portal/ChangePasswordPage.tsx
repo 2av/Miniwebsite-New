@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { apiSend, ApiError } from '@/shared/api/client'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 
 type FieldKey = 'current' | 'next' | 'confirm'
@@ -58,30 +58,15 @@ export function ChangePasswordPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <Link to="/dashboard">Dashboard</Link>
-            </li>
-            <li className="breadcrumb-item active" aria-current="page">
-              Change Password
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader
+        title="Change Password"
+        subtitle="Update your account password for better security"
+      />
 
       <div className="mw-card mb-4">
         <div className="mw-card-body">
           <div className="mx-auto w-full max-w-xl">
             <div className="change-password-container rounded-[10px] bg-white px-6 py-8 shadow-sm sm:px-10">
-              <h1 className="mb-2 text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Change Password
-              </h1>
-              <p className="mb-8 text-center text-sm text-slate-500 sm:text-base">
-                Update your account password for better security
-              </p>
-
               {msg ? (
                 <div className="mw-alert mw-alert-success mb-4" role="alert">
                   <i className="fa fa-check-circle mw-alert-icon" aria-hidden />

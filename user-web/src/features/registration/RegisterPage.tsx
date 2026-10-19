@@ -111,6 +111,7 @@ export function RegisterPage({ kind }: Props) {
             refreshToken: auth.refreshToken,
             role: (auth.role as UserRole) || meta.role,
             roleName: auth.roleName || undefined,
+            rolePrefix: auth.rolePrefix || undefined,
             email: auth.email,
             name: auth.name,
             userId: auth.userId,

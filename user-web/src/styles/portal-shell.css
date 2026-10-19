@@ -349,6 +349,10 @@ body.sb-nav-fixed.mw-portal-app {
   background: #f3f0ff !important;
   color: #6c2eff !important;
 }
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.active,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active:hover,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.active:hover,
 .mw-portal-nav-link.mw-nav-link-active,
 .mw-portal-nav-link.active {
   color: #fff !important;
@@ -356,6 +360,12 @@ body.sb-nav-fixed.mw-portal-app {
   background: var(--sb-gradient) !important;
   border-left-color: transparent !important;
   box-shadow: 0 8px 16px rgb(108 46 255 / 0.22);
+}
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active span,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.active span,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.mw-nav-link-active .sb-nav-chevron,
+.sb-sidenav .sb-sidenav-menu .nav .nav-link.active .sb-nav-chevron {
+  color: #fff !important;
 }
 .mw-portal-nav-icon-wrap {
   display: inline-flex;
@@ -1167,27 +1177,33 @@ main.Dashboard .ManageUsers > #customerTrackerTableWrap table#customerTrackerTab
 }
 
 .sb-dash-title {
-  margin: 0;
-  color: #1f2937;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
+  margin: 0 !important;
+  color: #1f2937 !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
 }
 
 .sb-dash-sub {
   margin: 0.35rem 0 0;
   max-width: 42rem;
   color: #64748b;
-  font-size: 14px;
+  font-size: 14px !important;
 }
 
 .sb-crumbs {
   display: flex;
   justify-content: flex-end;
   gap: 0.35rem;
-  margin-bottom: 0.75rem;
+  margin: 0;
   color: #64748b;
-  font-size: 13px;
+  font-size: 13px !important;
+  white-space: nowrap;
+}
+
+.sb-crumbs a,
+.sb-crumbs span {
+  font-size: 13px !important;
 }
 
 .sb-crumbs a {

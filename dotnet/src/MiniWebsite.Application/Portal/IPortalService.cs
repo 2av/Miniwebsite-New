@@ -14,7 +14,7 @@ public interface IPortalService
     Task<ApiResult<InvoiceDetailDto>> GetInvoiceAsync(string email, int invoiceId, CancellationToken ct = default);
     Task<ApiResult<InvoiceHtmlResult>> GetInvoiceHtmlAsync(string email, int invoiceId, CancellationToken ct = default);
     Task<ApiResult<InvoiceHtmlResult>> GetFranchiseInvoiceHtmlAsync(string email, CancellationToken ct = default);
-    Task<ApiResult<KitExplorerDto>> GetKitExplorerAsync(string category, int folderId, CancellationToken ct = default);
+    Task<ApiResult<KitExplorerDto>> GetKitExplorerAsync(string email, string category, int folderId, CancellationToken ct = default);
     Task<ApiResult<VerificationStatusDto>> GetVerificationAsync(string email, CancellationToken ct = default);
     Task<ApiResult<VerificationStatusDto>> SubmitVerificationAsync(SubmitVerificationRequest request, CancellationToken ct = default);
     Task<ApiResult<IdCardProfileDto>> GetIdCardAsync(string email, CancellationToken ct = default);

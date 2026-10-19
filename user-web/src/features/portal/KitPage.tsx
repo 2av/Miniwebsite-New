@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { apiGet } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type Folder = {
   id: number
@@ -21,32 +21,8 @@ type Item = {
 }
 type Crumb = { id: number; title: string }
 
-/**
- * Map menu ?kit= param → DB category (matches user/kit/index.php).
- */
-function resolveKitCategory(
-  kitParam: string | null,
-  role: string,
-  collaborationEnabled: boolean,
-): string {
-  const r = (role || '').toUpperCase()
-  const kit = (kitParam || '').trim()
-
-  if (r === 'FRANCHISEE') return 'marketing'
-  if (r === 'TEAM') return kit === 'franchise_sales' ? 'marketing' : 'sales'
-  if (collaborationEnabled) return kit === 'mw_sales' ? 'sales' : 'marketing'
-  return 'sales'
-}
-
-function pageHeading(category: string, kitParam: string | null, role: string): string {
-  const r = (role || '').toUpperCase()
-  const kit = (kitParam || '').trim()
-  if (kit === 'franchise_sales') return 'Franchisee Sales Kit'
-  if (category === 'marketing' && r === 'CUSTOMER') return 'Creator Kit'
-  if (category === 'marketing') return 'MW Sales Kit'
-  if (category === 'sales') return r === 'CUSTOMER' && !kit ? 'Sales Kit' : 'MW Sales Kit'
-  return 'Kit'
-}
+/** Marketing Resources opens the marketing kit for every user type that has this menu item. */
+const MARKETING_CATEGORY = 'marketing'
 
 function WinFolderIcon() {
   return (
@@ -87,49 +63,29 @@ function youtubeId(url: string) {
 
 export function KitPage() {
   const session = useAuthSession()
-  const [params] = useSearchParams()
-  const kitParam = params.get('kit')
-  const role = session?.role || ''
-  const collaborationEnabled = Boolean(session?.collaborationEnabled)
-
-  const category = useMemo(
-    () => resolveKitCategory(kitParam, role, collaborationEnabled),
-    [kitParam, role, collaborationEnabled],
-  )
+  const category = MARKETING_CATEGORY
 
   const [folderId, setFolderId] = useState(0)
   const [folders, setFolders] = useState<Folder[]>([])
   const [items, setItems] = useState<Item[]>([])
-  const [apiLabel, setApiLabel] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [trail, setTrail] = useState<Crumb[]>([])
 
-  const heading = useMemo(
-    () => pageHeading(category, kitParam, role) || apiLabel || 'Kit',
-    [category, kitParam, role, apiLabel],
-  )
-
-  // Reset explorer when switching MW ↔ Franchisee kit
-  useEffect(() => {
-    setFolderId(0)
-    setTrail([])
-    setFolders([])
-    setItems([])
-    setError(null)
-  }, [category, kitParam])
+  const heading = 'Marketing Resources'
 
   useEffect(() => {
+    if (!session?.email) return
     let cancelled = false
     ;(async () => {
       setLoading(true)
       try {
         const raw = await apiGet<Record<string, unknown>>('/api/v1/portal/kit', {
+          email: session.email,
           category,
           folderId,
         })
         if (cancelled) return
-        setApiLabel(String(raw.categoryLabel ?? raw.CategoryLabel ?? ''))
         const f = ((raw.subfolders ?? raw.Subfolders ?? raw.folders ?? raw.Folders) as unknown[]) || []
         const i = ((raw.items ?? raw.Items) as unknown[]) || []
         setFolders(
@@ -182,7 +138,7 @@ export function KitPage() {
     return () => {
       cancelled = true
     }
-  }, [category, folderId])
+  }, [category, folderId, session?.email])
 
   function openFolder(id: number) {
     setFolderId(id)
@@ -205,26 +161,13 @@ export function KitPage() {
 
   return (
     <>
-      <div className="main-top mw-page-header mb-4">
-        <span className="heading mw-page-title">{heading}</span>
-        <nav aria-label="breadcrumb">
-          <ol className="breadcrumb mw-breadcrumb">
-            <li className="breadcrumb-item">
-              <Link to="/dashboard">ShareBizz</Link>
-            </li>
-            <li className="breadcrumb-item active" aria-current="page">
-              {heading}
-            </li>
-          </ol>
-        </nav>
-      </div>
+      <PortalPageHeader
+        title={heading}
+        subtitle="You can download these resources and share them with your customers."
+      />
 
       <div className="card mb-4">
         <div className="card-body">
-          <p className="text-muted mb-4 sub_title">
-            You can download these resources &amp; share with your customers which will help you grow.
-          </p>
-
           {error && <div className="alert alert-danger">{error}</div>}
 
           <nav className="kit-explorer-bar" aria-label="Folder navigation">

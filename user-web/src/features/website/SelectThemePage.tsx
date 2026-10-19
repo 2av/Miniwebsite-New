@@ -4,6 +4,7 @@ import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type ThemeItem = { number: number; name: string; cssValue: string; previewImageUrl?: string | null }
 
@@ -53,9 +54,10 @@ export function SelectThemePage() {
   }
 
   return (
-    <div className="card">
+    <>
+      <PortalPageHeader title="Select Theme" />
+      <div className="card">
       <div className="card-body">
-        <h3 className="mb-3">Select Theme</h3>
         {err && <div className="alert alert-danger">{err}</div>}
         {msg && <div className="alert alert-success">{msg}</div>}
         <div className="row">
@@ -91,5 +93,6 @@ export function SelectThemePage() {
         </div>
       </div>
     </div>
+    </>
   )
 }

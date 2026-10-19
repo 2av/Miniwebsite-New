@@ -13,6 +13,8 @@ export type AuthSession = {
   role: UserRole
   /** Assigned role name from the roles catalog, e.g. "Field Sales Team". */
   roleName?: string
+  /** Assigned role prefix, e.g. SBU, FRP, FST. Drives the portal menu. */
+  rolePrefix?: string
   email: string
   name: string
   userId?: number

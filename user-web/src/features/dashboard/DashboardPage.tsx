@@ -5,6 +5,7 @@ import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { dashboardTitleForRole } from '@/shared/auth/session'
 import { assetUrl, siteUrl } from '@/lib/utils'
 import { TablePagination, useClientPagination } from '@/components/table'
+import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type DigiCardListItem = {
   id: number
@@ -136,7 +137,7 @@ function mwStatus(paymentStatus?: string | null, cardStatus?: string | null) {
 
 export function DashboardPage() {
   const session = useAuthSession()
-  const isFranchisee = session?.role === 'FRANCHISEE'
+  const isFranchisee = (session?.rolePrefix || '').toUpperCase() === 'FRP' || (!session?.rolePrefix && session?.role === 'FRANCHISEE')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [customer, setCustomer] = useState<CustomerDashboard | null>(null)
@@ -213,28 +214,14 @@ export function DashboardPage() {
 
   return (
     <div className="sb-dash">
-        <div className="sb-dash-head">
-          <div>
-            <h1 className="sb-dash-title">{pageTitle}</h1>
-            <p className="sb-dash-sub">
-              {isFranchisee
-                ? 'Track the DB Profiles you created and the users you manage.'
-                : 'Manage your DB Profiles, payments, and sharing from one place.'}
-            </p>
-          </div>
-          <div>
-            <nav className="sb-crumbs" aria-label="breadcrumb">
-              <Link to="/dashboard">ShareBizz</Link>
-              <span>/</span>
-              <span className="is-current">{pageTitle}</span>
-            </nav>
-            {!isFranchisee ? (
-              <Link className="sb-btn-primary" to="/website/business-name?new=1">
-                <i className="fa fa-plus" aria-hidden /> Create DB Profile
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        <PortalPageHeader
+          title={pageTitle}
+          subtitle={
+            isFranchisee
+              ? 'Track the DB Profiles you created and the users you manage.'
+              : 'Manage your DB Profiles, payments, and sharing from one place.'
+          }
+        />
 
         {loading && <p>Loading dashboard...</p>}
         {error && <div className="alert alert-danger">{error}</div>}
