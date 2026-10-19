@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.Invoices;
 using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.KitManagement.Dtos;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
@@ -43,11 +44,11 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<PortalMeDto>.Fail("User not found.");
 
-        var mwPaid = await _db.Cards.AsNoTracking()
-            .AnyAsync(c =>
-                c.UserId == user.Id
-                && c.PaymentStatus != null
-                && c.PaymentStatus.ToLower() == "success", ct);
+        var mwPaid = await _db.Invoices.AsNoTracking()
+            .AnyAsync(i =>
+                i.CardId != null
+                && _db.Cards.Any(c => c.Id == i.CardId && c.UserId == user.Id)
+                && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid"), ct);
 
         var agreementPaid = false;
         var verified = false;
@@ -135,6 +136,7 @@ public class PortalService : IPortalService
         var cardByUser = new Dictionary<int, Domain.Entities.Card>();
         foreach (var c in cards)
             cardByUser.TryAdd(c.UserId!.Value, c);
+        var cardSales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
 
         var earningByReferred = earnings
             .GroupBy(e => ReferredKey.From(e.ReferredUserId, e.ReferredEmail))
@@ -151,6 +153,7 @@ public class PortalService : IPortalService
                 cardByUser.TryGetValue(referredId, out dc);
             }
             earningByReferred.TryGetValue(key, out var re);
+            var sale = dc == null ? CardSale.Unpaid : CardSales.For(cardSales, dc.Id);
 
             referredRows.Add(new ReferredUserSql
             {
@@ -170,8 +173,8 @@ public class PortalService : IPortalService
                 CardUploadedDate = dc?.CreatedAt?.ToString("o", CultureInfo.InvariantCulture),
                 CardValidityDate = dc?.ValidityDate?.ToString("o", CultureInfo.InvariantCulture),
                 ComplimentaryEnabled = dc?.ComplimentaryEnabled,
-                DPaymentStatus = dc?.PaymentStatus,
-                DPaymentDate = dc?.PaymentDate?.ToString("o", CultureInfo.InvariantCulture),
+                DPaymentStatus = dc == null ? null : sale.Paid ? "Success" : sale.Status,
+                DPaymentDate = dc == null ? null : sale.PaidOn?.ToString("o", CultureInfo.InvariantCulture),
                 FUserEmail = dc?.FranchiseeEmail,
             });
         }
@@ -287,7 +290,6 @@ public class PortalService : IPortalService
         _db.UserBankDetails.Add(new Domain.Entities.UserBankDetails
         {
             UserId = userId.Value,
-            UserEmail = email,
             BankName = request.BankName.Trim(),
             AccountHolderName = request.AccountHolder.Trim(),
             AccountNumber = request.AccountNumber.Trim(),
@@ -531,7 +533,6 @@ public class PortalService : IPortalService
                 _db.FranchiseVerifications.Add(new Domain.Entities.FranchiseVerification
                 {
                     UserId = userId.Value,
-                    UserEmail = email.Trim(),
                     DocumentPath = docPath,
                     Status = "submitted",
                     SubmittedAt = now,
@@ -1164,19 +1165,6 @@ public class PortalService : IPortalService
     private async Task<bool> IsFranchiseAgreementPaidAsync(int userId, string email, CancellationToken ct)
     {
         var emailKey = email.Trim().ToLowerInvariant();
-
-        try
-        {
-            var viaFranchisePayments = await _db.FranchisePayments.AsNoTracking()
-                .AnyAsync(p =>
-                    p.FranchiseUserId == userId
-                    && p.PaymentStatus.ToLower() == "success", ct);
-            if (viaFranchisePayments) return true;
-        }
-        catch
-        {
-            // franchise_payments may not exist
-        }
 
         try
         {

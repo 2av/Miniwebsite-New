@@ -50,10 +50,12 @@ public class User : BaseEntity
 public class UserAddress
 {
     public string? AddressLine { get; set; }
+    public string? Address2 { get; set; }
     public string? City { get; set; }
     public string? District { get; set; }
     public string? State { get; set; }
     public string? Pincode { get; set; }
+    public string? Country { get; set; }
     public string? Gst { get; set; }
 }
 
@@ -61,6 +63,7 @@ public class UserPaymentDetails
 {
     public string? GooglePay { get; set; }
     public string? Paytm { get; set; }
+    public string? PhonePay { get; set; }
     public string? RzPay { get; set; }
     public string? RzPay2 { get; set; }
 }

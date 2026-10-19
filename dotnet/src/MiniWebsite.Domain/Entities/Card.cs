@@ -26,7 +26,6 @@ public class Card
     public string? Contact { get; set; }
     public string? Contact2 { get; set; }
     public string? Whatsapp { get; set; }
-    public string? Address { get; set; }
     public string? Email { get; set; }
     public string? Website { get; set; }
     public string? Location { get; set; }
@@ -41,43 +40,17 @@ public class Card
     public string? NatureOfBusiness { get; set; }
     public string? Speciality { get; set; }
     public string? AboutUs { get; set; }
-    public string? Paytm { get; set; }
-    public string? GooglePay { get; set; }
-    public string? PhonePay { get; set; }
-    public string? AccountNo { get; set; }
-    public string? Ifsc { get; set; }
-    public string? AccountName { get; set; }
-    public string? BankName { get; set; }
-    public string? AccountType { get; set; }
-    public string? PaymentStatus { get; set; }
     public string? CardStatus { get; set; }
-    public string? PaymentAmount { get; set; }
-    public string? OrderId { get; set; }
     public string? LogoPath { get; set; }
     public DateTime? CreatedAt { get; set; }
-    public DateTime? PaymentDate { get; set; }
-    public string? Gst { get; set; }
-    public string? GstName { get; set; }
-    public string? GstAddress { get; set; }
-    public string? GstState { get; set; }
-    public string? GstCity { get; set; }
-    public string? GstPincode { get; set; }
     public string CollaborationEnabled { get; set; } = "NO";
     public string ComplimentaryEnabled { get; set; } = "No";
-    public string? GstEmail { get; set; }
-    public string? GstContact { get; set; }
     public DateTime? ValidityDate { get; set; }
     public int NameChangeCount { get; set; }
     public int DisplayNameChangeCount { get; set; }
     public string? HeroImagePath { get; set; }
     public string PositionPrimary { get; set; } = "";
     public string PositionSecondary { get; set; } = "";
-    public string GstNumber { get; set; } = "";
-    public string Address2 { get; set; } = "";
-    public string City { get; set; } = "";
-    public string State { get; set; } = "";
-    public string Pincode { get; set; } = "";
-    public string Country { get; set; } = "";
     public string? BusinessHours { get; set; }
     public string BusinessType { get; set; } = "";
     public string BusinessOperationArea { get; set; } = "";
@@ -105,7 +78,6 @@ public class Card
     [NotMapped] public string? DContact { get => Contact; set => Contact = value; }
     [NotMapped] public string? DContact2 { get => Contact2; set => Contact2 = value; }
     [NotMapped] public string? DWhatsapp { get => Whatsapp; set => Whatsapp = value; }
-    [NotMapped] public string? DAddress { get => Address; set => Address = value; }
     [NotMapped] public string? DEmail { get => Email; set => Email = value; }
     [NotMapped] public string? DWebsite { get => Website; set => Website = value; }
     [NotMapped] public string? DLocation { get => Location; set => Location = value; }
@@ -120,39 +92,13 @@ public class Card
     [NotMapped] public string? DNatureOfBusiness { get => NatureOfBusiness; set => NatureOfBusiness = value; }
     [NotMapped] public string? DSpeciality { get => Speciality; set => Speciality = value; }
     [NotMapped] public string? DAboutUs { get => AboutUs; set => AboutUs = value; }
-    [NotMapped] public string? DPaytm { get => Paytm; set => Paytm = value; }
-    [NotMapped] public string? DGooglePay { get => GooglePay; set => GooglePay = value; }
-    [NotMapped] public string? DPhonePay { get => PhonePay; set => PhonePay = value; }
-    [NotMapped] public string? DAccountNo { get => AccountNo; set => AccountNo = value; }
-    [NotMapped] public string? DIfsc { get => Ifsc; set => Ifsc = value; }
-    [NotMapped] public string? DAcName { get => AccountName; set => AccountName = value; }
-    [NotMapped] public string? DBankName { get => BankName; set => BankName = value; }
-    [NotMapped] public string? DAcType { get => AccountType; set => AccountType = value; }
-    [NotMapped] public string? DPaymentStatus { get => PaymentStatus; set => PaymentStatus = value; }
     [NotMapped] public string? DCardStatus { get => CardStatus; set => CardStatus = value; }
-    [NotMapped] public string? DPaymentAmount { get => PaymentAmount; set => PaymentAmount = value; }
-    [NotMapped] public string? DOrderId { get => OrderId; set => OrderId = value; }
     [NotMapped] public string? DLogoLocation { get => LogoPath; set => LogoPath = value; }
     [NotMapped] public DateTime? UploadedDate { get => CreatedAt; set => CreatedAt = value; }
-    [NotMapped] public DateTime? DPaymentDate { get => PaymentDate; set => PaymentDate = value; }
-    [NotMapped] public string? DGst { get => Gst; set => Gst = value; }
-    [NotMapped] public string? DGstName { get => GstName; set => GstName = value; }
-    [NotMapped] public string? DGstAddress { get => GstAddress; set => GstAddress = value; }
-    [NotMapped] public string? DGstState { get => GstState; set => GstState = value; }
-    [NotMapped] public string? DGstCity { get => GstCity; set => GstCity = value; }
-    [NotMapped] public string? DGstPincode { get => GstPincode; set => GstPincode = value; }
-    [NotMapped] public string? DGstEmail { get => GstEmail; set => GstEmail = value; }
-    [NotMapped] public string? DGstContact { get => GstContact; set => GstContact = value; }
     [NotMapped] public int DNameChangeCount { get => DisplayNameChangeCount; set => DisplayNameChangeCount = value; }
     [NotMapped] public string? DHeroImageLocation { get => HeroImagePath; set => HeroImagePath = value; }
     [NotMapped] public string DPositionPrimary { get => PositionPrimary; set => PositionPrimary = value ?? ""; }
     [NotMapped] public string DPositionSecondary { get => PositionSecondary; set => PositionSecondary = value ?? ""; }
-    [NotMapped] public string DGstNumber { get => GstNumber; set => GstNumber = value ?? ""; }
-    [NotMapped] public string DAddress2 { get => Address2; set => Address2 = value ?? ""; }
-    [NotMapped] public string DCity { get => City; set => City = value ?? ""; }
-    [NotMapped] public string DState { get => State; set => State = value ?? ""; }
-    [NotMapped] public string DPincode { get => Pincode; set => Pincode = value ?? ""; }
-    [NotMapped] public string DCountry { get => Country; set => Country = value ?? ""; }
     [NotMapped] public string? DBusinessHours { get => BusinessHours; set => BusinessHours = value; }
 
     // Video slots backed by CardVideos collection (loaded/saved by WebsiteService helpers).

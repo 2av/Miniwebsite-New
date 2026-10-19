@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.SalesChannelPartners.Dtos;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
@@ -339,8 +340,9 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             .Where(c =>
                 (c.UserId != null && ownerIds.Contains(c.UserId.Value))
                 || (c.FranchiseeUserId != null && userIds.Contains(c.FranchiseeUserId.Value)))
-            .Select(c => new { c.Id, c.UserId, c.FranchiseeUserId, c.PaymentStatus, c.PaymentDate, c.PaymentAmount })
+            .Select(c => new { c.Id, c.UserId, c.FranchiseeUserId })
             .ToListAsync(ct);
+        var cardSales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
 
         var earnings = await _db.ReferralEarnings.AsNoTracking()
             .Where(r => r.ReferrerUserId != null && userIds.Contains(r.ReferrerUserId.Value))
@@ -368,16 +370,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 d.UserId,
                 d.StartDate,
                 d.ExpiryDate,
-                d.PaymentStatus,
-                d.PaymentDate,
                 d.InvoiceId,
                 Fees = j.Fees,
             }).ToListAsync(ct);
-        var dealByUser = new Dictionary<int, (DateTime? Start, DateTime? Expiry, string PaymentStatus, DateTime? PaymentDate, int? InvoiceId, decimal Fees)>();
+        var dealByUser = new Dictionary<int, (DateTime? Start, DateTime? Expiry, int? InvoiceId, decimal Fees)>();
         foreach (var deal in deals)
         {
             if (!dealByUser.ContainsKey(deal.UserId))
-                dealByUser[deal.UserId] = (deal.StartDate, deal.ExpiryDate, deal.PaymentStatus, deal.PaymentDate, deal.InvoiceId, deal.Fees);
+                dealByUser[deal.UserId] = (deal.StartDate, deal.ExpiryDate, deal.InvoiceId, deal.Fees);
         }
 
         var invoiceIds = dealByUser.Values.Where(d => d.InvoiceId != null).Select(d => d.InvoiceId!.Value).Distinct().ToList();
@@ -408,11 +408,11 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             var soldCards = cards
                 .Where(c => c.UserId is int ownerId
                             && referredIds.Contains(ownerId)
-                            && IsPaid(c.PaymentStatus)
-                            && c.PaymentDate != null)
+                            && CardSales.For(cardSales, c.Id).Paid
+                            && CardSales.For(cardSales, c.Id).PaidOn != null)
                 .ToList();
             var totalSales = soldCards.Select(c => c.UserId).Distinct().Count();
-            var totalSalesAmount = soldCards.Sum(c => ParseAmount(c.PaymentAmount));
+            var totalSalesAmount = soldCards.Sum(c => CardSales.For(cardSales, c.Id).Amount ?? 0);
             var dbCount = cards.Count(c =>
                 c.UserId == user.Id
                 || c.FranchiseeUserId == user.Id
@@ -455,20 +455,19 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
                 planStatus = deal.Expiry is { Year: > 1 } planExpiry && planExpiry.Date < AppClock.Today
                     ? "Expired on " + planExpiry.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
                     : "Active";
-                var paid = IsPaid(deal.PaymentStatus);
-                DateTime? paidOn = deal.PaymentDate;
                 if (deal.InvoiceId is int id && invoiceById.TryGetValue(id, out var invoice))
                 {
                     fees = invoice.OriginalAmount;
                     promo = invoice.PromoDiscount;
                     coupon = invoice.PromoCode ?? "";
-                    paid = paid || IsPaid(invoice.PaymentStatus);
-                    paidOn ??= invoice.PaymentDate ?? invoice.InvoiceDate;
+                    if (IsRejected(invoice.PaymentStatus))
+                        payment = "Rejected";
+                    else if (IsPaid(invoice.PaymentStatus))
+                    {
+                        var paidOn = invoice.PaymentDate ?? invoice.InvoiceDate;
+                        payment = "Paid on " + paidOn.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+                    }
                 }
-                if (IsRejected(deal.PaymentStatus))
-                    payment = "Rejected";
-                else if (paid)
-                    payment = "Paid on " + (paidOn ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             }
 
             payouts.TryGetValue(user.Id, out var payout);
@@ -660,15 +659,6 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             "Direct", "", "", "Unpaid", 0, "₹ 0.00", 0, "₹ 0.00", "", null, 0,
             "Not Submitted", "neutral", null, null, null, 0, 0, "₹ 0", "Not Eligible", "",
             "InActive", "Pending", "Pending", null, 0, 0, "₹ 0.00");
-    }
-
-    private static decimal ParseAmount(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return 0;
-        var cleaned = value.Replace("₹", "", StringComparison.Ordinal).Replace(",", "", StringComparison.Ordinal).Trim();
-        return decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
-            ? amount
-            : 0;
     }
 
     private async Task<Dictionary<int, (decimal Paid, DateTime? Last)>> GetPayoutTotalsAsync(

@@ -42,7 +42,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             a.Property<int>("UserId");
             a.HasKey("UserId");
             a.Property(x => x.AddressLine).HasMaxLength(500);
+            a.Property(x => x.Address2).HasMaxLength(500);
             a.Property(x => x.City).HasMaxLength(100);
+            a.Property(x => x.Country).HasMaxLength(100);
             a.Property(x => x.District).HasMaxLength(100);
             a.Property(x => x.State).HasMaxLength(100);
             a.Property(x => x.Pincode).HasMaxLength(20);
@@ -58,6 +60,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             p.HasKey("UserId");
             p.Property(x => x.GooglePay).HasMaxLength(200);
             p.Property(x => x.Paytm).HasMaxLength(200);
+            p.Property(x => x.PhonePay).HasMaxLength(200);
             p.Property(x => x.RzPay).HasMaxLength(300);
             p.Property(x => x.RzPay2).HasMaxLength(300);
         });
@@ -77,7 +80,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             r.HasIndex(x => x.ReferralCode);
             r.HasIndex(x => x.ReferredBy);
             r.HasIndex(x => x.ReferrerUserId);
+            r.HasIndex(x => x.SenderUserId);
             r.HasOne<User>().WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
+            r.HasOne<User>().WithMany().HasForeignKey(x => x.SenderUserId).OnDelete(DeleteBehavior.SetNull);
         });
         builder.Navigation(x => x.Referral).IsRequired();
 
@@ -89,9 +94,13 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
 {
     public void Configure(EntityTypeBuilder<Card> builder)
     {
-        builder.ToTable("cards");
+        builder.ToTable("cards", t => t.HasCheckConstraint(
+            "CK_cards_CardStatus",
+            "`CardStatus` IS NULL OR `CardStatus` IN ('Active', 'Suspended', 'Inactive', 'InActive')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Slug).HasMaxLength(200);
+        builder.Property(x => x.Email).HasMaxLength(255);
+        builder.Property(x => x.CardStatus).HasMaxLength(20);
         builder.Property(x => x.UserEmail).HasMaxLength(200);
         builder.Property(x => x.FranchiseeEmail).HasMaxLength(200);
         builder.Property(x => x.CompanyName).HasMaxLength(200);
@@ -100,7 +109,6 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
         builder.Property(x => x.MobileCss).HasMaxLength(120);
         builder.Property(x => x.LogoPath).HasMaxLength(1000);
         builder.Property(x => x.HeroImagePath).HasMaxLength(255);
-        builder.Property(x => x.PaymentAmount).HasMaxLength(50);
         builder.Property(x => x.CollaborationEnabled).HasMaxLength(3);
         builder.Property(x => x.ComplimentaryEnabled).HasMaxLength(10);
         builder.Property(x => x.AboutUs).HasMaxLength(2000);
@@ -142,7 +150,9 @@ public class CardChildrenConfigurations :
         builder.Property(x => x.TaxRate).HasPrecision(12, 2);
         builder.Property(x => x.ProductImage).HasMaxLength(500);
         builder.HasIndex(x => x.CardId);
+        builder.HasIndex(x => x.ProductCategory);
         builder.HasOne(x => x.Card).WithMany(x => x.Products).HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ProductCategory>().WithMany().HasForeignKey(x => x.ProductCategory).OnDelete(DeleteBehavior.SetNull);
     }
 
     public void Configure(EntityTypeBuilder<CardService> builder)
@@ -151,7 +161,9 @@ public class CardChildrenConfigurations :
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ProductImage).HasMaxLength(500);
         builder.HasIndex(x => x.CardId);
+        builder.HasIndex(x => x.ProductCategory);
         builder.HasOne(x => x.Card).WithMany(x => x.Services).HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ProductCategory>().WithMany().HasForeignKey(x => x.ProductCategory).OnDelete(DeleteBehavior.SetNull);
     }
 
     public void Configure(EntityTypeBuilder<CardGalleryImage> builder)

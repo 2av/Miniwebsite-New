@@ -32,7 +32,6 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<UserJoiningDeal> UserJoiningDeals => Set<UserJoiningDeal>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
-    public DbSet<FranchisePayment> FranchisePayments => Set<FranchisePayment>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerFollowup> CustomerFollowups => Set<CustomerFollowup>();
     public DbSet<ContentPage> ContentPages => Set<ContentPage>();

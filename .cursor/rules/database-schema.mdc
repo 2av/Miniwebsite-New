@@ -1,0 +1,19 @@
+---
+description: Keep the database schema doc and diagram in sync with the EF model
+globs: dotnet/src/MiniWebsite.Domain/Entities/**/*.cs,dotnet/src/MiniWebsite.Infrastructure/Persistence/**/*.cs
+alwaysApply: false
+---
+
+# Database schema doc
+
+When a table, column, key, index, or relationship changes, update these files in the same change:
+
+- `dotnet/docs/DATABASE-SCHEMA.md`
+- `dotnet/docs/database-schema.html`
+
+Source of truth is the current model in `ApplicationDbContextModelSnapshot.cs`.
+
+- The markdown lists every table, column, type, nullability, primary key, foreign key, and the repeated-data map.
+- The HTML page lists every foreign key for the selected table, plus the improvement points. Keep its embedded table, link, and improvement data aligned with the snapshot. Mark an improvement `done: true` after that change is in the model.
+- Add a new table to the HTML data and the column catalog.
+- Remove a dropped column from both files. Do not leave a foreign key in the doc that the snapshot no longer has.

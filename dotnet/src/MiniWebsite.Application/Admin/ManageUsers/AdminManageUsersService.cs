@@ -8,6 +8,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.ManageUsers;
@@ -144,7 +145,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             return ApiResult.Fail("No account found for this email.");
 
         var exists = await _db.DealCustomerMappings.AnyAsync(
-            m => m.DealId == request.DealId && m.UserId == userId, ct);
+            m => m.CouponId == request.DealId && m.UserId == userId, ct);
 
         if (exists)
             return ApiResult.Fail("Deal already mapped to this user!");
@@ -153,7 +154,7 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         _db.DealCustomerMappings.Add(new DealCustomerMapping
         {
-            DealId = request.DealId,
+            CouponId = request.DealId,
             CustomerEmail = email,
             UserId = userId,
             CreatedBy = createdBy,
@@ -312,24 +313,26 @@ public class AdminManageUsersService : IAdminManageUsersService
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync(ct);
 
+        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
         var sites = cards.Select(c =>
         {
-            var status = ResolveDisplayStatus(c);
+            var sale = CardSales.For(sales, c.Id);
+            var status = ResolveDisplayStatus(c, sale);
             return new DashboardWebsiteDto(
                 c.Id,
                 c.DCompName,
                 c.CardId,
                 c.DCardStatus,
-                c.DPaymentStatus,
-                c.DPaymentDate,
+                sale.Status,
+                sale.PaidOn,
                 c.UploadedDate,
                 c.ValidityDate,
                 c.ComplimentaryEnabled,
                 c.FUserEmail,
                 status.Class,
                 status.Text,
-                FormatValidityDisplay(c),
-                FormatPaymentLabel(c));
+                FormatValidityDisplay(c, sale),
+                FormatPaymentLabel(c, sale));
         }).ToList();
 
         return ApiResult<DashboardDetailsDto>.Ok(new DashboardDetailsDto(email, sites));
@@ -358,13 +361,7 @@ public class AdminManageUsersService : IAdminManageUsersService
             .Select(e => e.ReferredUserId!.Value)
             .Distinct()
             .ToList();
-        var paidSet = (await _db.Cards.AsNoTracking()
-            .Where(c => c.UserId != null
-                        && referredIds.Contains(c.UserId.Value)
-                        && c.PaymentStatus == "Success")
-            .Select(c => c.UserId!.Value)
-            .Distinct()
-            .ToListAsync(ct)).ToHashSet();
+        var paidSet = await CardSales.PaidUserIdsAsync(_db, referredIds, ct);
 
         var totalReferral = earnings
             .Where(e => e.ReferredUserId is { } id && paidSet.Contains(id))
@@ -397,6 +394,7 @@ public class AdminManageUsersService : IAdminManageUsersService
         var cardMap = new Dictionary<int, Card>();
         foreach (var c in allCards)
             cardMap.TryAdd(c.UserId!.Value, c);
+        var cardSales = await CardSales.ByCardIdAsync(_db, allCards.Select(c => c.Id).ToList(), ct);
 
         var referred = new List<ReferredUserDto>();
         foreach (var e in earnings)
@@ -411,7 +409,8 @@ public class AdminManageUsersService : IAdminManageUsersService
                 cardMap.TryGetValue(referredId, out card);
             }
 
-            var statusText = card == null ? "-" : ResolveShortStatus(card);
+            var sale = card == null ? CardSale.Unpaid : CardSales.For(cardSales, card.Id);
+            var statusText = card == null ? "-" : ResolveShortStatus(card, sale);
             referred.Add(new ReferredUserDto(
                 e.Id,
                 e.ReferredEmail,
@@ -426,11 +425,11 @@ public class AdminManageUsersService : IAdminManageUsersService
                 card?.UploadedDate,
                 card?.ValidityDate,
                 card?.ComplimentaryEnabled,
-                card?.DPaymentStatus,
-                card?.DPaymentDate,
+                card == null ? null : sale.Status,
+                card == null ? null : sale.PaidOn,
                 card?.FUserEmail,
                 statusText,
-                card == null ? "-" : FormatValidityDisplay(card)));
+                card == null ? "-" : FormatValidityDisplay(card, sale)));
         }
 
         return ApiResult<ReferralDetailsDto>.Ok(new ReferralDetailsDto(
@@ -475,7 +474,6 @@ public class AdminManageUsersService : IAdminManageUsersService
             _db.UserBankDetails.Add(new UserBankDetails
             {
                 UserId = userId.Value,
-                UserEmail = email,
                 AccountHolderName = request.AccountHolderName ?? "",
                 AccountNumber = request.AccountNumber ?? "",
                 IfscCode = request.IfscCode ?? "",
@@ -624,21 +622,21 @@ public class AdminManageUsersService : IAdminManageUsersService
 
         var rows = await (
             from m in _db.DealCustomerMappings.AsNoTracking()
-            join d in _db.Coupons.AsNoTracking().ForRolePrefix(rolePrefix) on m.DealId equals d.Id
+            join d in _db.Coupons.AsNoTracking().ForRolePrefix(rolePrefix) on m.CouponId equals d.Id
             where m.UserId != null
                   && userIds.Contains(m.UserId.Value)
             orderby m.Id descending
             select new
             {
                 MappingId = m.Id,
-                m.DealId,
+                m.CouponId,
                 UserId = m.UserId!.Value,
                 d.CouponName,
                 d.CouponCode,
             }).ToListAsync(ct);
 
         foreach (var row in rows)
-            result.TryAdd(row.UserId, new MappedDealDto(row.MappingId, row.DealId, row.CouponName ?? "", row.CouponCode));
+            result.TryAdd(row.UserId, new MappedDealDto(row.MappingId, row.CouponId, row.CouponName ?? "", row.CouponCode));
 
         return result;
     }
@@ -875,12 +873,12 @@ public class AdminManageUsersService : IAdminManageUsersService
         return "Pending";
     }
 
-    private static (string Class, string Text) ResolveDisplayStatus(Card c)
+    private static (string Class, string Text) ResolveDisplayStatus(Card c, CardSale sale)
     {
         if (string.Equals(c.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase))
             return ("bg-success", "Active");
 
-        if (string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+        if (sale.Paid)
         {
             if (c.ValidityDate.HasValue && c.ValidityDate.Value < AppClock.Now)
                 return ("bg-secondary", "Expired on " + c.ValidityDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture));
@@ -901,15 +899,15 @@ public class AdminManageUsersService : IAdminManageUsersService
         return ("bg-pending", "7 Day Trial");
     }
 
-    private static string ResolveShortStatus(Card c) => ResolveDisplayStatus(c).Text;
+    private static string ResolveShortStatus(Card c, CardSale sale) => ResolveDisplayStatus(c, sale).Text;
 
-    private static string FormatValidityDisplay(Card c)
+    private static string FormatValidityDisplay(Card c, CardSale sale)
     {
         if (c.ValidityDate.HasValue)
             return c.ValidityDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
 
-        if (string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase) && c.DPaymentDate.HasValue)
-            return c.DPaymentDate.Value.AddYears(1).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+        if (sale.Paid && sale.PaidOn.HasValue)
+            return sale.PaidOn.Value.AddYears(1).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
 
         if (c.UploadedDate.HasValue)
             return c.UploadedDate.Value.AddDays(7).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
@@ -917,14 +915,14 @@ public class AdminManageUsersService : IAdminManageUsersService
         return "-";
     }
 
-    private static string FormatPaymentLabel(Card c)
+    private static string FormatPaymentLabel(Card c, CardSale sale)
     {
         if (string.Equals(c.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase))
             return "Complimentary";
-        if (string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+        if (sale.Paid)
         {
-            if (c.DPaymentDate.HasValue)
-                return "Paid on " + c.DPaymentDate.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            if (sale.PaidOn.HasValue)
+                return "Paid on " + sale.PaidOn.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
             return "Paid";
         }
         return "Pending";

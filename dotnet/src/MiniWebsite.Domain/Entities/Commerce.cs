@@ -49,7 +49,7 @@ public class PlanCommission
 public class DealCustomerMapping
 {
     public int Id { get; set; }
-    public int DealId { get; set; }
+    public int CouponId { get; set; }
     public Coupon Coupon { get; set; } = null!;
     public string CustomerEmail { get; set; } = "";
     public int? UserId { get; set; }
@@ -72,7 +72,9 @@ public class JoiningDeal
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public int? MwDealId { get; set; }
+    public JoiningDeal? MwDeal { get; set; }
     public int? FranchiseDealId { get; set; }
+    public JoiningDeal? FranchiseDeal { get; set; }
     public int UpgradeOrder { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
@@ -83,7 +85,6 @@ public class UserJoiningDeal
     public int Id { get; set; }
     public int UserId { get; set; }
     public User User { get; set; } = null!;
-    public string UserEmail { get; set; } = "";
     public int JoiningDealId { get; set; }
     public JoiningDeal JoiningDeal { get; set; } = null!;
     public string DealCode { get; set; } = "";
@@ -95,11 +96,7 @@ public class UserJoiningDeal
     public string? Notes { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    public string? TransactionId { get; set; }
     public int? InvoiceId { get; set; }
-    public string PaymentStatus { get; set; } = "PENDING";
-    public DateTime? PaymentDate { get; set; }
-    public decimal AmountPaid { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
@@ -117,13 +114,8 @@ public class Order
     public string? CustomerName { get; set; }
     public string? CustomerEmail { get; set; }
     public string? CustomerContact { get; set; }
-    public string? Address { get; set; }
-    public string? City { get; set; }
-    public string? State { get; set; }
-    public string? Pincode { get; set; }
-    public string? PaymentType { get; set; }
-    public decimal PaymentAmount { get; set; }
-    public string OrderStatus { get; set; } = "";
+    public int? InvoiceId { get; set; }
+    public Invoice? Invoice { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
 
@@ -142,6 +134,11 @@ public class Invoice
     public string UserEmail { get; set; } = "";
     public string UserName { get; set; } = "";
     public string UserContact { get; set; } = "";
+
+    /// <summary>
+    /// Buyer details captured on the day of the sale. Keep these columns.
+    /// Do not replace them with a live read of <see cref="UserAddress"/>, and do not update them when the account address changes.
+    /// </summary>
     public string BillingName { get; set; } = "";
     public string BillingEmail { get; set; } = "";
     public string BillingContact { get; set; } = "";
@@ -158,6 +155,7 @@ public class Invoice
     public string RazorpayOrderId { get; set; } = "";
     public string RazorpayPaymentId { get; set; } = "";
     public string RazorpaySignature { get; set; } = "";
+    /// <summary>Payment for this sale. Profile paid state is read from here, not from the card.</summary>
     public string PaymentStatus { get; set; } = "Pending";
     public DateTime? PaymentDate { get; set; }
     public string ServiceName { get; set; } = "";
@@ -176,30 +174,6 @@ public class Invoice
     public string ReferenceNumber { get; set; } = "";
     public string? PlanName { get; set; }
     public string? PlanValidity { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-}
-
-public class FranchisePayment
-{
-    public int Id { get; set; }
-    public int? FranchiseUserId { get; set; }
-    public User? FranchiseUser { get; set; }
-    public string FranchiseEmail { get; set; } = "";
-    public string ReferenceNumber { get; set; } = "";
-    public string? RazorpayOrderId { get; set; }
-    public string? RazorpayPaymentId { get; set; }
-    public string? RazorpaySignature { get; set; }
-    public decimal Amount { get; set; }
-    public string Currency { get; set; } = "INR";
-    public string PaymentStatus { get; set; } = "Pending";
-    public string PaymentMethod { get; set; } = "Razorpay";
-    public DateTime PaymentDate { get; set; }
-    public string? AdminNotes { get; set; }
-    public decimal RefundAmount { get; set; }
-    public DateTime? RefundDate { get; set; }
-    public string? IpAddress { get; set; }
-    public string? UserAgent { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

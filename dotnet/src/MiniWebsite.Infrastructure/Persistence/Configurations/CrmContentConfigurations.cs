@@ -21,10 +21,15 @@ public class CrmContentConfigurations :
 {
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
-        builder.ToTable("customers");
+        builder.ToTable("customers", t => t.HasCheckConstraint(
+            "CK_customers_Status",
+            "`Status` IN ('Followup required', 'Phone Busy/Not Picked', 'Important', 'Joined', 'Deal Done', 'Profile Shared', 'Interested', 'Not Interested')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.CustomerName).HasMaxLength(150).IsRequired();
         builder.Property(x => x.PhoneNumber).HasMaxLength(25).IsRequired();
+        builder.Property(x => x.EmailId).HasMaxLength(255);
+        builder.Property(x => x.AreaCity).HasMaxLength(100);
+        builder.Property(x => x.Status).HasMaxLength(40).IsRequired();
         builder.Property(x => x.OwnerRole).HasMaxLength(20);
         builder.HasIndex(x => x.OwnerUserId);
         builder.HasOne(x => x.OwnerUser).WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Cascade);
@@ -35,12 +40,16 @@ public class CrmContentConfigurations :
         builder.ToTable("customer_followups");
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.CustomerId);
+        builder.HasIndex(x => x.OwnerUserId);
         builder.HasOne(x => x.Customer).WithMany(x => x.Followups).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.OwnerUser).WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
     }
 
     public void Configure(EntityTypeBuilder<ReferralEarning> builder)
     {
-        builder.ToTable("referral_earnings");
+        builder.ToTable("referral_earnings", t => t.HasCheckConstraint(
+            "CK_referral_earnings_Status",
+            "`Status` IN ('Pending', 'Paid', 'Partial', 'Rejected')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ReferrerEmail).HasMaxLength(255).IsRequired();
         builder.Property(x => x.ReferredEmail).HasMaxLength(255).IsRequired();
@@ -54,7 +63,7 @@ public class CrmContentConfigurations :
         builder.HasIndex(x => x.ReferredEmail);
         builder.HasOne(x => x.ReferrerUser).WithMany().HasForeignKey(x => x.ReferrerUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.ReferredUser).WithMany().HasForeignKey(x => x.ReferredUserId).OnDelete(DeleteBehavior.SetNull);
-        builder.HasOne(x => x.Coupon).WithMany().HasForeignKey(x => x.DealId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(x => x.Coupon).WithMany().HasForeignKey(x => x.CouponId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Invoice).WithMany().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.SetNull);
     }
 
@@ -127,7 +136,6 @@ public class CrmContentConfigurations :
         builder.ToTable("card_views");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Ip).HasMaxLength(100);
-        builder.Property(x => x.CardSlug).HasMaxLength(200);
         builder.HasOne(x => x.Card).WithMany().HasForeignKey(x => x.CardId).OnDelete(DeleteBehavior.SetNull);
     }
 
@@ -206,9 +214,7 @@ public class KitAccessConfigurations :
     {
         builder.ToTable("user_bank_details");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.UserEmail).HasMaxLength(255);
         builder.HasIndex(x => x.UserId).IsUnique();
-        builder.HasIndex(x => x.UserEmail);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 
@@ -216,11 +222,9 @@ public class KitAccessConfigurations :
     {
         builder.ToTable("franchise_verifications");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.UserEmail).HasMaxLength(255);
         builder.Property(x => x.Status).HasMaxLength(20);
         builder.Property(x => x.DocumentPath).HasMaxLength(500);
         builder.HasIndex(x => x.UserId).IsUnique();
-        builder.HasIndex(x => x.UserEmail);
         builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -10,6 +10,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Domain.Common;
 
@@ -104,11 +105,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
             var isActive = string.Equals(u.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase);
             var (payLabel, payTone, paidOn) = ResolvePayment(inv);
             var fee = inv?.Amount ?? 0m;
-            var company = first == null
-                ? "-"
-                : (!string.IsNullOrWhiteSpace(first.DGstName)
-                    ? first.DGstName!
-                    : (first.DCompName ?? "-"));
+            var company = first == null ? "-" : (first.DCompName ?? "-");
             if (string.IsNullOrWhiteSpace(company)) company = "-";
 
             var publicUrl = first != null ? $"https://{publicHost}/{first.Id}" : "";
@@ -241,15 +238,15 @@ public class AdminFranchiseesService : IAdminFranchiseesService
                 .OrderByDescending(c => c.Id)
                 .ToListAsync(ct);
 
+        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
         var sites = cards.Select(c =>
         {
+            var sale = CardSales.For(sales, c.Id);
             var status = string.Equals(c.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase)
-                         || string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase)
+                         || sale.Paid
                 ? "Active"
                 : "Trial / Unpaid";
-            var pay = string.Equals(c.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase)
-                ? "Paid"
-                : (c.DPaymentStatus ?? "Unpaid");
+            var pay = sale.Paid ? "Paid" : sale.Status;
             return new FranchiseeWebsiteDto(
                 c.Id,
                 c.DCompName,

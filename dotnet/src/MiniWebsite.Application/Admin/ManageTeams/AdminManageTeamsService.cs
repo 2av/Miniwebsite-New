@@ -11,6 +11,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Domain.Common;
 
@@ -297,8 +298,10 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                 ? []
                 : await _db.Cards.AsNoTracking()
                     .Where(c => c.UserId != null && referredIds.Contains(c.UserId.Value))
-                    .Select(c => new { UserId = c.UserId!.Value, c.PaymentStatus, c.PaymentDate })
+                    .OrderByDescending(c => c.Id)
+                    .Select(c => new { c.Id, UserId = c.UserId!.Value })
                     .ToListAsync(ct);
+            var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
             var cardByUser = cards
                 .GroupBy(c => c.UserId)
                 .ToDictionary(g => g.Key, g => g.First());
@@ -308,9 +311,10 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                 var uInfo = usersById.GetValueOrDefault(referredId);
                 var earning = earningByUser.GetValueOrDefault(referredId);
                 var card = cardByUser.GetValueOrDefault(referredId);
+                var sale = card == null ? CardSale.Unpaid : CardSales.For(sales, card.Id);
                 var referredEmail = NormalizeEmail(uInfo?.Email ?? earning?.ReferredEmail);
 
-                var (label, tone) = MapPaymentStatus(card?.PaymentStatus, card?.PaymentDate);
+                var (label, tone) = MapPaymentStatus(card == null ? null : sale.Status, sale.PaidOn);
                 var type = string.Equals(earning?.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase)
                     ? "Franchise"
                     : "ShareBizz";
@@ -328,7 +332,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
                     type,
                     label,
                     tone,
-                    FormatPaidOn(card?.PaymentStatus, card?.PaymentDate),
+                    FormatPaidOn(card == null ? null : sale.Status, sale.PaidOn),
                     FormatDate(referralDate));
             })
             .OrderByDescending(r => r.ReferralDateDisplay)
@@ -336,7 +340,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
             .ToList();
 
             var paidEmails = cards
-                .Where(c => string.Equals(c.PaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+                .Where(c => CardSales.For(sales, c.Id).Paid)
                 .Select(c => c.UserId)
                 .Distinct()
                 .Count();
@@ -455,15 +459,15 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
         var sales = allReferred.Count == 0
             ? 0
-            : await _db.Cards.AsNoTracking()
-                .Where(c =>
-                    c.UserId != null
-                    && allReferred.Contains(c.UserId.Value)
-                    && c.PaymentStatus == "Success"
-                    && c.PaymentDate != null)
-                .Select(c => c.UserId)
-                .Distinct()
-                .CountAsync(ct);
+            : await (
+                from c in _db.Cards.AsNoTracking()
+                join i in _db.Invoices.AsNoTracking() on c.Id equals i.CardId
+                where c.UserId != null
+                      && allReferred.Contains(c.UserId.Value)
+                      && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid")
+                      && i.PaymentDate != null
+                select c.UserId
+            ).Distinct().CountAsync(ct);
 
         var trackerCount = await _db.Customers.AsNoTracking()
             .CountAsync(c => c.OwnerUserId == u.Id, ct);
@@ -520,7 +524,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
     private static (string Label, string Tone) MapPaymentStatus(string? status, DateTime? paidOn)
     {
         if (string.IsNullOrWhiteSpace(status)) return ("N/A", "neutral");
-        if (string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)
+        if (CardSales.IsPaid(status)
             && paidOn is { } d && d.Year > 1)
             return ("Paid", "ok");
         if (string.Equals(status, "Failed", StringComparison.OrdinalIgnoreCase))
@@ -532,7 +536,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 
     private static string FormatPaidOn(string? status, DateTime? paidOn)
     {
-        if (!string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)) return "-";
+        if (!CardSales.IsPaid(status)) return "-";
         return FormatDate(paidOn);
     }
 

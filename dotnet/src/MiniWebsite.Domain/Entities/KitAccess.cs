@@ -53,7 +53,6 @@ public class UserCustomCategory
     public int Id { get; set; }
     public int UserId { get; set; }
     public User User { get; set; } = null!;
-    public string UserEmail { get; set; } = "";
     public string CategoryName { get; set; } = "";
     public string CategoryType { get; set; } = "business-category";
     public string? Description { get; set; }
@@ -67,10 +66,10 @@ public class UserBankDetails
     public int Id { get; set; }
     public int UserId { get; set; }
     public User User { get; set; } = null!;
-    public string UserEmail { get; set; } = "";
     public string? BankName { get; set; }
     public string? AccountHolderName { get; set; }
     public string? AccountNumber { get; set; }
+    public string? AccountType { get; set; }
     public string? IfscCode { get; set; }
     public string? UpiId { get; set; }
     public string? UpiName { get; set; }
@@ -83,7 +82,6 @@ public class FranchiseVerification
     public int Id { get; set; }
     public int UserId { get; set; }
     public User User { get; set; } = null!;
-    public string UserEmail { get; set; } = "";
     public string Status { get; set; } = "pending";
     public string? AdminRemarks { get; set; }
     public DateTime? SubmittedAt { get; set; }

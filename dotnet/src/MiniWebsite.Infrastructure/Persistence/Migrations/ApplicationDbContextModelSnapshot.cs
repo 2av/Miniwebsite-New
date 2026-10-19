@@ -34,25 +34,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
-                    b.Property<string>("AccountName")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("AccountNo")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("AccountType")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Address")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Address2")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("BankName")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("BusinessHours")
                         .HasColumnType("longtext");
 
@@ -72,11 +53,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("CardStatus")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("CollaborationEnabled")
                         .IsRequired()
@@ -101,10 +79,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<string>("Contact2")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("Country")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -116,7 +90,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Email")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("Facebook")
                         .HasColumnType("longtext");
@@ -131,43 +106,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<int?>("FranchiseeUserId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GooglePay")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Gst")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstAddress")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstCity")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstContact")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstEmail")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstName")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstNumber")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstPincode")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("GstState")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("HeroImagePath")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Ifsc")
-                        .HasColumnType("longtext");
 
                     b.Property<string>("Instagram")
                         .HasColumnType("longtext");
@@ -198,30 +139,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<string>("NatureOfBusiness")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("OrderId")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("Password")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PaymentAmount")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime?>("PaymentDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("PaymentStatus")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Paytm")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PhonePay")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Pincode")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("Pinterest")
@@ -243,10 +161,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("Speciality")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("State")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("ThemeCss")
@@ -294,7 +208,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("cards", (string)null);
+                    b.ToTable("cards", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_cards_CardStatus", "`CardStatus` IS NULL OR `CardStatus` IN ('Active', 'Suspended', 'Inactive', 'InActive')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.CardGalleryImage", b =>
@@ -308,10 +225,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<int>("CardId")
                         .HasColumnType("int");
 
-                    b.Property<string>("CardSlug")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -324,9 +237,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -348,10 +258,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("CardId")
                         .HasColumnType("int");
-
-                    b.Property<string>("CardSlug")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -392,9 +298,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
@@ -412,10 +315,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("CardId")
                         .HasColumnType("int");
-
-                    b.Property<string>("CardSlug")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySource")
                         .HasColumnType("longtext");
@@ -463,12 +362,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
+
+                    b.HasIndex("ProductCategory");
 
                     b.ToTable("card_products", (string)null);
                 });
@@ -483,10 +381,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("CardId")
                         .HasColumnType("int");
-
-                    b.Property<string>("CardSlug")
-                        .IsRequired()
-                        .HasColumnType("longtext");
 
                     b.Property<string>("CategorySource")
                         .HasColumnType("longtext");
@@ -513,12 +407,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
+
+                    b.HasIndex("ProductCategory");
 
                     b.ToTable("card_services", (string)null);
                 });
@@ -590,10 +483,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("CardId")
                         .HasColumnType("int");
-
-                    b.Property<string>("CardSlug")
-                        .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -719,7 +608,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("coupons", (string)null);
+                    b.ToTable("coupons", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_coupons_Status", "`Status` IN ('Active', 'InActive', 'Expired')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Customer", b =>
@@ -737,7 +629,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("AreaCity")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("BusinessType")
                         .HasColumnType("longtext");
@@ -757,7 +650,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(150)");
 
                     b.Property<string>("EmailId")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("FollowupMethod")
                         .HasColumnType("longtext");
@@ -787,7 +681,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -799,7 +694,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OwnerUserId");
 
-                    b.ToTable("customers", (string)null);
+                    b.ToTable("customers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_customers_Status", "`Status` IN ('Followup required', 'Phone Busy/Not Picked', 'Important', 'Joined', 'Deal Done', 'Profile Shared', 'Interested', 'Not Interested')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.CustomerFollowup", b =>
@@ -841,6 +739,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId");
 
+                    b.HasIndex("OwnerUserId");
+
                     b.ToTable("customer_followups", (string)null);
                 });
 
@@ -860,22 +760,22 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
+                    b.Property<int>("CouponId")
+                        .HasColumnType("int");
+
                     b.Property<string>("CustomerEmail")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<int>("DealId")
-                        .HasColumnType("int");
 
                     b.Property<int?>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerEmail");
+                    b.HasIndex("CouponId");
 
-                    b.HasIndex("DealId");
+                    b.HasIndex("CustomerEmail");
 
                     b.HasIndex("UserId");
 
@@ -1163,86 +1063,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("faqs", (string)null);
                 });
 
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchisePayment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AdminNotes")
-                        .HasColumnType("longtext");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("varchar(10)");
-
-                    b.Property<string>("FranchiseEmail")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<int?>("FranchiseUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("IpAddress")
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("PaymentDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("PaymentMethod")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PaymentStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<string>("RazorpayOrderId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("RazorpayPaymentId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("RazorpaySignature")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("ReferenceNumber")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<decimal>("RefundAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime?>("RefundDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UserAgent")
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FranchiseUserId");
-
-                    b.ToTable("franchise_payments", (string)null);
-                });
-
             modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchiseVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -1278,17 +1098,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("UserEmail");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -1314,7 +1127,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("BillingCity")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("BillingContact")
                         .IsRequired()
@@ -1322,7 +1136,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("BillingEmail")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("BillingGstNumber")
                         .HasColumnType("longtext");
@@ -1391,7 +1206,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("PaymentType")
                         .IsRequired()
@@ -1490,7 +1306,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("invoices", (string)null);
+                    b.ToTable("invoices", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_invoices_PaymentStatus", "`PaymentStatus` IN ('Created', 'Pending', 'Success', 'Paid', 'Failed', 'Rejected', 'Refunded')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.JoiningDeal", b =>
@@ -1561,6 +1380,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DealCode")
                         .IsUnique();
+
+                    b.HasIndex("FranchiseDealId");
+
+                    b.HasIndex("MwDealId");
 
                     b.ToTable("joining_deals", (string)null);
                 });
@@ -1688,9 +1511,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<int?>("RelatedId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -1730,14 +1550,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Address")
-                        .HasColumnType("longtext");
-
                     b.Property<int?>("CardId")
                         .HasColumnType("int");
-
-                    b.Property<string>("City")
-                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -1746,7 +1560,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("CustomerEmail")
-                        .HasColumnType("longtext");
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("CustomerName")
                         .HasColumnType("longtext");
@@ -1756,25 +1571,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<string>("OrderStatus")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<decimal>("PaymentAmount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
-
-                    b.Property<string>("PaymentType")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Pincode")
-                        .HasColumnType("longtext");
+                    b.Property<int?>("InvoiceId")
+                        .HasColumnType("int");
 
                     b.Property<string>("ProductId")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("State")
                         .HasColumnType("longtext");
 
                     b.Property<string>("UserEmail")
@@ -1788,6 +1588,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CardId");
+
+                    b.HasIndex("InvoiceId");
 
                     b.HasIndex("UserId");
 
@@ -2030,7 +1832,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("varchar(30)");
 
-                    b.Property<int?>("DealId")
+                    b.Property<int?>("CouponId")
                         .HasColumnType("int");
 
                     b.Property<int?>("InvoiceId")
@@ -2073,7 +1875,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("CommissionCode")
                         .IsUnique();
 
-                    b.HasIndex("DealId");
+                    b.HasIndex("CouponId");
 
                     b.HasIndex("InvoiceId");
 
@@ -2085,7 +1887,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ReferrerUserId");
 
-                    b.ToTable("referral_earnings", (string)null);
+                    b.ToTable("referral_earnings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_referral_earnings_Status", "`Status` IN ('Pending', 'Paid', 'Partial', 'Rejected')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.ReferralPayment", b =>
@@ -2438,6 +2243,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<string>("AccountNumber")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("AccountType")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("BankName")
                         .HasColumnType("longtext");
 
@@ -2456,17 +2264,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<string>("UpiName")
                         .HasColumnType("longtext");
 
-                    b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("UserEmail");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -2504,10 +2305,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
@@ -2525,10 +2322,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("AmountPaid")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -2567,27 +2360,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("longtext");
 
-                    b.Property<DateTime?>("PaymentDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("PaymentStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("TransactionId")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UserEmail")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -2650,6 +2427,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MiniWebsite.Domain.Entities.ProductCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ProductCategory")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Card");
                 });
 
@@ -2660,6 +2442,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("MiniWebsite.Domain.Entities.ProductCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ProductCategory")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Card");
                 });
@@ -2725,14 +2512,22 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("MiniWebsite.Domain.Entities.User", "OwnerUser")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Customer");
+
+                    b.Navigation("OwnerUser");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.DealCustomerMapping", b =>
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.Coupon", "Coupon")
                         .WithMany("CustomerMappings")
-                        .HasForeignKey("DealId")
+                        .HasForeignKey("CouponId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -2755,16 +2550,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Section");
-                });
-
-            modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchisePayment", b =>
-                {
-                    b.HasOne("MiniWebsite.Domain.Entities.User", "FranchiseUser")
-                        .WithMany()
-                        .HasForeignKey("FranchiseUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("FranchiseUser");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchiseVerification", b =>
@@ -2793,6 +2578,23 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Card");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.JoiningDeal", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.JoiningDeal", "FranchiseDeal")
+                        .WithMany()
+                        .HasForeignKey("FranchiseDealId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("MiniWebsite.Domain.Entities.JoiningDeal", "MwDeal")
+                        .WithMany()
+                        .HasForeignKey("MwDealId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FranchiseDeal");
+
+                    b.Navigation("MwDeal");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.KitFolder", b =>
@@ -2832,12 +2634,19 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("MiniWebsite.Domain.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MiniWebsite.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Card");
+
+                    b.Navigation("Invoice");
 
                     b.Navigation("User");
                 });
@@ -2876,7 +2685,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.Coupon", "Coupon")
                         .WithMany()
-                        .HasForeignKey("DealId")
+                        .HasForeignKey("CouponId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("MiniWebsite.Domain.Entities.Invoice", "Invoice")
@@ -2946,11 +2755,19 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                             b1.Property<int>("UserId")
                                 .HasColumnType("int");
 
+                            b1.Property<string>("Address2")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
                             b1.Property<string>("AddressLine")
                                 .HasMaxLength(500)
                                 .HasColumnType("varchar(500)");
 
                             b1.Property<string>("City")
+                                .HasMaxLength(100)
+                                .HasColumnType("varchar(100)");
+
+                            b1.Property<string>("Country")
                                 .HasMaxLength(100)
                                 .HasColumnType("varchar(100)");
 
@@ -2988,6 +2805,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                                 .HasColumnType("varchar(200)");
 
                             b1.Property<string>("Paytm")
+                                .HasMaxLength(200)
+                                .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("PhonePay")
                                 .HasMaxLength(200)
                                 .HasColumnType("varchar(200)");
 
@@ -3046,11 +2867,18 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                             b1.HasIndex("ReferrerUserId");
 
+                            b1.HasIndex("SenderUserId");
+
                             b1.ToTable("user_referral_settings", (string)null);
 
                             b1.HasOne("MiniWebsite.Domain.Entities.User", null)
                                 .WithMany()
                                 .HasForeignKey("ReferrerUserId")
+                                .OnDelete(DeleteBehavior.SetNull);
+
+                            b1.HasOne("MiniWebsite.Domain.Entities.User", null)
+                                .WithMany()
+                                .HasForeignKey("SenderUserId")
                                 .OnDelete(DeleteBehavior.SetNull);
 
                             b1.WithOwner()

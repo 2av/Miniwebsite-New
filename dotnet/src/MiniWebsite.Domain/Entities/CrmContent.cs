@@ -34,6 +34,7 @@ public class CustomerFollowup
     public int CustomerId { get; set; }
     public Customer Customer { get; set; } = null!;
     public int OwnerUserId { get; set; }
+    public User OwnerUser { get; set; } = null!;
     public string OwnerRole { get; set; } = "";
     public DateTime FollowupDatetime { get; set; }
     public string FollowupMethod { get; set; } = "";
@@ -141,7 +142,6 @@ public class CardView
     public string? Ip { get; set; }
     public int? CardId { get; set; }
     public Card? Card { get; set; }
-    public string? CardSlug { get; set; }
     public DateTime CreatedAt { get; set; } = AppClock.Now;
 }
 
@@ -166,7 +166,6 @@ public class Notification
     public int? UserId { get; set; }
     public User? User { get; set; }
     public string? UserType { get; set; }
-    public int? RelatedId { get; set; }
     public bool IsRead { get; set; }
     public string Priority { get; set; } = "medium";
     public DateTime CreatedAt { get; set; } = AppClock.Now;

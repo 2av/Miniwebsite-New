@@ -35,11 +35,12 @@ public class PublicCardService : IPublicCardService
         Card? card = null;
         if (int.TryParse(key, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericId) && numericId > 0)
         {
-            card = await _db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == numericId, ct);
+            card = await _db.Cards.AsNoTracking().Include(c => c.User).FirstOrDefaultAsync(c => c.Id == numericId, ct);
         }
         else
         {
             card = await _db.Cards.AsNoTracking()
+                .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.Slug != null && c.Slug == key, ct);
 
             if (card == null)
@@ -115,12 +116,13 @@ public class PublicCardService : IPublicCardService
 
         var phone = DigitsPlus(card.DContact);
         var whatsapp = DigitsPlus(card.DWhatsapp);
-        var locParts = new[] { card.DAddress2, card.DCity, card.DState }
+        var address = card.User?.Address;
+        var locParts = new[] { address?.Address2, address?.City, address?.State }
             .Select(s => (s ?? "").Trim())
             .Where(s => s.Length > 0);
         var location = string.Join(", ", locParts);
 
-        var addrParts = new[] { card.DAddress, card.DAddress2, card.DCity, card.DState, card.DPincode }
+        var addrParts = new[] { address?.AddressLine, address?.Address2, address?.City, address?.State, address?.Pincode }
             .Select(s => (s ?? "").Trim())
             .Where(s => s.Length > 0);
         var fullAddress = string.Join(" ", addrParts);
@@ -134,7 +136,7 @@ public class PublicCardService : IPublicCardService
         AddSocial(social, "pinterest", card.DPinterest);
 
         var services = await _db.CardServices.AsNoTracking()
-            .Where(s => s.CardId == card.Id || s.CardSlug == slug)
+            .Where(s => s.CardId == card.Id)
             .OrderBy(s => s.DisplayOrder).ThenBy(s => s.Id)
             .ToListAsync(ct);
         var serviceDtos = services
@@ -148,7 +150,7 @@ public class PublicCardService : IPublicCardService
             .ToList();
 
         var offers = await _db.CardOffers.AsNoTracking()
-            .Where(o => (o.CardId == card.Id || o.CardSlug == slug) && (o.Status == "Active" || o.Status == "Inactive"))
+            .Where(o => o.CardId == card.Id && (o.Status == "Active" || o.Status == "Inactive"))
             .OrderBy(o => o.DisplayOrder).ThenBy(o => o.Id)
             .ToListAsync(ct);
         var offerDtos = offers
@@ -165,7 +167,7 @@ public class PublicCardService : IPublicCardService
             .ToList();
 
         var products = await _db.CardProducts.AsNoTracking()
-            .Where(p => p.CardId == card.Id || p.CardSlug == slug)
+            .Where(p => p.CardId == card.Id)
             .OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id)
             .ToListAsync(ct);
         var productDtos = products
@@ -185,7 +187,7 @@ public class PublicCardService : IPublicCardService
             .ToList();
 
         var gallery = await _db.CardGallery.AsNoTracking()
-            .Where(g => g.CardId == card.Id || g.CardSlug == slug)
+            .Where(g => g.CardId == card.Id)
             .OrderBy(g => g.DisplayOrder).ThenBy(g => g.Id)
             .ToListAsync(ct);
         var galleryUrls = gallery
@@ -217,7 +219,7 @@ public class PublicCardService : IPublicCardService
             card.DLocation,
             card.DWebsite,
             BuildShareUrl(slug),
-            card.DGstNumber,
+            card.User?.Address.Gst,
             fullAddress,
             ParseBusinessHours(card.DBusinessHours),
             social,
@@ -232,10 +234,11 @@ public class PublicCardService : IPublicCardService
     private Task<IReadOnlyList<PublicPaymentQrDto>> LoadPaymentQrsAsync(Card card, CancellationToken ct)
     {
         // Greenfield cards table has no QR image blobs (legacy digi_card columns).
+        var pay = card.User?.Payment;
         var list = new List<PublicPaymentQrDto>();
-        AddQr(list, "Paytm", null, card.DPaytm);
-        AddQr(list, "Google Pay", null, card.DGooglePay);
-        AddQr(list, "PhonePe", null, card.DPhonePay);
+        AddQr(list, "Paytm", null, pay?.Paytm);
+        AddQr(list, "Google Pay", null, pay?.GooglePay);
+        AddQr(list, "PhonePe", null, pay?.PhonePay);
         return Task.FromResult<IReadOnlyList<PublicPaymentQrDto>>(list);
     }
 

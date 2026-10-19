@@ -84,19 +84,12 @@ public partial class WebsiteService : IWebsiteService
             CardId = slug,
             UserEmail = email,
             FUserEmail = franchiseeEmail,
-            DPaymentStatus = "Created",
             DCardStatus = "Active",
             UploadedDate = now,
             ValidityDate = now.AddYears(1),
             ComplimentaryEnabled = request.Complimentary ? "Yes" : "No",
             DPositionPrimary = "",
-            DPositionSecondary = "",
-            DGstNumber = "",
-            DAddress2 = "",
-            DCity = "",
-            DState = "",
-            DPincode = "",
-            DCountry = ""
+            DPositionSecondary = ""
         };
         _db.Cards.Add(card);
         await _db.SaveChangesAsync(ct);
@@ -238,13 +231,19 @@ public partial class WebsiteService : IWebsiteService
         card.DContact = request.Contact?.Trim();
         card.DContact2 = request.Contact2?.Trim();
         card.DWhatsapp = request.Whatsapp?.Trim();
-        card.DGstNumber = request.GstNumber?.Trim() ?? "";
-        card.DAddress = request.Address?.Trim();
-        card.DAddress2 = request.Address2?.Trim() ?? "";
-        card.DCity = request.City?.Trim() ?? "";
-        card.DState = request.State?.Trim() ?? "";
-        card.DPincode = request.Pincode?.Trim() ?? "";
-        card.DCountry = request.Country?.Trim() ?? "";
+        User? owner = null;
+        if (card.UserId is int ownerId)
+            owner = await _db.Users.FirstOrDefaultAsync(u => u.Id == ownerId, ct);
+        if (owner != null)
+        {
+            owner.Address.AddressLine = BlankToNull(request.Address);
+            owner.Address.Address2 = BlankToNull(request.Address2);
+            owner.Address.City = BlankToNull(request.City);
+            owner.Address.State = BlankToNull(request.State);
+            owner.Address.Pincode = BlankToNull(request.Pincode);
+            owner.Address.Country = BlankToNull(request.Country);
+            owner.Address.Gst = TrimGst(request.GstNumber);
+        }
         card.DEmail = request.Email?.Trim();
         card.DWebsite = request.Website?.Trim();
         card.DLocation = request.Location?.Trim();
@@ -259,7 +258,7 @@ public partial class WebsiteService : IWebsiteService
         if (request.BusinessOperationLocations != null) card.BusinessOperationLocations = request.BusinessOperationLocations;
 
         await _db.SaveChangesAsync(ct);
-        return ApiResult<CompanyDetailsDto>.Ok(MapCompany(card), "Company details updated.");
+        return ApiResult<CompanyDetailsDto>.Ok(MapCompany(card, owner?.Address), "Company details updated.");
     }
 
     public async Task<ApiResult<SocialLinksDto>> GetSocialAsync(int cardId, string ownerEmail, CancellationToken ct = default)
@@ -287,25 +286,40 @@ public partial class WebsiteService : IWebsiteService
     public async Task<ApiResult<PaymentDetailsDto>> GetPaymentAsync(int cardId, string ownerEmail, CancellationToken ct = default)
     {
         var card = await LoadOwnedCardAsync(cardId, ownerEmail, ct);
-        return card == null
-            ? ApiResult<PaymentDetailsDto>.Fail("Card not found or access denied.")
-            : ApiResult<PaymentDetailsDto>.Ok(new PaymentDetailsDto(card.DPaytm, card.DGooglePay, card.DPhonePay, card.DAccountNo, card.DIfsc, card.DAcName, card.DBankName, card.DAcType));
+        if (card == null) return ApiResult<PaymentDetailsDto>.Fail("Card not found or access denied.");
+        var bank = card.UserId is int userId
+            ? await _db.UserBankDetails.AsNoTracking().FirstOrDefaultAsync(b => b.UserId == userId, ct)
+            : null;
+        return ApiResult<PaymentDetailsDto>.Ok(MapPayment(card.User?.Payment, bank));
     }
 
     public async Task<ApiResult<PaymentDetailsDto>> UpdatePaymentAsync(int cardId, string ownerEmail, UpdatePaymentDetailsRequest request, CancellationToken ct = default)
     {
         var card = await LoadOwnedCardTrackedAsync(cardId, ownerEmail, ct);
-        if (card == null) return ApiResult<PaymentDetailsDto>.Fail("Card not found or access denied.");
-        card.DPaytm = request.Paytm;
-        card.DGooglePay = request.GooglePay;
-        card.DPhonePay = request.PhonePay;
-        card.DAccountNo = request.AccountNo;
-        card.DIfsc = request.Ifsc;
-        card.DAcName = request.AcName;
-        card.DBankName = request.BankName;
-        card.DAcType = request.AcType;
+        if (card?.UserId is not int userId) return ApiResult<PaymentDetailsDto>.Fail("Card not found or access denied.");
+
+        var owner = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+        if (owner == null) return ApiResult<PaymentDetailsDto>.Fail("Card not found or access denied.");
+        owner.Payment.Paytm = BlankToNull(request.Paytm);
+        owner.Payment.GooglePay = BlankToNull(request.GooglePay);
+        owner.Payment.PhonePay = BlankToNull(request.PhonePay);
+
+        var now = AppClock.Now;
+        var bank = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserId == userId, ct);
+        if (bank == null)
+        {
+            bank = new UserBankDetails { UserId = userId, CreatedAt = now };
+            _db.UserBankDetails.Add(bank);
+        }
+        bank.BankName = BlankToNull(request.BankName);
+        bank.AccountHolderName = BlankToNull(request.AcName);
+        bank.AccountNumber = BlankToNull(request.AccountNo);
+        bank.IfscCode = BlankToNull(request.Ifsc);
+        bank.AccountType = BlankToNull(request.AcType);
+        bank.UpdatedAt = now;
+
         await _db.SaveChangesAsync(ct);
-        return ApiResult<PaymentDetailsDto>.Ok(new PaymentDetailsDto(card.DPaytm, card.DGooglePay, card.DPhonePay, card.DAccountNo, card.DIfsc, card.DAcName, card.DBankName, card.DAcType), "Payment details updated.");
+        return ApiResult<PaymentDetailsDto>.Ok(MapPayment(owner.Payment, bank), "Payment details updated.");
     }
 
     public async Task<ApiResult<VideosDto>> GetVideosAsync(int cardId, string ownerEmail, CancellationToken ct = default)
@@ -330,10 +344,10 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<IReadOnlyList<ProductDto>>.Fail("Card not found or access denied.");
         var items = await _db.CardProducts.AsNoTracking()
-            .Where(p => p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug)
+            .Where(p => p.CardId == ctx.Value.CardId)
             .OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id)
             .ToListAsync(ct);
-        return ApiResult<IReadOnlyList<ProductDto>>.Ok(items.Select(MapProduct).ToList());
+        return ApiResult<IReadOnlyList<ProductDto>>.Ok(items.Select(p => MapProduct(p, ctx.Value)).ToList());
     }
 
     public async Task<ApiResult<ProductDto>> CreateProductAsync(int cardId, string ownerEmail, UpsertProductRequest request, CancellationToken ct = default)
@@ -343,8 +357,6 @@ public partial class WebsiteService : IWebsiteService
         var row = new CardProduct
         {
             CardId = ctx.Value.CardId,
-            CardSlug = ctx.Value.CardSlug,
-            UserId = ctx.Value.UserId,
             ProductName = request.ProductName,
             ProductCategory = request.ProductCategory,
             CategorySource = request.CategorySource ?? "system",
@@ -361,7 +373,7 @@ public partial class WebsiteService : IWebsiteService
         };
         _db.CardProducts.Add(row);
         await _db.SaveChangesAsync(ct);
-        return ApiResult<ProductDto>.Ok(MapProduct(row), "Product created.");
+        return ApiResult<ProductDto>.Ok(MapProduct(row, ctx.Value), "Product created.");
     }
 
     public async Task<ApiResult<ProductDto>> UpdateProductAsync(int cardId, string ownerEmail, int productId, UpsertProductRequest request, CancellationToken ct = default)
@@ -369,7 +381,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<ProductDto>.Fail("Card not found or access denied.");
         var row = await _db.CardProducts.FirstOrDefaultAsync(
-            p => p.Id == productId && (p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug), ct);
+            p => p.Id == productId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<ProductDto>.Fail("Product not found.");
         row.ProductName = request.ProductName;
         row.ProductCategory = request.ProductCategory;
@@ -384,7 +396,7 @@ public partial class WebsiteService : IWebsiteService
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
-        return ApiResult<ProductDto>.Ok(MapProduct(row), "Product updated.");
+        return ApiResult<ProductDto>.Ok(MapProduct(row, ctx.Value), "Product updated.");
     }
 
     public async Task<ApiResult> DeleteProductAsync(int cardId, string ownerEmail, int productId, CancellationToken ct = default)
@@ -392,7 +404,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult.Fail("Card not found or access denied.");
         var row = await _db.CardProducts.FirstOrDefaultAsync(
-            p => p.Id == productId && (p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug), ct);
+            p => p.Id == productId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Product not found.");
         _db.CardProducts.Remove(row);
         await _db.SaveChangesAsync(ct);
@@ -405,10 +417,10 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<IReadOnlyList<ServiceItemDto>>.Fail("Card not found or access denied.");
         var items = await _db.CardServices.AsNoTracking()
-            .Where(p => p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug)
+            .Where(p => p.CardId == ctx.Value.CardId)
             .OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id)
             .ToListAsync(ct);
-        return ApiResult<IReadOnlyList<ServiceItemDto>>.Ok(items.Select(MapService).ToList());
+        return ApiResult<IReadOnlyList<ServiceItemDto>>.Ok(items.Select(p => MapService(p, ctx.Value)).ToList());
     }
 
     public async Task<ApiResult<ServiceItemDto>> CreateServiceAsync(int cardId, string ownerEmail, UpsertServiceRequest request, CancellationToken ct = default)
@@ -418,8 +430,6 @@ public partial class WebsiteService : IWebsiteService
         var row = new CardService
         {
             CardId = ctx.Value.CardId,
-            CardSlug = ctx.Value.CardSlug,
-            UserId = ctx.Value.UserId,
             ProductName = request.ProductName,
             ProductCategory = request.ProductCategory,
             CategorySource = request.CategorySource ?? "system",
@@ -431,7 +441,7 @@ public partial class WebsiteService : IWebsiteService
         };
         _db.CardServices.Add(row);
         await _db.SaveChangesAsync(ct);
-        return ApiResult<ServiceItemDto>.Ok(MapService(row), "Service created.");
+        return ApiResult<ServiceItemDto>.Ok(MapService(row, ctx.Value), "Service created.");
     }
 
     public async Task<ApiResult<ServiceItemDto>> UpdateServiceAsync(int cardId, string ownerEmail, int serviceId, UpsertServiceRequest request, CancellationToken ct = default)
@@ -439,7 +449,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<ServiceItemDto>.Fail("Card not found or access denied.");
         var row = await _db.CardServices.FirstOrDefaultAsync(
-            p => p.Id == serviceId && (p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug), ct);
+            p => p.Id == serviceId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<ServiceItemDto>.Fail("Service not found.");
         row.ProductName = request.ProductName;
         row.ProductCategory = request.ProductCategory;
@@ -449,7 +459,7 @@ public partial class WebsiteService : IWebsiteService
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
-        return ApiResult<ServiceItemDto>.Ok(MapService(row), "Service updated.");
+        return ApiResult<ServiceItemDto>.Ok(MapService(row, ctx.Value), "Service updated.");
     }
 
     public async Task<ApiResult> DeleteServiceAsync(int cardId, string ownerEmail, int serviceId, CancellationToken ct = default)
@@ -457,7 +467,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult.Fail("Card not found or access denied.");
         var row = await _db.CardServices.FirstOrDefaultAsync(
-            p => p.Id == serviceId && (p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug), ct);
+            p => p.Id == serviceId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Service not found.");
         _db.CardServices.Remove(row);
         await _db.SaveChangesAsync(ct);
@@ -470,10 +480,10 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<IReadOnlyList<GalleryItemDto>>.Fail("Card not found or access denied.");
         var items = await _db.CardGallery.AsNoTracking()
-            .Where(p => p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug)
+            .Where(p => p.CardId == ctx.Value.CardId)
             .OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id)
             .ToListAsync(ct);
-        return ApiResult<IReadOnlyList<GalleryItemDto>>.Ok(items.Select(MapGallery).ToList());
+        return ApiResult<IReadOnlyList<GalleryItemDto>>.Ok(items.Select(g => MapGallery(g, ctx.Value)).ToList());
     }
 
     public async Task<ApiResult<GalleryItemDto>> CreateGalleryAsync(int cardId, string ownerEmail, UpsertGalleryRequest request, CancellationToken ct = default)
@@ -481,13 +491,11 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<GalleryItemDto>.Fail("Card not found or access denied.");
         var maxOrder = await _db.CardGallery
-            .Where(g => g.CardId == ctx.Value.CardId || g.CardSlug == ctx.Value.CardSlug)
+            .Where(g => g.CardId == ctx.Value.CardId)
             .MaxAsync(g => (int?)g.DisplayOrder, ct) ?? 0;
         var row = new CardGalleryImage
         {
             CardId = ctx.Value.CardId,
-            CardSlug = ctx.Value.CardSlug,
-            UserId = ctx.Value.UserId,
             GalleryImage = request.GalleryImage,
             DisplayOrder = request.DisplayOrder > 0 ? request.DisplayOrder : maxOrder + 1,
             CreatedAt = AppClock.Now,
@@ -495,7 +503,7 @@ public partial class WebsiteService : IWebsiteService
         };
         _db.CardGallery.Add(row);
         await _db.SaveChangesAsync(ct);
-        return ApiResult<GalleryItemDto>.Ok(MapGallery(row), "Gallery image saved.");
+        return ApiResult<GalleryItemDto>.Ok(MapGallery(row, ctx.Value), "Gallery image saved.");
     }
 
     public async Task<ApiResult> DeleteGalleryAsync(int cardId, string ownerEmail, int imageId, CancellationToken ct = default)
@@ -503,7 +511,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult.Fail("Card not found or access denied.");
         var row = await _db.CardGallery.FirstOrDefaultAsync(
-            g => g.Id == imageId && (g.CardId == ctx.Value.CardId || g.CardSlug == ctx.Value.CardSlug), ct);
+            g => g.Id == imageId && (g.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Gallery image not found.");
         _db.CardGallery.Remove(row);
         await _db.SaveChangesAsync(ct);
@@ -516,10 +524,10 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<IReadOnlyList<SpecialOfferDto>>.Fail("Card not found or access denied.");
         var items = await _db.CardOffers.AsNoTracking()
-            .Where(p => p.CardId == ctx.Value.CardId || p.CardSlug == ctx.Value.CardSlug)
+            .Where(p => p.CardId == ctx.Value.CardId)
             .OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id)
             .ToListAsync(ct);
-        return ApiResult<IReadOnlyList<SpecialOfferDto>>.Ok(items.Select(MapOffer).ToList());
+        return ApiResult<IReadOnlyList<SpecialOfferDto>>.Ok(items.Select(o => MapOffer(o, ctx.Value)).ToList());
     }
 
     public async Task<ApiResult<SpecialOfferDto>> CreateOfferAsync(int cardId, string ownerEmail, UpsertSpecialOfferRequest request, CancellationToken ct = default)
@@ -529,8 +537,6 @@ public partial class WebsiteService : IWebsiteService
         var row = new CardOffer
         {
             CardId = ctx.Value.CardId,
-            CardSlug = ctx.Value.CardSlug,
-            UserId = ctx.Value.UserId,
             OfferTitle = request.OfferTitle,
             OfferDescription = request.OfferDescription,
             OfferImage = request.OfferImage,
@@ -547,7 +553,7 @@ public partial class WebsiteService : IWebsiteService
         };
         _db.CardOffers.Add(row);
         await _db.SaveChangesAsync(ct);
-        return ApiResult<SpecialOfferDto>.Ok(MapOffer(row), "Offer created.");
+        return ApiResult<SpecialOfferDto>.Ok(MapOffer(row, ctx.Value), "Offer created.");
     }
 
     public async Task<ApiResult<SpecialOfferDto>> UpdateOfferAsync(int cardId, string ownerEmail, int offerId, UpsertSpecialOfferRequest request, CancellationToken ct = default)
@@ -555,7 +561,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<SpecialOfferDto>.Fail("Card not found or access denied.");
         var row = await _db.CardOffers.FirstOrDefaultAsync(
-            o => o.Id == offerId && (o.CardId == ctx.Value.CardId || o.CardSlug == ctx.Value.CardSlug), ct);
+            o => o.Id == offerId && (o.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<SpecialOfferDto>.Fail("Offer not found.");
         row.OfferTitle = request.OfferTitle;
         row.OfferDescription = request.OfferDescription;
@@ -570,7 +576,7 @@ public partial class WebsiteService : IWebsiteService
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
-        return ApiResult<SpecialOfferDto>.Ok(MapOffer(row), "Offer updated.");
+        return ApiResult<SpecialOfferDto>.Ok(MapOffer(row, ctx.Value), "Offer updated.");
     }
 
     public async Task<ApiResult> DeleteOfferAsync(int cardId, string ownerEmail, int offerId, CancellationToken ct = default)
@@ -578,7 +584,7 @@ public partial class WebsiteService : IWebsiteService
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult.Fail("Card not found or access denied.");
         var row = await _db.CardOffers.FirstOrDefaultAsync(
-            o => o.Id == offerId && (o.CardId == ctx.Value.CardId || o.CardSlug == ctx.Value.CardSlug), ct);
+            o => o.Id == offerId && (o.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Offer not found.");
         _db.CardOffers.Remove(row);
         await _db.SaveChangesAsync(ct);
@@ -591,6 +597,7 @@ public partial class WebsiteService : IWebsiteService
         var userId = await _db.FindUserIdAsync(ownerEmail, ct);
         if (userId == null) return null;
         return await _db.Cards.AsNoTracking()
+            .Include(c => c.User)
             .FirstOrDefaultAsync(c => c.Id == cardId && c.UserId == userId, ct);
     }
 
@@ -617,35 +624,53 @@ public partial class WebsiteService : IWebsiteService
         return (card.Id, slug, userId.Value);
     }
 
-    private CompanyDetailsDto MapCompany(Card c) =>
-        new(c.DFName, c.DLName, c.DPositionPrimary, c.DPositionSecondary, c.DPosition,
-            c.DContact, c.DContact2, c.DWhatsapp, c.DGstNumber,
-            c.DAddress, c.DAddress2, c.DCity, c.DState, c.DPincode, c.DCountry,
+    private static PaymentDetailsDto MapPayment(UserPaymentDetails? pay, UserBankDetails? bank) =>
+        new(pay?.Paytm, pay?.GooglePay, pay?.PhonePay, bank?.AccountNumber, bank?.IfscCode, bank?.AccountHolderName, bank?.BankName, bank?.AccountType);
+
+    private static string? TrimGst(string? value)
+    {
+        var trimmed = BlankToNull(value);
+        return trimmed == null || trimmed.Length <= 50 ? trimmed : trimmed[..50];
+    }
+
+    private static string? BlankToNull(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private CompanyDetailsDto MapCompany(Card c, UserAddress? address = null)
+    {
+        address ??= c.User?.Address;
+        return new(c.DFName, c.DLName, c.DPositionPrimary, c.DPositionSecondary, c.DPosition,
+            c.DContact, c.DContact2, c.DWhatsapp, address?.Gst,
+            address?.AddressLine, address?.Address2, address?.City, address?.State, address?.Pincode, address?.Country,
             c.DEmail, c.DWebsite, c.DLocation, c.DCompEstDate, c.DAboutUs, c.DBusinessHours,
             c.DLogoLocation, c.DHeroImageLocation,
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, c.DLogoLocation),
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, c.DHeroImageLocation),
             c.BusinessProfileType ?? "", c.BusinessType ?? "", c.BusinessOperationArea ?? "",
             c.BusinessOperationLocations);
+    }
 
-    private ProductDto MapProduct(CardProduct p) =>
-        new(p.Id, p.CardSlug, p.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription,
+    private ProductDto MapProduct(CardProduct p, (int CardId, string CardSlug, int UserId) ctx) =>
+        new(p.Id, ctx.CardSlug, ctx.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription,
             p.ProductImage,
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductPricingFolder, p.ProductImage),
             p.Mrp, p.SellingPrice, p.PriceType, p.PricingUnit, p.CtaText, p.DisplayOrder);
 
-    private ServiceItemDto MapService(CardService p) =>
-        new(p.Id, p.CardSlug, p.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription, p.ProductImage,
+    private ServiceItemDto MapService(CardService p, (int CardId, string CardSlug, int UserId) ctx) =>
+        new(p.Id, ctx.CardSlug, ctx.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription, p.ProductImage,
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductServicesFolder, p.ProductImage),
             p.DisplayOrder);
 
-    private GalleryItemDto MapGallery(CardGalleryImage g) =>
-        new(g.Id, g.CardSlug, g.UserId, g.GalleryImage,
+    private GalleryItemDto MapGallery(CardGalleryImage g, (int CardId, string CardSlug, int UserId) ctx) =>
+        new(g.Id, ctx.CardSlug, ctx.UserId, g.GalleryImage,
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ImageGalleryFolder, g.GalleryImage),
             g.DisplayOrder);
 
-    private SpecialOfferDto MapOffer(CardOffer o) =>
-        new(o.Id, o.CardSlug, o.UserId, o.OfferTitle, o.OfferDescription, o.OfferImage,
+    private SpecialOfferDto MapOffer(CardOffer o, (int CardId, string CardSlug, int UserId) ctx) =>
+        new(o.Id, ctx.CardSlug, ctx.UserId, o.OfferTitle, o.OfferDescription, o.OfferImage,
             WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.SpecialOffersFolder, o.OfferImage),
             o.Badge, o.DiscountPercentage,
             o.StartDate, o.StartTime, o.EndDate, o.EndTime, o.Status, o.DisplayOrder);

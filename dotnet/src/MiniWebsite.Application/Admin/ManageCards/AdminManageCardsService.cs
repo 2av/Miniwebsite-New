@@ -38,8 +38,10 @@ public class AdminManageCardsService : IAdminManageCardsService
         var paymentFilter = (query.PaymentFilter ?? "all").Trim().ToLowerInvariant();
         cardsQuery = paymentFilter switch
         {
-            "paid" => cardsQuery.Where(c => c.PaymentStatus == "Success"),
-            "unpaid" or "trial" => cardsQuery.Where(c => c.PaymentStatus == "Created"),
+            "paid" => cardsQuery.Where(c => _db.Invoices.Any(i =>
+                i.CardId == c.Id && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid"))),
+            "unpaid" or "trial" => cardsQuery.Where(c =>
+                !_db.Invoices.Any(i => i.CardId == c.Id && i.PaymentStatus != "Created")),
             _ => cardsQuery
         };
 
@@ -74,9 +76,6 @@ public class AdminManageCardsService : IAdminManageCardsService
                 CompanyName = c.CompanyName,
                 CreatedAt = c.CreatedAt,
                 ValidityDate = c.ValidityDate,
-                PaymentDate = c.PaymentDate,
-                PaymentStatus = c.PaymentStatus,
-                PaymentAmount = c.PaymentAmount,
                 CardStatus = c.CardStatus,
                 ComplimentaryEnabled = c.ComplimentaryEnabled,
             })
@@ -118,12 +117,13 @@ public class AdminManageCardsService : IAdminManageCardsService
 
             var expiry = ExpiryDate(c);
             var status = ResolveProfileStatus(c, expiry);
-            var validity = FormatValidity(c, status.Text, false);
+            var validity = FormatValidity(c, status.Text, inv.PaymentDate);
             var company = c.CompanyName ?? "";
-            var paidOn = c.PaymentDate ?? inv.PaymentDate;
-            var paid = IsPaid(c.PaymentStatus) || inv.Paid;
-            var rejected = !paid && (IsRejected(c.PaymentStatus) || inv.Rejected);
-            var orderAmount = inv.HasInvoice ? inv.TotalAmount : ParseAmount(c.PaymentAmount);
+            var paidOn = inv.PaymentDate;
+            var paid = inv.Paid;
+            var rejected = !paid && inv.Rejected;
+            var orderAmount = inv.HasInvoice ? inv.TotalAmount : null;
+            var paymentStatus = paid ? "Success" : rejected ? "Rejected" : inv.HasInvoice ? "Pending" : "Created";
             var paymentLabel = paid
                 ? "Paid on " + (paidOn ?? c.CreatedAt ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
                 : rejected ? "Rejected" : "Pending";
@@ -140,8 +140,8 @@ public class AdminManageCardsService : IAdminManageCardsService
                 company,
                 c.CreatedAt,
                 c.ValidityDate,
-                c.PaymentDate,
-                c.PaymentStatus,
+                paidOn,
+                paymentStatus,
                 string.IsNullOrWhiteSpace(c.ComplimentaryEnabled) ? "No" : c.ComplimentaryEnabled,
                 status.Text,
                 status.Tone,
@@ -177,7 +177,9 @@ public class AdminManageCardsService : IAdminManageCardsService
         if (card == null)
             return ApiResult.Fail("Card not found.");
 
-        if (string.Equals(card.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+        var paid = await _db.Invoices.AnyAsync(i =>
+            i.CardId == cardId && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid"), ct);
+        if (paid)
             return ApiResult.Fail("Complimentary disabled for paid cards.");
 
         card.ComplimentaryEnabled = normalized.Equals("Yes", StringComparison.OrdinalIgnoreCase) ? "Yes" : "No";
@@ -210,14 +212,20 @@ public class AdminManageCardsService : IAdminManageCardsService
             foreach (var group in rows.GroupBy(r => r.CardId))
             {
                 var latest = group.OrderByDescending(r => r.Id).First();
+                var paid = group
+                    .Where(r => IsPaid(r.PaymentStatus))
+                    .OrderByDescending(r => r.PaymentDate ?? DateTime.MinValue)
+                    .ThenByDescending(r => r.Id)
+                    .FirstOrDefault();
+                var payment = paid ?? latest;
                 map[group.Key] = new InvoiceSummary(
                     latest.BillingName,
-                    latest.TotalAmount,
+                    payment.TotalAmount,
                     true,
                     latest.PromoCode ?? "",
-                    latest.PaymentDate,
-                    IsPaid(latest.PaymentStatus),
-                    IsRejected(latest.PaymentStatus));
+                    payment.PaymentDate,
+                    paid != null,
+                    paid == null && IsRejected(latest.PaymentStatus));
             }
         }
         catch
@@ -274,14 +282,6 @@ public class AdminManageCardsService : IAdminManageCardsService
     private static bool IsRejected(string? status) =>
         string.Equals(status, "Rejected", StringComparison.OrdinalIgnoreCase);
 
-    private static decimal? ParseAmount(string? amount)
-    {
-        if (string.IsNullOrWhiteSpace(amount)) return null;
-        return decimal.TryParse(amount.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : null;
-    }
-
     private static string FormatOrderValue(decimal? amount)
     {
         var value = decimal.Round(amount ?? 0, 2);
@@ -291,9 +291,9 @@ public class AdminManageCardsService : IAdminManageCardsService
         return "₹ " + text;
     }
 
-    private static (string Display, string Tone) FormatValidity(Card c, string statusText, bool isTrial)
+    private static (string Display, string Tone) FormatValidity(Card c, string statusText, DateTime? paidOn)
     {
-        if (isTrial || statusText == "Inactive")
+        if (statusText == "Inactive")
         {
             if (!c.UploadedDate.HasValue) return ("-", "neutral");
             var end = c.UploadedDate.Value.AddDays(7);
@@ -317,9 +317,9 @@ public class AdminManageCardsService : IAdminManageCardsService
                     end < AppClock.Now ? "danger" : "ok");
             }
 
-            if (c.DPaymentDate.HasValue)
+            if (paidOn.HasValue)
             {
-                var end = c.DPaymentDate.Value.AddYears(1);
+                var end = paidOn.Value.AddYears(1);
                 return (end.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture),
                     end < AppClock.Now ? "danger" : "ok");
             }

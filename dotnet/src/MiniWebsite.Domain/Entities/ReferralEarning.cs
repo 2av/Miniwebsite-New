@@ -17,7 +17,7 @@ public class ReferralEarning
     public decimal Amount { get; set; }
     public string IsCollaboration { get; set; } = "NO";
     public DateTime? PaymentDate { get; set; }
-    public int? DealId { get; set; }
+    public int? CouponId { get; set; }
     public Coupon? Coupon { get; set; }
     /// <summary>Order this commission was earned on; when unset, readers fall back to the referred user's invoice closest to <see cref="ReferralDate"/>.</summary>
     public int? InvoiceId { get; set; }

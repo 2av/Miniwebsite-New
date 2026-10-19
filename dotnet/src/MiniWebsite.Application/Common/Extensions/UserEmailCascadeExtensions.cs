@@ -6,9 +6,10 @@ namespace MiniWebsite.Application.Common.Extensions;
 public static class UserEmailCascadeExtensions
 {
     /// <summary>
-    /// Rewrites every stored copy of a user's email (ownership, referral, payout and document links)
-    /// to <paramref name="newEmail"/>. Changes are only tracked; the caller's <c>SaveChangesAsync</c> commits
-    /// them together with the user row in one transaction. Contact and billing snapshots are left as recorded.
+    /// Rewrites stored copies of a user's email where the user id can be null.
+    /// Bank details, custom categories, joining deals, and franchise verification no longer store an email.
+    /// Changes are only tracked; the caller's <c>SaveChangesAsync</c> commits them with the user row.
+    /// Contact and billing snapshots are left as recorded.
     /// </summary>
     public static async Task StageUserEmailChangeAsync(
         this IApplicationDbContext db, string oldEmail, string newEmail, CancellationToken ct = default)
@@ -47,21 +48,6 @@ public static class UserEmailCascadeExtensions
 
         foreach (var mapping in await db.DealCustomerMappings.Where(m => m.CustomerEmail == from).ToListAsync(ct))
             mapping.CustomerEmail = to;
-
-        foreach (var joining in await db.UserJoiningDeals.Where(d => d.UserEmail == from).ToListAsync(ct))
-            joining.UserEmail = to;
-
-        foreach (var payment in await db.FranchisePayments.Where(p => p.FranchiseEmail == from).ToListAsync(ct))
-            payment.FranchiseEmail = to;
-
-        foreach (var category in await db.UserCustomCategories.Where(c => c.UserEmail == from).ToListAsync(ct))
-            category.UserEmail = to;
-
-        foreach (var bank in await db.UserBankDetails.Where(b => b.UserEmail == from).ToListAsync(ct))
-            bank.UserEmail = to;
-
-        foreach (var verification in await db.FranchiseVerifications.Where(v => v.UserEmail == from).ToListAsync(ct))
-            verification.UserEmail = to;
 
         foreach (var notification in await db.Notifications.Where(n => n.UserEmail == from).ToListAsync(ct))
             notification.UserEmail = to;

@@ -41,7 +41,7 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         return ApiResult<DbProfileCheckoutPageDto>.Ok(new DbProfileCheckoutPageDto(
             card.Id,
             card.CompanyName,
-            IsPaid(card),
+            await IsCardPaidAsync(card.Id, ct),
             SellerState,
             BillingFrom(user, card),
             plans));
@@ -91,6 +91,7 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             UserEmail = user.Email,
             UserName = user.FullName,
             UserContact = user.Phone ?? "",
+            // Frozen at checkout. Later address changes on the user do not rewrite this invoice.
             BillingName = request.Name.Trim(),
             BillingEmail = request.BillingEmail.Trim(),
             BillingContact = Digits(request.Phone),
@@ -174,19 +175,7 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         invoice.UpdatedAt = now;
 
         var card = loaded.Data.Card;
-        card.PaymentStatus = "Success";
-        card.PaymentDate = now;
-        card.PaymentAmount = invoice.TotalAmount.ToString("0.00", CultureInfo.InvariantCulture);
-        card.OrderId = invoice.RazorpayOrderId;
         card.CardStatus = "Active";
-        card.GstNumber = invoice.BillingGstNumber ?? "";
-        card.GstName = invoice.BillingName;
-        card.GstAddress = invoice.BillingAddress;
-        card.GstState = invoice.BillingState;
-        card.GstCity = invoice.BillingCity;
-        card.GstPincode = invoice.BillingPincode;
-        card.GstEmail = invoice.BillingEmail;
-        card.GstContact = invoice.BillingContact;
 
         var plan = await _db.PricingPlans.AsNoTracking()
             .FirstOrDefaultAsync(p => p.PlanName == invoice.PlanName && p.PlanCategory == PlanCommissionValues.CategoryDbProfile, ct);
@@ -209,7 +198,7 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
     {
         var loaded = await LoadOwnedCardAsync(email, cardId, ct);
         if (!loaded.Success) return ApiResult<Priced>.Fail(loaded.Message ?? "DB Profile not found.");
-        if (IsPaid(loaded.Data.Card))
+        if (await IsCardPaidAsync(loaded.Data.Card.Id, ct))
             return ApiResult<Priced>.Fail("This DB Profile is already paid.");
 
         var plan = await _db.PricingPlans.AsNoTracking().FirstOrDefaultAsync(p =>
@@ -381,14 +370,14 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             values.Select(v => v?.Trim()).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
 
         return new DbProfileBillingDto(
-            First(card.GstName, user.FullName, $"{card.FirstName} {card.LastName}"),
-            First(user.Email, card.GstEmail, card.Email),
-            First(card.GstContact, card.Contact, user.Phone),
-            First(card.GstAddress, user.Address.AddressLine, card.Address),
-            First(card.GstState, user.Address.State, card.State),
-            First(card.GstCity, user.Address.City, card.City),
-            First(card.GstPincode, user.Address.Pincode, card.Pincode),
-            First(card.GstNumber, card.Gst, user.Address.Gst));
+            First(user.FullName, $"{card.FirstName} {card.LastName}"),
+            First(user.Email, card.Email),
+            First(card.Contact, user.Phone),
+            user.Address.AddressLine ?? "",
+            user.Address.State ?? "",
+            user.Address.City ?? "",
+            user.Address.Pincode ?? "",
+            user.Address.Gst ?? "");
     }
 
     private static bool Owns(User user, Card card) =>
@@ -397,8 +386,10 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         || string.Equals(card.UserEmail, user.Email, StringComparison.OrdinalIgnoreCase)
         || string.Equals(card.FranchiseeEmail, user.Email, StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsPaid(Card card) =>
-        string.Equals(card.PaymentStatus, "Success", StringComparison.OrdinalIgnoreCase);
+    private Task<bool> IsCardPaidAsync(int cardId, CancellationToken ct) =>
+        _db.Invoices.AnyAsync(i =>
+            i.CardId == cardId
+            && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid"), ct);
 
     private static bool IsInvoicePaid(string? status) =>
         string.Equals(status, "Success", StringComparison.OrdinalIgnoreCase)

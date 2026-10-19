@@ -12,9 +12,6 @@ public class CardProduct
     public int Id { get; set; }
     public int CardId { get; set; }
     public Card Card { get; set; } = null!;
-    /// <summary>Public slug denormalized for lookups (legacy card_id string).</summary>
-    public string CardSlug { get; set; } = "";
-    public int UserId { get; set; }
     public string? ProductName { get; set; }
     public int? ProductCategory { get; set; }
     public string? CategorySource { get; set; }
@@ -36,8 +33,6 @@ public class CardService
     public int Id { get; set; }
     public int CardId { get; set; }
     public Card Card { get; set; } = null!;
-    public string CardSlug { get; set; } = "";
-    public int UserId { get; set; }
     public string? ProductName { get; set; }
     public int? ProductCategory { get; set; }
     public string? CategorySource { get; set; }
@@ -53,8 +48,6 @@ public class CardGalleryImage
     public int Id { get; set; }
     public int CardId { get; set; }
     public Card Card { get; set; } = null!;
-    public string CardSlug { get; set; } = "";
-    public int UserId { get; set; }
     public string? GalleryImage { get; set; }
     public int DisplayOrder { get; set; }
     public DateTime? CreatedAt { get; set; }
@@ -66,8 +59,6 @@ public class CardOffer
     public int Id { get; set; }
     public int CardId { get; set; }
     public Card Card { get; set; } = null!;
-    public string CardSlug { get; set; } = "";
-    public int UserId { get; set; }
     public string OfferTitle { get; set; } = "";
     public string? OfferDescription { get; set; }
     public string? OfferImage { get; set; }

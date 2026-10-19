@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.DigiCards.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Domain.Common;
 
@@ -42,7 +43,9 @@ public class DigiCardService : IDigiCardService
                 .OrderByDescending(c => c.Id)
                 .ToListAsync(ct);
 
-        return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(cards.Select(MapListItem).ToList());
+        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
+        return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(
+            cards.Select(c => MapListItem(c, CardSales.For(sales, c.Id))).ToList());
     }
 
     public async Task<ApiResult<IReadOnlyList<DigiCardListItemDto>>> ListByFranchiseeEmailAsync(string franchiseeEmail, CancellationToken ct = default)
@@ -55,19 +58,22 @@ public class DigiCardService : IDigiCardService
                 .OrderByDescending(c => c.Id)
                 .ToListAsync(ct);
 
-        return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(cards.Select(MapListItem).ToList());
+        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
+        return ApiResult<IReadOnlyList<DigiCardListItemDto>>.Ok(
+            cards.Select(c => MapListItem(c, CardSales.For(sales, c.Id))).ToList());
     }
 
     public async Task<ApiResult<DigiCardDetailDto>> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        var card = await _db.Cards.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+        var card = await _db.Cards.AsNoTracking().Include(c => c.User).FirstOrDefaultAsync(c => c.Id == id, ct);
         if (card == null)
             return ApiResult<DigiCardDetailDto>.Fail("ShareBizz / card not found.");
 
         var meta = await _db.CardSlugHistories.AsNoTracking()
             .FirstOrDefaultAsync(m => m.CardId == id, ct);
 
-        return ApiResult<DigiCardDetailDto>.Ok(MapDetail(card, meta));
+        var sales = await CardSales.ByCardIdAsync(_db, [id], ct);
+        return ApiResult<DigiCardDetailDto>.Ok(MapDetail(card, meta, CardSales.For(sales, id)));
     }
 
     public async Task<ApiResult<DigiCardSlugLookupDto>> ResolvePreviousSlugAsync(string previousSlug, CancellationToken ct = default)
@@ -131,7 +137,7 @@ public class DigiCardService : IDigiCardService
             showInvoice,
             user.Referral.MwReferralId,
             user.Referral.Influencer ? "YES" : "NO",
-            cards.Select(MapListItem).ToList()));
+            (await WithSales(cards, ct)).ToList()));
     }
 
     public async Task<ApiResult<FranchiseeDashboardDto>> GetFranchiseeDashboardAsync(string email, CancellationToken ct = default)
@@ -157,22 +163,26 @@ public class DigiCardService : IDigiCardService
             select new { ud, dc }
         ).ToListAsync(ct);
 
-        var rows = managed.Select(x => new FranchiseeManagedUserDto(
-            x.ud.Id,
-            x.ud.FullName,
-            x.ud.Phone,
-            x.ud.Email,
-            x.ud.CreatedAt,
-            x.ud.Referral.ReferralCode,
-            x.ud.Referral.ReferredBy,
-            x.dc.Id,
-            x.dc.DCompName,
-            x.dc.DPaymentStatus,
-            x.dc.UploadedDate,
-            x.dc.DPaymentDate,
-            x.dc.ValidityDate,
-            FormatValidity(x.dc)
-        )).ToList();
+        var sales = await CardSales.ByCardIdAsync(_db, managed.Select(x => x.dc.Id).ToList(), ct);
+        var rows = managed.Select(x =>
+        {
+            var sale = CardSales.For(sales, x.dc.Id);
+            return new FranchiseeManagedUserDto(
+                x.ud.Id,
+                x.ud.FullName,
+                x.ud.Phone,
+                x.ud.Email,
+                x.ud.CreatedAt,
+                x.ud.Referral.ReferralCode,
+                x.ud.Referral.ReferredBy,
+                x.dc.Id,
+                x.dc.DCompName,
+                sale.Status,
+                x.dc.UploadedDate,
+                sale.PaidOn,
+                x.dc.ValidityDate,
+                FormatValidity(x.dc, sale));
+        }).ToList();
 
         return ApiResult<FranchiseeDashboardDto>.Ok(new FranchiseeDashboardDto(
             user.Email,
@@ -181,22 +191,28 @@ public class DigiCardService : IDigiCardService
             rows));
     }
 
-    private DigiCardListItemDto MapListItem(Card c) =>
+    private async Task<IEnumerable<DigiCardListItemDto>> WithSales(IReadOnlyList<Card> cards, CancellationToken ct)
+    {
+        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
+        return cards.Select(c => MapListItem(c, CardSales.For(sales, c.Id)));
+    }
+
+    private DigiCardListItemDto MapListItem(Card c, CardSale sale) =>
         new(
             c.Id,
             c.CardId,
             c.DCompName,
             c.UserEmail,
             c.FUserEmail,
-            c.DPaymentStatus,
+            sale.Status,
             c.DCardStatus,
             c.UploadedDate,
-            c.DPaymentDate,
+            sale.PaidOn,
             c.ValidityDate,
-            FormatValidity(c),
+            FormatValidity(c, sale),
             BuildPublicUrl(c.CardId));
 
-    private DigiCardDetailDto MapDetail(Card c, CardSlugHistory? meta) =>
+    private DigiCardDetailDto MapDetail(Card c, CardSlugHistory? meta, CardSale sale) =>
         new(
             c.Id,
             c.CardId,
@@ -212,23 +228,23 @@ public class DigiCardService : IDigiCardService
             c.DWhatsapp,
             c.DEmail,
             c.DWebsite,
-            c.DAddress,
-            c.DAddress2,
-            c.DCity,
-            c.DState,
-            c.DPincode,
-            c.DCountry,
+            c.User?.Address.AddressLine,
+            c.User?.Address.Address2,
+            c.User?.Address.City,
+            c.User?.Address.State,
+            c.User?.Address.Pincode,
+            c.User?.Address.Country,
             c.DAboutUs,
             c.DNatureOfBusiness,
             c.DSpeciality,
-            c.DPaymentStatus,
+            sale.Status,
             c.DCardStatus,
             c.DLogoLocation,
             c.DHeroImageLocation,
             c.UploadedDate,
-            c.DPaymentDate,
+            sale.PaidOn,
             c.ValidityDate,
-            c.DGstNumber,
+            c.User?.Address.Gst,
             c.DBusinessHours,
             meta?.PreviousSlug,
             c.BusinessProfileType ?? "",
@@ -242,13 +258,12 @@ public class DigiCardService : IDigiCardService
         return $"https://{_app.PublicHost}/{cardSlug.Trim()}";
     }
 
-    private static string FormatValidity(Card row)
+    private static string FormatValidity(Card row, CardSale sale)
     {
         if (row.ValidityDate is { } v && v.Year > 1)
             return v.ToString("dd-MM-yyyy");
 
-        if (string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase)
-            && row.DPaymentDate is { } pay)
+        if (sale.Paid && sale.PaidOn is { } pay)
             return pay.AddYears(1).ToString("dd-MM-yyyy");
 
         if (row.UploadedDate is { } up)

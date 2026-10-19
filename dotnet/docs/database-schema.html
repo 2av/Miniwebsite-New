@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShareBizz table structure</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f1eb;
+      --ink: #1a1d21;
+      --muted: #5e6670;
+      --line: #e0dacf;
+      --card: #fffcf7;
+      --accent: #1f4b73;
+      --accent-soft: #e7eef5;
+      --flag: #8a5412;
+      --flag-soft: #f8efdf;
+      --open: #6b3f55;
+      --open-soft: #f6e9ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+    }
+    header, main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    header { padding: 28px 0 8px; }
+    h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.03em; margin: 0 0 6px; }
+    .lede { margin: 0; color: var(--muted); max-width: 68ch; }
+    h2 { font-size: 18px; font-weight: 650; margin: 0 0 10px; }
+    section { margin: 22px 0; }
+    .improve-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .improve-list > li {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .improve-list > li.is-on { border-color: var(--flag); background: var(--flag-soft); }
+    .improve-list > li.is-done { border-color: #b7d7c3; background: #f3faf6; }
+    .improve-title { font-weight: 650; display: flex; align-items: center; gap: 8px; }
+    .done {
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-size: 12px;
+      font-weight: 650;
+      background: #d9f0e3;
+      color: #146c43;
+    }
+    .improve-list p { margin: 4px 0 8px; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    button { font: inherit; color: inherit; }
+    .chip, .nav-btn, .jump {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .chip:hover, .nav-btn:hover, .jump:hover { border-color: var(--accent); }
+    .chip[aria-pressed="true"], .nav-btn[aria-pressed="true"] {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .nav-btn.is-flagged:not([aria-pressed="true"]) { background: var(--flag-soft); border-color: #e4c89a; }
+    .workspace {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 22px;
+      align-items: start;
+      padding-bottom: 48px;
+    }
+    .nav { position: sticky; top: 12px; }
+    .nav h2 { font-size: 13px; color: var(--muted); font-weight: 650; margin: 14px 0 6px; }
+    .nav-list { display: flex; flex-direction: column; gap: 4px; }
+    .nav-btn { border-radius: 8px; text-align: left; padding: 6px 8px; }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .panel + .panel { margin-top: 12px; }
+    .kicker { color: var(--muted); font-size: 13px; margin: 0 0 4px; }
+    .selected-name { font-family: Consolas, "Cascadia Mono", monospace; font-size: 22px; margin: 0; }
+    .pk { margin: 2px 0 0; color: var(--muted); }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .split h3 { font-size: 14px; margin: 0 0 8px; }
+    .branch { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--accent); display: grid; gap: 10px; }
+    .branch li { display: grid; gap: 2px; }
+    .jump { width: fit-content; border-radius: 8px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; }
+    .edge { color: var(--muted); font-size: 13px; }
+    .empty { margin: 0; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 650; font-size: 12px; }
+    td.mono, .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; }
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .tag.copied { background: var(--flag-soft); color: var(--flag); }
+    .tag.open { background: var(--open-soft); color: var(--open); }
+    .local-ideas { margin: 8px 0 0; padding-left: 18px; }
+    .local-ideas li { margin: 4px 0; }
+    @media (max-width: 860px) {
+      .workspace, .split { grid-template-columns: 1fr; }
+      .nav { position: static; }
+      .nav-list { flex-direction: row; flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ShareBizz table structure</h1>
+    <p class="lede">Select a table. The two lists under it are the foreign keys: where this table points, and which tables point back. Colored marks are improvement targets, not extra keys.</p>
+  </header>
+  <main>
+    <div class="workspace">
+      <nav class="nav" id="nav" aria-label="Tables"></nav>
+      <div>
+        <section class="panel" aria-live="polite">
+          <p class="kicker" id="group-label"></p>
+          <h2 class="selected-name" id="selected-name"></h2>
+          <p class="pk" id="selected-pk"></p>
+          <div class="split">
+            <div>
+              <h3>Points to</h3>
+              <ul class="branch" id="points-to"></ul>
+            </div>
+            <div>
+              <h3>Pointed to by</h3>
+              <ul class="branch" id="pointed-by"></ul>
+            </div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Columns</h2>
+          <p class="kicker">Blue is a foreign key. Amber is copied text. Rose is an id with no foreign key. “Keep as snapshot” should stay on the invoice.</p>
+          <table>
+            <thead>
+              <tr><th>Column</th><th>Type</th><th>Null</th><th>Linkage</th></tr>
+            </thead>
+            <tbody id="columns"></tbody>
+          </table>
+        </section>
+        <section class="panel" id="local-improve-wrap">
+          <h2>Improvements for this table</h2>
+          <ul class="local-ideas" id="local-improve"></ul>
+        </section>
+      </div>
+    </div>
+    <section aria-labelledby="improve-heading">
+      <h2 id="improve-heading">Improvement points</h2>
+      <ol class="improve-list" id="improvements"></ol>
+    </section>
+  </main>
+  <script>
+    const DATA = {"groups":["Identity","Cards","Commerce","Content"],"tables":[{"name":"roles","pk":"RoleId","columns":[{"name":"RoleId","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Prefix","type":"varchar(40)","nullable":true,"flag":""},{"name":"RoleDescription","type":"varchar(500)","nullable":true,"flag":""},{"name":"RoleName","type":"varchar(120)","nullable":false,"flag":""},{"name":"SalesType","type":"varchar(80)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Identity","owned":null},{"name":"users","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"Department","type":"varchar(100)","nullable":true,"flag":""},{"name":"Email","type":"varchar(255)","nullable":false,"flag":""},{"name":"FirstName","type":"varchar(100)","nullable":false,"flag":""},{"name":"Ip","type":"varchar(100)","nullable":true,"flag":""},{"name":"IsDeleted","type":"tinyint(1)","nullable":false,"flag":""},{"name":"LastName","type":"varchar(100)","nullable":false,"flag":""},{"name":"Password","type":"varchar(255)","nullable":false,"flag":""},{"name":"Phone","type":"varchar(25)","nullable":true,"flag":""},{"name":"ProfileImage","type":"varchar(500)","nullable":true,"flag":""},{"name":"RefundStatus","type":"varchar(20)","nullable":true,"flag":""},{"name":"RefundStatusDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"RoleId","type":"int","nullable":false,"flag":""},{"name":"SelectService","type":"varchar(200)","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserCode","type":"varchar(50)","nullable":false,"flag":""},{"name":"UserToken","type":"varchar(200)","nullable":true,"flag":""}],"group":"Identity","owned":null},{"name":"user_addresses","pk":"UserId","columns":[{"name":"UserId","type":"int","nullable":false,"flag":""},{"name":"Address2","type":"varchar(500)","nullable":true,"flag":""},{"name":"AddressLine","type":"varchar(500)","nullable":true,"flag":""},{"name":"City","type":"varchar(100)","nullable":true,"flag":""},{"name":"Country","type":"varchar(100)","nullable":true,"flag":""},{"name":"District","type":"varchar(100)","nullable":true,"flag":""},{"name":"Gst","type":"varchar(50)","nullable":true,"flag":""},{"name":"Pincode","type":"varchar(20)","nullable":true,"flag":""},{"name":"State","type":"varchar(100)","nullable":true,"flag":""}],"group":"Identity","owned":"users"},{"name":"user_payment_details","pk":"UserId","columns":[{"name":"UserId","type":"int","nullable":false,"flag":""},{"name":"GooglePay","type":"varchar(200)","nullable":true,"flag":""},{"name":"Paytm","type":"varchar(200)","nullable":true,"flag":""},{"name":"PhonePay","type":"varchar(200)","nullable":true,"flag":""},{"name":"RzPay","type":"varchar(300)","nullable":true,"flag":""},{"name":"RzPay2","type":"varchar(300)","nullable":true,"flag":""}],"group":"Identity","owned":"users"},{"name":"user_referral_settings","pk":"UserId","columns":[{"name":"UserId","type":"int","nullable":false,"flag":""},{"name":"CollaborationEnabled","type":"tinyint(1)","nullable":false,"flag":""},{"name":"Influencer","type":"tinyint(1)","nullable":false,"flag":""},{"name":"MwReferralId","type":"int","nullable":true,"flag":"open"},{"name":"ReferralCode","type":"varchar(50)","nullable":true,"flag":""},{"name":"ReferredBy","type":"varchar(255)","nullable":true,"flag":""},{"name":"ReferrerUserId","type":"int","nullable":true,"flag":""},{"name":"SaleskitEnabled","type":"tinyint(1)","nullable":false,"flag":""},{"name":"SenderUserId","type":"int","nullable":true,"flag":"open"}],"group":"Identity","owned":"users"},{"name":"user_bank_details","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AccountHolderName","type":"longtext","nullable":true,"flag":""},{"name":"AccountNumber","type":"longtext","nullable":true,"flag":""},{"name":"AccountType","type":"longtext","nullable":true,"flag":""},{"name":"BankName","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"IfscCode","type":"longtext","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UpiId","type":"longtext","nullable":true,"flag":""},{"name":"UpiName","type":"longtext","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Identity","owned":null},{"name":"user_custom_categories","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CategoryName","type":"varchar(255)","nullable":false,"flag":""},{"name":"CategoryType","type":"varchar(50)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Description","type":"longtext","nullable":true,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Identity","owned":null},{"name":"refresh_tokens","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"ExpiresAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"IsDeleted","type":"tinyint(1)","nullable":false,"flag":""},{"name":"RevokedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Token","type":"varchar(500)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Identity","owned":null},{"name":"password_reset_tokens","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"ExpiresAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"IsDeleted","type":"tinyint(1)","nullable":false,"flag":""},{"name":"TokenHash","type":"varchar(128)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UsedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Identity","owned":null},{"name":"registration_pending","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"Email","type":"varchar(255)","nullable":false,"flag":""},{"name":"ExpiresAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"FirstName","type":"varchar(100)","nullable":false,"flag":""},{"name":"IsConsumed","type":"tinyint(1)","nullable":false,"flag":""},{"name":"IsDeleted","type":"tinyint(1)","nullable":false,"flag":""},{"name":"LastName","type":"varchar(100)","nullable":false,"flag":""},{"name":"Otp","type":"varchar(10)","nullable":false,"flag":""},{"name":"PasswordHash","type":"varchar(255)","nullable":false,"flag":""},{"name":"Phone","type":"varchar(25)","nullable":false,"flag":""},{"name":"ReferrerEmail","type":"varchar(255)","nullable":true,"flag":"copied"},{"name":"ReferrerUserId","type":"int","nullable":true,"flag":""},{"name":"Role","type":"varchar(20)","nullable":false,"flag":""},{"name":"State","type":"varchar(100)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Identity","owned":null},{"name":"cards","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AboutUs","type":"varchar(2000)","nullable":true,"flag":""},{"name":"BusinessHours","type":"longtext","nullable":true,"flag":""},{"name":"BusinessOperationArea","type":"longtext","nullable":false,"flag":""},{"name":"BusinessOperationLocations","type":"longtext","nullable":true,"flag":""},{"name":"BusinessProfileType","type":"longtext","nullable":false,"flag":""},{"name":"BusinessType","type":"longtext","nullable":false,"flag":""},{"name":"CardStatus","type":"varchar(20)","nullable":true,"flag":""},{"name":"CollaborationEnabled","type":"varchar(3)","nullable":false,"flag":""},{"name":"CompanyEstDate","type":"longtext","nullable":true,"flag":""},{"name":"CompanyName","type":"varchar(200)","nullable":true,"flag":""},{"name":"ComplimentaryEnabled","type":"varchar(10)","nullable":false,"flag":""},{"name":"Contact","type":"longtext","nullable":true,"flag":"copied"},{"name":"Contact2","type":"longtext","nullable":true,"flag":"copied"},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayName","type":"varchar(199)","nullable":true,"flag":"copied"},{"name":"DisplayNameChangeCount","type":"int","nullable":false,"flag":""},{"name":"Email","type":"varchar(255)","nullable":true,"flag":"copied"},{"name":"Facebook","type":"longtext","nullable":true,"flag":""},{"name":"FirstName","type":"longtext","nullable":true,"flag":"copied"},{"name":"FranchiseeEmail","type":"varchar(200)","nullable":true,"flag":"copied"},{"name":"FranchiseeUserId","type":"int","nullable":true,"flag":""},{"name":"HeroImagePath","type":"varchar(255)","nullable":true,"flag":""},{"name":"Instagram","type":"longtext","nullable":true,"flag":""},{"name":"Ip","type":"longtext","nullable":true,"flag":""},{"name":"LastName","type":"longtext","nullable":true,"flag":"copied"},{"name":"LinkedIn","type":"longtext","nullable":true,"flag":""},{"name":"Location","type":"longtext","nullable":true,"flag":"copied"},{"name":"LogoPath","type":"varchar(1000)","nullable":true,"flag":""},{"name":"MobileCss","type":"varchar(120)","nullable":true,"flag":""},{"name":"NameChangeCount","type":"int","nullable":false,"flag":""},{"name":"NatureOfBusiness","type":"longtext","nullable":true,"flag":""},{"name":"Password","type":"longtext","nullable":true,"flag":""},{"name":"Pinterest","type":"longtext","nullable":true,"flag":""},{"name":"Position","type":"longtext","nullable":true,"flag":""},{"name":"PositionPrimary","type":"longtext","nullable":false,"flag":""},{"name":"PositionSecondary","type":"longtext","nullable":false,"flag":""},{"name":"Slug","type":"varchar(200)","nullable":true,"flag":""},{"name":"Speciality","type":"longtext","nullable":true,"flag":""},{"name":"ThemeCss","type":"varchar(120)","nullable":true,"flag":""},{"name":"Title","type":"longtext","nullable":true,"flag":""},{"name":"Twitter","type":"longtext","nullable":true,"flag":""},{"name":"UserEmail","type":"varchar(200)","nullable":true,"flag":"copied"},{"name":"UserId","type":"int","nullable":true,"flag":""},{"name":"ValidityDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"Website","type":"longtext","nullable":true,"flag":""},{"name":"Website2","type":"longtext","nullable":true,"flag":""},{"name":"Whatsapp","type":"longtext","nullable":true,"flag":""},{"name":"Youtube","type":"longtext","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_products","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"CategorySource","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CtaText","type":"longtext","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"Mrp","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"PriceType","type":"longtext","nullable":true,"flag":""},{"name":"PricingUnit","type":"longtext","nullable":true,"flag":""},{"name":"ProductCategory","type":"int","nullable":true,"flag":"open"},{"name":"ProductDescription","type":"longtext","nullable":true,"flag":""},{"name":"ProductImage","type":"varchar(500)","nullable":true,"flag":""},{"name":"ProductName","type":"longtext","nullable":true,"flag":""},{"name":"SellingPrice","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"TaxRate","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_services","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"CategorySource","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"ProductCategory","type":"int","nullable":true,"flag":"open"},{"name":"ProductDescription","type":"longtext","nullable":true,"flag":""},{"name":"ProductImage","type":"varchar(500)","nullable":true,"flag":""},{"name":"ProductName","type":"longtext","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_offers","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Badge","type":"longtext","nullable":true,"flag":""},{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DiscountPercentage","type":"int","nullable":false,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"EndDate","type":"date","nullable":true,"flag":""},{"name":"EndTime","type":"time(6)","nullable":true,"flag":""},{"name":"OfferDescription","type":"longtext","nullable":true,"flag":""},{"name":"OfferImage","type":"varchar(255)","nullable":true,"flag":""},{"name":"OfferTitle","type":"varchar(255)","nullable":false,"flag":""},{"name":"StartDate","type":"date","nullable":true,"flag":""},{"name":"StartTime","type":"time(6)","nullable":true,"flag":""},{"name":"Status","type":"longtext","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_gallery_images","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"GalleryImage","type":"varchar(500)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_videos","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"ThumbnailPath","type":"varchar(500)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Url","type":"varchar(500)","nullable":true,"flag":""},{"name":"VideoType","type":"varchar(20)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"card_slug_history","pk":"CardId","columns":[{"name":"CardId","type":"int","nullable":false,"flag":""},{"name":"PreviousSlug","type":"varchar(255)","nullable":false,"flag":""}],"group":"Cards","owned":null},{"name":"card_views","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"Ip","type":"varchar(100)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"product_categories","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"BusinessCategory","type":"varchar(255)","nullable":true,"flag":""},{"name":"BusinessCategorySlug","type":"longtext","nullable":true,"flag":""},{"name":"BusinessHeading","type":"longtext","nullable":true,"flag":""},{"name":"BusinessProfileType","type":"varchar(100)","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CreatedBy","type":"longtext","nullable":true,"flag":""},{"name":"DirectoryPriority","type":"int","nullable":false,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"Keywords","type":"longtext","nullable":true,"flag":""},{"name":"ProductCategoryName","type":"varchar(255)","nullable":true,"flag":""},{"name":"ProductCategorySlug","type":"longtext","nullable":true,"flag":""},{"name":"Tags","type":"longtext","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"theme_catalog","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CssValue","type":"varchar(120)","nullable":false,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"PreviewImage","type":"longtext","nullable":true,"flag":""},{"name":"SortOrder","type":"int","nullable":false,"flag":""},{"name":"ThemeName","type":"varchar(100)","nullable":false,"flag":""},{"name":"ThemeNumber","type":"int","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Cards","owned":null},{"name":"pricing_plans","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"OfferedPrice","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"OfferedPriceGst","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"OriginalPrice","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"OriginalPriceGst","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"PlanCategory","type":"varchar(50), default DB Profile","nullable":false,"flag":""},{"name":"PlanName","type":"varchar(200)","nullable":false,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"ValidityMonths","type":"int","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"plan_commissions","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DiscountAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"DiscountType","type":"varchar(30)","nullable":false,"flag":""},{"name":"EarningAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"EarningType","type":"varchar(30)","nullable":false,"flag":""},{"name":"PricingPlanId","type":"int","nullable":false,"flag":""},{"name":"RenewalEarningPercent","type":"decimal(5,2)","nullable":true,"flag":""},{"name":"RenewalPrice","type":"decimal(12,2)","nullable":true,"flag":""},{"name":"RenewalPriceGst","type":"decimal(12,2)","nullable":true,"flag":""},{"name":"RoleId","type":"int","nullable":false,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"coupons","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CouponCode","type":"varchar(100)","nullable":false,"flag":""},{"name":"CouponName","type":"varchar(200)","nullable":false,"flag":""},{"name":"CouponType","type":"varchar(50)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CreatedBy","type":"varchar(200)","nullable":true,"flag":""},{"name":"CurrentUsage","type":"int","nullable":false,"flag":""},{"name":"PromoDiscountType","type":"varchar(20)","nullable":false,"flag":""},{"name":"PromoDiscountValue","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"RoleId","type":"int","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"UsageLimitPerCoupon","type":"int","nullable":false,"flag":""},{"name":"UsageLimitPerUser","type":"int","nullable":false,"flag":""},{"name":"ValidityDate","type":"datetime(6)","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"deal_customer_mappings","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CreatedBy","type":"varchar(255)","nullable":false,"flag":""},{"name":"CustomerEmail","type":"varchar(255)","nullable":false,"flag":"copied"},{"name":"CouponId","type":"int","nullable":false,"flag":""},{"name":"UserId","type":"int","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"joining_deals","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CommissionAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DealCode","type":"varchar(50)","nullable":false,"flag":""},{"name":"DealName","type":"varchar(255)","nullable":false,"flag":""},{"name":"DealType","type":"varchar(100)","nullable":false,"flag":""},{"name":"Description","type":"longtext","nullable":true,"flag":""},{"name":"DiscountAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"Fees","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"FranchiseDealId","type":"int","nullable":true,"flag":"open"},{"name":"GstAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"MwDealId","type":"int","nullable":true,"flag":"open"},{"name":"TotalFees","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UpgradeOrder","type":"int","nullable":false,"flag":""}],"group":"Commerce","owned":null},{"name":"user_joining_deals","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DealCode","type":"varchar(50)","nullable":false,"flag":"copied"},{"name":"EmailSent","type":"tinyint(1)","nullable":false,"flag":""},{"name":"EmailSentDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"ExpiryDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"InvoiceId","type":"int","nullable":true,"flag":""},{"name":"JoiningDealId","type":"int","nullable":false,"flag":""},{"name":"MappedBy","type":"longtext","nullable":true,"flag":""},{"name":"MappedDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"MappingStatus","type":"varchar(20)","nullable":false,"flag":""},{"name":"Notes","type":"longtext","nullable":true,"flag":""},{"name":"StartDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Commerce","owned":null},{"name":"invoices","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AdminComment","type":"varchar(1000)","nullable":true,"flag":""},{"name":"BillingAddress","type":"longtext","nullable":false,"flag":"snapshot"},{"name":"BillingCity","type":"varchar(100)","nullable":false,"flag":"snapshot"},{"name":"BillingContact","type":"longtext","nullable":false,"flag":"snapshot"},{"name":"BillingEmail","type":"varchar(255)","nullable":false,"flag":"snapshot"},{"name":"BillingGstNumber","type":"longtext","nullable":true,"flag":"snapshot"},{"name":"BillingName","type":"longtext","nullable":false,"flag":"snapshot"},{"name":"BillingPincode","type":"longtext","nullable":false,"flag":"snapshot"},{"name":"BillingState","type":"longtext","nullable":false,"flag":"snapshot"},{"name":"CardId","type":"int","nullable":true,"flag":""},{"name":"CgstAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DiscountAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"FinalAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"HsnSacCode","type":"longtext","nullable":false,"flag":""},{"name":"IgstAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"IgstPercentage","type":"decimal(5,2)","nullable":false,"flag":""},{"name":"InvoiceDate","type":"datetime(6)","nullable":false,"flag":""},{"name":"InvoiceNumber","type":"varchar(20)","nullable":false,"flag":""},{"name":"OrderCode","type":"varchar(20)","nullable":false,"flag":""},{"name":"OriginalAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"PaymentDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"PaymentStatus","type":"varchar(20)","nullable":false,"flag":""},{"name":"PaymentType","type":"longtext","nullable":false,"flag":""},{"name":"PlanName","type":"longtext","nullable":true,"flag":""},{"name":"PlanValidity","type":"longtext","nullable":true,"flag":""},{"name":"PromoCode","type":"longtext","nullable":true,"flag":""},{"name":"PromoDiscount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"Quantity","type":"int","nullable":false,"flag":""},{"name":"RazorpayOrderId","type":"longtext","nullable":false,"flag":""},{"name":"RazorpayPaymentId","type":"longtext","nullable":false,"flag":""},{"name":"RazorpaySignature","type":"longtext","nullable":false,"flag":""},{"name":"ReferenceNumber","type":"longtext","nullable":false,"flag":""},{"name":"ServiceDescription","type":"longtext","nullable":false,"flag":""},{"name":"ServiceName","type":"longtext","nullable":false,"flag":""},{"name":"SgstAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"SubTotal","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"TotalAmount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"TotalPrice","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"UnitPrice","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserContact","type":"longtext","nullable":false,"flag":"copied"},{"name":"UserEmail","type":"varchar(255)","nullable":false,"flag":"copied"},{"name":"UserId","type":"int","nullable":true,"flag":""},{"name":"UserName","type":"longtext","nullable":false,"flag":"copied"}],"group":"Commerce","owned":null},{"name":"orders","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CardId","type":"int","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"CustomerContact","type":"longtext","nullable":true,"flag":"copied"},{"name":"CustomerEmail","type":"varchar(255)","nullable":true,"flag":"copied"},{"name":"CustomerName","type":"longtext","nullable":true,"flag":"copied"},{"name":"ExternalId","type":"varchar(200)","nullable":false,"flag":""},{"name":"InvoiceId","type":"int","nullable":true,"flag":""},{"name":"ProductId","type":"longtext","nullable":true,"flag":""},{"name":"UserEmail","type":"varchar(200)","nullable":false,"flag":"copied"},{"name":"UserId","type":"int","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"franchise_verifications","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AdminRemarks","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DocumentPath","type":"varchar(500)","nullable":true,"flag":""},{"name":"ReviewedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"ReviewedBy","type":"longtext","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"SubmittedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserId","type":"int","nullable":false,"flag":""}],"group":"Commerce","owned":null},{"name":"referral_earnings","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AdminComment","type":"varchar(1000)","nullable":true,"flag":""},{"name":"Amount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"CommissionCode","type":"varchar(30)","nullable":true,"flag":""},{"name":"CouponId","type":"int","nullable":true,"flag":""},{"name":"InvoiceId","type":"int","nullable":true,"flag":""},{"name":"IsCollaboration","type":"varchar(10)","nullable":false,"flag":""},{"name":"PaymentDate","type":"datetime(6)","nullable":true,"flag":""},{"name":"ReferralDate","type":"datetime(6)","nullable":false,"flag":""},{"name":"ReferredEmail","type":"varchar(255)","nullable":false,"flag":"copied"},{"name":"ReferredUserId","type":"int","nullable":true,"flag":""},{"name":"ReferrerEmail","type":"varchar(255)","nullable":false,"flag":"copied"},{"name":"ReferrerUserId","type":"int","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""}],"group":"Commerce","owned":null},{"name":"referral_payments","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Amount","type":"decimal(12,2)","nullable":false,"flag":""},{"name":"PaymentDate","type":"datetime(6)","nullable":false,"flag":""},{"name":"PaymentMethod","type":"longtext","nullable":true,"flag":""},{"name":"PaymentNotes","type":"longtext","nullable":true,"flag":""},{"name":"ProcessedBy","type":"longtext","nullable":true,"flag":""},{"name":"ReferralEarningId","type":"int","nullable":false,"flag":""},{"name":"TransactionNumber","type":"longtext","nullable":true,"flag":""}],"group":"Commerce","owned":null},{"name":"customers","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AddressLine1","type":"longtext","nullable":true,"flag":"copied"},{"name":"ApproachedFor","type":"longtext","nullable":true,"flag":""},{"name":"AreaCity","type":"varchar(100)","nullable":true,"flag":"copied"},{"name":"BusinessType","type":"longtext","nullable":true,"flag":""},{"name":"Comments","type":"longtext","nullable":true,"flag":""},{"name":"CompanyName","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"CustomerName","type":"varchar(150)","nullable":false,"flag":"copied"},{"name":"EmailId","type":"varchar(255)","nullable":true,"flag":"copied"},{"name":"FollowupMethod","type":"longtext","nullable":true,"flag":""},{"name":"LabelTag","type":"longtext","nullable":true,"flag":""},{"name":"LastSharedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"OwnerRole","type":"varchar(20)","nullable":false,"flag":""},{"name":"OwnerUserId","type":"int","nullable":false,"flag":""},{"name":"PhoneNumber","type":"varchar(25)","nullable":false,"flag":"copied"},{"name":"Source","type":"longtext","nullable":false,"flag":""},{"name":"Status","type":"varchar(40)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Website","type":"longtext","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"customer_followups","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Comments","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"CustomerId","type":"int","nullable":false,"flag":""},{"name":"FollowupDatetime","type":"datetime(6)","nullable":false,"flag":""},{"name":"FollowupMethod","type":"longtext","nullable":false,"flag":""},{"name":"FollowupStatus","type":"longtext","nullable":false,"flag":""},{"name":"OwnerRole","type":"longtext","nullable":false,"flag":""},{"name":"OwnerUserId","type":"int","nullable":false,"flag":"open"}],"group":"Content","owned":null},{"name":"content_pages","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Content","type":"longtext","nullable":false,"flag":""},{"name":"ContentType","type":"varchar(80)","nullable":false,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"LastUpdated","type":"datetime(6)","nullable":true,"flag":""},{"name":"MetaDescription","type":"longtext","nullable":true,"flag":""},{"name":"MetaKeywords","type":"longtext","nullable":true,"flag":""},{"name":"Title","type":"varchar(255)","nullable":false,"flag":""},{"name":"UpdatedBy","type":"longtext","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"faqs","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Answer","type":"longtext","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"PageType","type":"varchar(40)","nullable":false,"flag":""},{"name":"Question","type":"longtext","nullable":false,"flag":""},{"name":"SortOrder","type":"int","nullable":false,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"doc_sections","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CollapsedDefault","type":"tinyint(1)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"Description","type":"longtext","nullable":true,"flag":""},{"name":"Slug","type":"varchar(191)","nullable":false,"flag":""},{"name":"SortOrder","type":"int","nullable":false,"flag":""},{"name":"Title","type":"varchar(255)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"doc_pages","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"ContentHtml","type":"longtext","nullable":true,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"MetaDescription","type":"longtext","nullable":true,"flag":""},{"name":"MetaKeywords","type":"longtext","nullable":true,"flag":""},{"name":"MetaTitle","type":"longtext","nullable":true,"flag":""},{"name":"PublishedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"SectionId","type":"int","nullable":false,"flag":""},{"name":"Slug","type":"varchar(191)","nullable":false,"flag":""},{"name":"SortOrder","type":"int","nullable":false,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"Title","type":"varchar(255)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"doc_media","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"Filename","type":"varchar(255)","nullable":false,"flag":""},{"name":"Mime","type":"varchar(128)","nullable":true,"flag":""},{"name":"RelPath","type":"varchar(512)","nullable":false,"flag":""},{"name":"SizeBytes","type":"int","nullable":false,"flag":""},{"name":"UploadedBy","type":"longtext","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"email_templates","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"AvailableVariables","type":"varchar(500)","nullable":true,"flag":""},{"name":"BodyHtml","type":"longtext","nullable":false,"flag":""},{"name":"Category","type":"varchar(50)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"Description","type":"varchar(1000)","nullable":true,"flag":""},{"name":"IsActive","type":"tinyint(1)","nullable":false,"flag":""},{"name":"IsSystem","type":"tinyint(1)","nullable":false,"flag":""},{"name":"Name","type":"varchar(200)","nullable":false,"flag":""},{"name":"Subject","type":"varchar(500)","nullable":false,"flag":""},{"name":"TemplateKey","type":"varchar(80)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UpdatedBy","type":"varchar(150)","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"email_logs","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"EmailType","type":"varchar(100)","nullable":false,"flag":""},{"name":"SentDate","type":"datetime(6)","nullable":false,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"Subject","type":"varchar(500)","nullable":false,"flag":""},{"name":"UserEmail","type":"varchar(255)","nullable":false,"flag":"copied"}],"group":"Content","owned":null},{"name":"notifications","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Audience","type":"varchar(20)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":false,"flag":""},{"name":"IsRead","type":"tinyint(1)","nullable":false,"flag":""},{"name":"Message","type":"longtext","nullable":false,"flag":""},{"name":"Priority","type":"varchar(20)","nullable":false,"flag":""},{"name":"Title","type":"varchar(255)","nullable":false,"flag":""},{"name":"Type","type":"varchar(50)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"UserEmail","type":"longtext","nullable":true,"flag":"copied"},{"name":"UserId","type":"int","nullable":true,"flag":""},{"name":"UserType","type":"longtext","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"kit_folders","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Category","type":"varchar(50)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"ParentId","type":"int","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"Title","type":"varchar(255)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""}],"group":"Content","owned":null},{"name":"kit_items","pk":"Id","columns":[{"name":"Id","type":"int identity","nullable":false,"flag":""},{"name":"Category","type":"varchar(50)","nullable":false,"flag":""},{"name":"CreatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"DisplayOrder","type":"int","nullable":false,"flag":""},{"name":"FilePath","type":"varchar(500)","nullable":true,"flag":""},{"name":"FolderId","type":"int","nullable":true,"flag":""},{"name":"Status","type":"varchar(20)","nullable":false,"flag":""},{"name":"Title","type":"varchar(255)","nullable":true,"flag":""},{"name":"Type","type":"varchar(20)","nullable":false,"flag":""},{"name":"UpdatedAt","type":"datetime(6)","nullable":true,"flag":""},{"name":"VideoUrl","type":"longtext","nullable":true,"flag":""}],"group":"Content","owned":null}],"links":[{"from":"users","col":"RoleId","to":"roles","toCol":"RoleId","onDelete":"Restrict","required":true,"card":"N:1"},{"from":"user_addresses","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"user_payment_details","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"user_referral_settings","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"user_referral_settings","col":"ReferrerUserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"user_bank_details","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"user_custom_categories","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"refresh_tokens","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"password_reset_tokens","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"registration_pending","col":"ReferrerUserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"franchise_verifications","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"notifications","col":"UserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"cards","col":"UserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"cards","col":"FranchiseeUserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"card_products","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"card_services","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"card_offers","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"card_gallery_images","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"card_videos","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"card_slug_history","col":"CardId","to":"cards","toCol":"Id","onDelete":"Cascade","required":true,"card":"1:1"},{"from":"card_views","col":"CardId","to":"cards","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"invoices","col":"UserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"invoices","col":"CardId","to":"cards","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"orders","col":"UserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"orders","col":"CardId","to":"cards","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"coupons","col":"RoleId","to":"roles","toCol":"RoleId","onDelete":"Restrict","required":false,"card":"N:1"},{"from":"deal_customer_mappings","col":"CouponId","to":"coupons","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"deal_customer_mappings","col":"UserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"plan_commissions","col":"PricingPlanId","to":"pricing_plans","toCol":"Id","onDelete":"Restrict","required":true,"card":"N:1"},{"from":"plan_commissions","col":"RoleId","to":"roles","toCol":"RoleId","onDelete":"Restrict","required":true,"card":"N:1"},{"from":"user_joining_deals","col":"JoiningDealId","to":"joining_deals","toCol":"Id","onDelete":"Restrict","required":true,"card":"N:1"},{"from":"user_joining_deals","col":"UserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"user_joining_deals","col":"InvoiceId","to":"invoices","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"referral_earnings","col":"CouponId","to":"coupons","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"referral_earnings","col":"InvoiceId","to":"invoices","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"referral_earnings","col":"ReferrerUserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"referral_earnings","col":"ReferredUserId","to":"users","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"referral_payments","col":"ReferralEarningId","to":"referral_earnings","toCol":"Id","onDelete":"Restrict","required":true,"card":"N:1"},{"from":"customers","col":"OwnerUserId","to":"users","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"customer_followups","col":"CustomerId","to":"customers","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"doc_pages","col":"SectionId","to":"doc_sections","toCol":"Id","onDelete":"Cascade","required":true,"card":"N:1"},{"from":"kit_folders","col":"ParentId","to":"kit_folders","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"kit_items","col":"FolderId","to":"kit_folders","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"},{"from":"orders","col":"InvoiceId","to":"invoices","toCol":"Id","onDelete":"Set null","required":false,"card":"N:1"}],"improvements":[{"id":"email","title":"Keep the user id and drop the copied email","detail":"UserEmail was removed from user_bank_details, user_custom_categories, user_joining_deals, and franchise_verifications because UserId is required. The tables below still keep an email: the user id can be null, there is no user id, or the email is the row identity.","tables":["cards","invoices","orders","notifications","referral_earnings","registration_pending","deal_customer_mappings","email_logs"],"done":true},{"id":"address","title":"Keep one live address","detail":"Street, city, state, pin, address line 2, and country were removed from cards and orders. They now live on user_addresses, so every card of a user shows the same address. customers keeps AddressLine1 and AreaCity for a lead who is not a user. Invoice billing stays a snapshot. cards.Location stays as that card map link.","tables":["customers"],"done":true},{"id":"invoice-address","title":"Keep the invoice address as a frozen copy","detail":"Done. BillingAddress, BillingCity, BillingState, and BillingPincode stay on the invoice. Checkout writes them from the payment form and nothing rewrites them when the account address changes. The printed invoice reads these columns, not user_addresses.","tables":["invoices"],"done":true},{"id":"bank","title":"Keep one bank and UPI record","detail":"Done. Bank name, account, IFSC, and account type live on user_bank_details. Google Pay, Paytm, and PhonePe live on user_payment_details. cards no longer stores those fields. The card payment form and the public Paytm, Google Pay, and PhonePe lines read the user record. UPI id on the bank row and Razorpay ids on the payment row stay where they were.","tables":["user_bank_details","user_payment_details"],"done":true},{"id":"gst","title":"Keep one live GST record","detail":"Done. The live GST number is user_addresses.Gst. Company details read and write that column. cards no longer stores a GST number, name, email, contact, or GST address. invoices.BillingGstNumber stays the tax snapshot from the day of the sale and is not rewritten when the live GST changes.","tables":["user_addresses","invoices"],"done":true},{"id":"split-cards","title":"Split the cards table","detail":"Done. Bank and GST already live on the user. Payment status, payment date, amount, and the Razorpay order id now live on the invoice for that card. A card with no invoice is unpaid. cards keeps the profile and the social links.","tables":["invoices"],"done":true},{"id":"card-children","title":"Card child rows only need CardId","detail":"Done. Products, services, offers, gallery, and views keep CardId only. The copied slug and the user id with no foreign key are gone. The card still reaches the user. Product and offer screens still receive the slug and user id from the card. card_slug_history still stores the previous public slug.","tables":["card_products","card_services","card_offers","card_gallery_images","card_views"],"done":true},{"id":"missing-fk","title":"Add the missing foreign keys","detail":"Done. card_products.ProductCategory and card_services.ProductCategory point at product_categories. customer_followups.OwnerUserId and user_referral_settings.SenderUserId point at users. joining_deals.MwDealId and FranchiseDealId point at another joining deal. A value that does not match is cleared. notifications.RelatedId was removed because it did not point at one table.","tables":["card_products","card_services","customer_followups","user_referral_settings","notifications","joining_deals"],"done":true},{"id":"rename-deal","title":"Rename DealId to CouponId","detail":"Done. deal_customer_mappings.CouponId and referral_earnings.CouponId point at coupons. joining_deals stays its own catalog. The admin map-deal request still uses dealId.","tables":["coupons","deal_customer_mappings","referral_earnings","joining_deals"],"done":true},{"id":"one-sale","title":"Choose one sale record","detail":"Done. invoices is the sale. orders.InvoiceId points at that invoice, and an order no longer stores an amount or a payment status. A joining deal points at the invoice and no longer stores its own payment. franchise_payments was removed. A franchise payment that was not already an invoice was copied onto an invoice.","tables":["invoices","orders","user_joining_deals"],"done":true},{"id":"types","title":"Use short text types and a status check","detail":"Done. City, email, and status on these tables are varchar, the same short text as users. A check allows only the status labels the app uses. A value outside that list is rewritten to the normal default.","tables":["cards","invoices","orders","customers","coupons","referral_earnings"],"done":true}]};
+    const state = { selected: "users", idea: null };
+
+    function outs(name) { return DATA.links.filter((l) => l.from === name); }
+    function ins(name) { return DATA.links.filter((l) => l.to === name); }
+    function ideasFor(name) { return DATA.improvements.filter((i) => i.tables.includes(name)); }
+
+    function edgeText(link) {
+      const card = link.card === "1:1" ? "one to one" : "many to one";
+      const need = link.required ? "required" : "optional";
+      return link.from + "." + link.col + " → " + link.to + "." + link.toCol + " · " + card + " · on delete " + link.onDelete + " · " + need;
+    }
+
+    function jump(name) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "jump";
+      button.textContent = name;
+      button.addEventListener("click", () => select(name));
+      return button;
+    }
+
+    function branchItem(link) {
+      const item = document.createElement("li");
+      const other = link.from === state.selected ? link.to : link.from;
+      const note = document.createElement("span");
+      note.className = "edge";
+      note.textContent = edgeText(link);
+      item.append(jump(other), note);
+      return item;
+    }
+
+    function emptyNote(text) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = text;
+      return p;
+    }
+
+    function renderIdeas() {
+      const list = document.getElementById("improvements");
+      list.replaceChildren();
+      DATA.improvements.forEach((idea, index) => {
+        const item = document.createElement("li");
+        if (idea.done) item.classList.add("is-done");
+        else if (state.idea === idea.id) item.classList.add("is-on");
+        const title = document.createElement("div");
+        title.className = "improve-title";
+        title.textContent = (index + 1) + ". " + idea.title;
+        if (idea.done) {
+          const mark = document.createElement("span");
+          mark.className = "done";
+          mark.textContent = "Done";
+          title.appendChild(mark);
+        }
+        const copy = document.createElement("p");
+        copy.textContent = idea.detail;
+        const chips = document.createElement("div");
+        chips.className = "chips";
+        idea.tables.forEach((name) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.textContent = name;
+          chip.setAttribute("aria-pressed", String(state.selected === name && state.idea === idea.id));
+          chip.addEventListener("click", () => {
+            state.idea = idea.id;
+            select(name);
+          });
+          chips.appendChild(chip);
+        });
+        item.append(title, copy, chips);
+        list.appendChild(item);
+      });
+    }
+
+    function renderNav() {
+      const nav = document.getElementById("nav");
+      nav.replaceChildren();
+      const flagged = state.idea ? DATA.improvements.find((i) => i.id === state.idea).tables : [];
+      DATA.groups.forEach((group) => {
+        const heading = document.createElement("h2");
+        heading.textContent = group;
+        const list = document.createElement("div");
+        list.className = "nav-list";
+        DATA.tables.filter((t) => t.group === group).forEach((table) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "nav-btn";
+          button.textContent = table.name;
+          button.setAttribute("aria-pressed", String(table.name === state.selected));
+          if (flagged.includes(table.name)) button.classList.add("is-flagged");
+          button.addEventListener("click", () => {
+            state.idea = null;
+            select(table.name);
+          });
+          list.appendChild(button);
+        });
+        nav.append(heading, list);
+      });
+    }
+
+    function linkageCell(table, column) {
+      const link = DATA.links.find((l) => l.from === table.name && l.col === column.name);
+      if (link) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = "→ " + link.to + "." + link.toCol;
+        return span;
+      }
+      if (column.flag === "copied") {
+        const span = document.createElement("span");
+        span.className = "tag copied";
+        span.textContent = "Copied text";
+        return span;
+      }
+      if (column.flag === "snapshot") {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = "Keep as snapshot";
+        return span;
+      }
+      if (column.flag === "open") {
+        const span = document.createElement("span");
+        span.className = "tag open";
+        span.textContent = "Id with no foreign key";
+        return span;
+      }
+      return document.createTextNode("");
+    }
+
+    function renderDetail() {
+      const table = DATA.tables.find((item) => item.name === state.selected);
+      document.getElementById("group-label").textContent = table.group;
+      document.getElementById("selected-name").textContent = table.name;
+      document.getElementById("selected-pk").textContent = "Primary key " + table.pk + (table.owned ? " · owned by " + table.owned : "");
+
+      const points = document.getElementById("points-to");
+      points.replaceChildren();
+      const outgoing = outs(table.name);
+      if (outgoing.length === 0) points.appendChild(emptyNote("This table does not point to another table."));
+      else outgoing.forEach((link) => points.appendChild(branchItem(link)));
+
+      const pointed = document.getElementById("pointed-by");
+      pointed.replaceChildren();
+      const incoming = ins(table.name);
+      if (incoming.length === 0) pointed.appendChild(emptyNote("No other table points here."));
+      else incoming.forEach((link) => pointed.appendChild(branchItem(link)));
+
+      const body = document.getElementById("columns");
+      body.replaceChildren();
+      table.columns.forEach((column) => {
+        const row = document.createElement("tr");
+        ["name", "type", "nullable"].forEach((key, index) => {
+          const cell = document.createElement("td");
+          if (index === 0) cell.className = "mono";
+          cell.textContent = index === 2 ? (column.nullable ? "Yes" : "No") : column[key];
+          row.appendChild(cell);
+        });
+        const linkCell = document.createElement("td");
+        linkCell.appendChild(linkageCell(table, column));
+        row.appendChild(linkCell);
+        body.appendChild(row);
+      });
+
+      const local = document.getElementById("local-improve");
+      const wrap = document.getElementById("local-improve-wrap");
+      const ideas = ideasFor(table.name);
+      local.replaceChildren();
+      wrap.hidden = ideas.length === 0;
+      ideas.forEach((idea) => {
+        const item = document.createElement("li");
+        item.textContent = (idea.done ? "Done. " : "") + idea.title + ". " + idea.detail;
+        local.appendChild(item);
+      });
+    }
+
+    function select(name) {
+      state.selected = name;
+      renderNav();
+      renderIdeas();
+      renderDetail();
+    }
+
+    renderIdeas();
+    select("users");
+  </script>
+</body>
+</html>

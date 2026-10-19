@@ -6,6 +6,7 @@ using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 
 namespace MiniWebsite.Application.Admin.ManageReferrals;
@@ -90,14 +91,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
             .GroupBy(i => i.UserId!.Value)
             .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList());
 
-        var paidCardUsers = (await _db.Cards.AsNoTracking()
-                .Where(c => c.UserId != null
-                            && referredIds.Contains(c.UserId.Value)
-                            && c.PaymentStatus == "Success")
-                .Select(c => c.UserId!.Value)
-                .Distinct()
-                .ToListAsync(ct))
-            .ToHashSet();
+        var paidCardUsers = await CardSales.PaidUserIdsAsync(_db, referredIds, ct);
 
         var earningIds = earnings.Select(e => e.Id).ToList();
         var payments = await _db.ReferralPayments.AsNoTracking()
@@ -279,6 +273,7 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         var cardMap = new Dictionary<int, Card>();
         foreach (var c in cards)
             cardMap.TryAdd(c.UserId!.Value, c);
+        var cardSales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
 
         var lines = earnings.Select(e =>
         {
@@ -292,12 +287,13 @@ public class AdminManageReferralsService : IAdminManageReferralsService
                 nameMap.TryGetValue(referredId, out name);
             }
 
+            var sale = card == null ? CardSale.Unpaid : CardSales.For(cardSales, card.Id);
             string userPayLabel;
             string userPayTone;
-            if (string.Equals(card?.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
+            if (sale.Paid)
             {
                 userPayTone = "ok";
-                userPayLabel = card?.DPaymentDate is { } d
+                userPayLabel = sale.PaidOn is { } d
                     ? "Paid on " + d.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
                     : "Paid";
             }

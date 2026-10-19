@@ -26,7 +26,6 @@ public interface IApplicationDbContext
     DbSet<UserJoiningDeal> UserJoiningDeals { get; }
     DbSet<Order> Orders { get; }
     DbSet<Invoice> Invoices { get; }
-    DbSet<FranchisePayment> FranchisePayments { get; }
     DbSet<Customer> Customers { get; }
     DbSet<CustomerFollowup> CustomerFollowups { get; }
     DbSet<ContentPage> ContentPages { get; }

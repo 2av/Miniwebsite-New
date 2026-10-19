@@ -5,6 +5,7 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
+using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Domain.Common;
 
@@ -59,6 +60,7 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
         var cardByUser = new Dictionary<int, Card>();
         foreach (var c in latestCards)
             cardByUser.TryAdd(c.UserId!.Value, c);
+        var cardSales = await CardSales.ByCardIdAsync(_db, latestCards.Select(c => c.Id).ToList(), ct);
 
         var referrerIds = users
             .Where(u => u.Referral.ReferrerUserId != null)
@@ -113,7 +115,7 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
                 u.Referral.CollaborationEnabled ? "YES" : "NO",
                 u.Referral.Influencer ? "YES" : "NO",
                 u.Referral.CollaborationEnabled ? "Active" : "Inactive",
-                string.IsNullOrWhiteSpace(card?.DPaymentStatus) ? "-" : card!.DPaymentStatus!,
+                card == null ? "-" : CardSales.For(cardSales, card.Id).Status,
                 feeDisplay,
                 inv.FranchiseInvoiceId,
                 inv.JoiningDealInvoiceId,
@@ -153,20 +155,20 @@ public class AdminFranchiseDistributorsService : IAdminFranchiseDistributorsServ
 
         var rows = await (
             from m in _db.DealCustomerMappings.AsNoTracking()
-            join d in _db.Coupons.AsNoTracking().ForRolePrefix(rolePrefix) on m.DealId equals d.Id
+            join d in _db.Coupons.AsNoTracking().ForRolePrefix(rolePrefix) on m.CouponId equals d.Id
             where m.UserId != null && userIds.Contains(m.UserId.Value)
             orderby m.Id descending
             select new
             {
                 MappingId = m.Id,
-                m.DealId,
+                m.CouponId,
                 UserId = m.UserId!.Value,
                 d.CouponName,
                 d.CouponCode,
             }).ToListAsync(ct);
 
         foreach (var row in rows)
-            result.TryAdd(row.UserId, new MappedDealLiteDto(row.MappingId, row.DealId, row.CouponName ?? "", row.CouponCode));
+            result.TryAdd(row.UserId, new MappedDealLiteDto(row.MappingId, row.CouponId, row.CouponName ?? "", row.CouponCode));
         return result;
     }
 
