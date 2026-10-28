@@ -39,6 +39,6 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "Ready under $publish"
-Write-Host "  API       -> upload as the API site (https://api.miniwebsite.in)"
+Write-Host "  API       -> upload as the API site (https://api.sharebizz.com)"
 Write-Host "  Admin     -> upload as the admin site"
 Write-Host "  frontend  -> upload as the user site"

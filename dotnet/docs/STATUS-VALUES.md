@@ -47,7 +47,7 @@ Only Active terms are used for the referrer's sign-up earning.
 - Current
 - Replaced
 
-Current is the file in use. Replaced is an older file kept for tracking after a newer upload.
+Current is the file in use. Replaced is an older verification file still stored after a newer upload. A replaced profile photo is deleted from storage, so it is removed from this list.
 
 ## Document verification
 

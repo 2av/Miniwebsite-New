@@ -24,7 +24,7 @@ Dev uses Vite proxy (`/api` → `localhost:5209`) when `VITE_API_BASE_URL` is em
 
 ## Production
 
-`.env.production` points to `https://api.miniwebsite.in`.
+`.env.production` points to `https://api.sharebizz.com`.
 
 ```bash
 npm run build

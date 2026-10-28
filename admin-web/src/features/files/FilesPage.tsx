@@ -26,9 +26,13 @@ import {
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes) || bytes < 0) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1000) return `${bytes} B`
+  if (bytes < 1000 * 1000) {
+    const kb = bytes / 1000
+    return `${(kb >= 10 ? kb.toFixed(2) : kb.toFixed(1))} KB`
+  }
+  const mb = bytes / (1000 * 1000)
+  return `${(mb >= 10 ? mb.toFixed(2) : mb.toFixed(1))} MB`
 }
 
 function formatWhen(value?: string | null) {
@@ -107,7 +111,7 @@ export function FilesPage() {
             {data ? ` · ${formatSize(data.totalSizeBytes)} total` : ''}. View opens the file on Cloudflare.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Status: Current is the file in use. Replaced is an older file kept after a newer upload.
+            Status: Current is the file in use. Replaced is an older verification file still stored after a newer upload.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -195,7 +199,7 @@ export function FilesPage() {
                       key={h}
                       title={
                         h === 'Status'
-                          ? 'Current is the file in use. Replaced is an older file kept after a newer upload.'
+                          ? 'Current is the file in use. Replaced is an older verification file still stored after a newer upload.'
                           : undefined
                       }
                       className="text-xs font-semibold tracking-wide text-slate-200 uppercase"
