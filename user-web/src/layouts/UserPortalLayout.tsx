@@ -75,12 +75,11 @@ export function UserPortalLayout() {
   const profileRef = useRef<HTMLLIElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [portalSearch, setPortalSearch] = useState('')
   const [alertsOpen, setAlertsOpen] = useState(false)
   const [, setMwId] = useState<number | null>(null)
   const [builderSlug, setBuilderSlug] = useState<string | null>(null)
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
-  const [profileUploadMsg, setProfileUploadMsg] = useState<string | null>(null)
+  const [profileNotice, setProfileNotice] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null)
   const [profileUploading, setProfileUploading] = useState(false)
   const [cropFile, setCropFile] = useState<File | null>(null)
   const [cropOpen, setCropOpen] = useState(false)
@@ -96,6 +95,13 @@ export function UserPortalLayout() {
   const [accessReady, setAccessReady] = useState(() => Boolean(normalizeRolePrefix(session?.rolePrefix)))
 
   const inWebsiteBuilder = location.pathname.startsWith('/website')
+
+  useEffect(() => {
+    if (!profileNotice) return
+    const hideAfter = profileNotice.tone === 'ok' ? 3500 : 5000
+    const timer = window.setTimeout(() => setProfileNotice(null), hideAfter)
+    return () => window.clearTimeout(timer)
+  }, [profileNotice])
 
   const builderCardId = useMemo(() => {
     const fromUrl = Number(searchParams.get('card_number') || searchParams.get('cardNumber') || 0)
@@ -222,7 +228,7 @@ export function UserPortalLayout() {
     e.preventDefault()
     e.stopPropagation()
     setProfileOpen(false)
-    setProfileUploadMsg(null)
+    setProfileNotice(null)
     fileInputRef.current?.click()
   }
 
@@ -237,15 +243,15 @@ export function UserPortalLayout() {
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setProfileUploadMsg('Please choose an image file (JPG, PNG, GIF, WebP).')
+      setProfileNotice({ text: 'Please choose an image file (JPG, PNG, GIF, WebP).', tone: 'error' })
       return
     }
     // PHP ImageCropUpload allows up to 10MB before crop
     if (file.size > 10 * 1024 * 1024) {
-      setProfileUploadMsg('Image must be 10MB or less.')
+      setProfileNotice({ text: 'Image must be 10MB or less.', tone: 'error' })
       return
     }
-    setProfileUploadMsg(null)
+    setProfileNotice(null)
     setCropFile(file)
     setCropOpen(true)
   }
@@ -253,7 +259,7 @@ export function UserPortalLayout() {
   const uploadCroppedProfile = async (blob: Blob, fileName: string) => {
     if (!session?.email) return
     setProfileUploading(true)
-    setProfileUploadMsg(null)
+    setProfileNotice(null)
     try {
       const fd = new FormData()
       fd.append('email', session.email)
@@ -267,11 +273,14 @@ export function UserPortalLayout() {
       const data = (res.data ?? {}) as Record<string, unknown>
       const url = String(data.profileImageUrl ?? data.ProfileImageUrl ?? data.imagePath ?? data.ImagePath ?? '')
       if (url) setProfileImageUrl(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`)
-      setProfileUploadMsg(res.message || 'Profile image updated successfully!')
+      setProfileNotice({
+        text: res.message || 'Profile image updated successfully! Your new image will be visible immediately.',
+        tone: 'ok',
+      })
       setCropOpen(false)
       setCropFile(null)
     } catch (err) {
-      setProfileUploadMsg(err instanceof Error ? err.message : 'Upload failed')
+      setProfileNotice({ text: err instanceof Error ? err.message : 'Upload failed', tone: 'error' })
     } finally {
       setProfileUploading(false)
     }
@@ -370,6 +379,14 @@ export function UserPortalLayout() {
 
   return (
     <>
+      {profileNotice ? (
+        <div
+          className={`sb-toast${profileNotice.tone === 'error' ? ' sb-toast--error' : ''}`}
+          role="status"
+        >
+          {profileNotice.text}
+        </div>
+      ) : null}
       <nav className="sb-topnav navbar navbar-expand sb-topnav--app !shadow-card">
         <div className="head-left flex items-center">
           <Link className="navbar-brand ps-3 inline-flex items-center" to="/dashboard" aria-label="Go to dashboard">
@@ -393,28 +410,6 @@ export function UserPortalLayout() {
           </button>
         </div>
 
-        <form
-          className="sb-topnav-search"
-          role="search"
-          onSubmit={(e) => {
-            e.preventDefault()
-            window.dispatchEvent(new CustomEvent('sb-portal-search', { detail: portalSearch }))
-          }}
-        >
-          <i className="fa fa-search" aria-hidden />
-          <input
-            type="search"
-            placeholder="Search anything..."
-            value={portalSearch}
-            aria-label="Search anything"
-            onChange={(e) => {
-              const value = e.target.value
-              setPortalSearch(value)
-              window.dispatchEvent(new CustomEvent('sb-portal-search', { detail: value }))
-            }}
-          />
-        </form>
-
         <div className="head-right">
           <button type="button" className="sb-icon-btn" aria-label="Notifications" onClick={() => setAlertsOpen((v) => !v)}>
             <i className="fa fa-bell-o" aria-hidden />
@@ -424,9 +419,6 @@ export function UserPortalLayout() {
               No new notifications
             </div>
           ) : null}
-          <Link to="/docs" className="sb-icon-btn" aria-label="Help">
-            <i className="fa fa-question-circle-o" aria-hidden />
-          </Link>
           <ul className="navbar-nav ms-auto ms-md-0 flex items-center">
             <li className="nav-item upload-profile-wrap relative" ref={profileRef}>
               <div className="nav-link">
@@ -500,15 +492,6 @@ export function UserPortalLayout() {
               {profileUploading ? (
                 <div className="small text-muted px-2" style={{ position: 'absolute', right: 0, top: '100%' }}>
                   Uploading…
-                </div>
-              ) : null}
-              {profileUploadMsg ? (
-                <div
-                  className="small px-2"
-                  style={{ position: 'absolute', right: 0, top: '100%', whiteSpace: 'nowrap', color: '#334155', zIndex: 20 }}
-                  role="status"
-                >
-                  {profileUploadMsg}
                 </div>
               ) : null}
               <ul

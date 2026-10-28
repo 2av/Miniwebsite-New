@@ -80,16 +80,58 @@ try
         app.UseSwaggerUI();
     }
 
-    // Skip HTTPS redirect in Development so Swagger on http://localhost:5209
-    // is not bounced to https://localhost:7236 (Failed to fetch / SSL trust).
-    if (!app.Environment.IsDevelopment())
+    // CORS must run before HTTPS redirect. A redirected preflight is what the browser reports as "Network Error".
+    app.UseCors("Frontend");
+
+    // Opt in only. Forcing HTTPS inside Kestrel breaks hosts that terminate SSL in front of the app.
+    if (app.Configuration.GetValue("App:UseHttpsRedirection", false))
         app.UseHttpsRedirection();
 
-    app.UseCors("Frontend");
     app.UseAuthentication();
     app.UseAuthorization();
+
+    var webRoot = app.Environment.WebRootPath ?? "";
+    var userIndex = Path.Combine(webRoot, "index.html");
+    var adminIndex = Path.Combine(webRoot, "admin", "index.html");
+    var hostUserSite = File.Exists(userIndex);
+    var hostAdminSite = File.Exists(adminIndex);
+    if (hostUserSite || hostAdminSite)
+    {
+        app.UseDefaultFiles();
+        app.UseStaticFiles();
+    }
+
     app.MapControllers();
     app.MapHealthChecks("/health");
+
+    if (hostAdminSite)
+        app.MapGet("/admin", () => Results.Redirect("/admin/"));
+
+    if (hostUserSite || hostAdminSite)
+    {
+        app.MapFallback(async (HttpContext context) =>
+        {
+            var path = context.Request.Path.Value ?? "/";
+            if (path.StartsWith("/api", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            var file = hostAdminSite && path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+                ? adminIndex
+                : userIndex;
+            if (!File.Exists(file))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.SendFileAsync(file);
+        });
+    }
 
     Log.Information("MiniWebsite.Api starting (Phase 1 — Auth + Users)");
     app.Run();

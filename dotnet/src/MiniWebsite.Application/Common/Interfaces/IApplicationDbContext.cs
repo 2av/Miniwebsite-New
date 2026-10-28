@@ -45,5 +45,6 @@ public interface IApplicationDbContext
     DbSet<UserCustomCategory> UserCustomCategories { get; }
     DbSet<UserBankDetails> UserBankDetails { get; }
     DbSet<FranchiseVerification> FranchiseVerifications { get; }
+    DbSet<UploadedFile> UploadedFiles { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

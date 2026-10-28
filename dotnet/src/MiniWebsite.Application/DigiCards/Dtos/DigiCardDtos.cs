@@ -13,7 +13,8 @@ public record DigiCardListItemDto(
     DateTime? PaymentDate,
     DateTime? ValidityDate,
     string ValidityDisplay,
-    string PublicUrl);
+    string PublicUrl,
+    string DbIdDisplay = "");
 
 public record DigiCardDetailDto(
     int Id,
@@ -74,7 +75,9 @@ public record FranchiseeManagedUserDto(
     DateTime? CardCreatedDate,
     DateTime? PaymentDate,
     DateTime? ValidityDate,
-    string ValidityDisplay);
+    string ValidityDisplay,
+    string? CardSlug = null,
+    string DbIdDisplay = "");
 
 public record CustomerDashboardDto(
     string Email,
@@ -85,7 +88,9 @@ public record CustomerDashboardDto(
     bool ShowInvoiceColumn,
     int? MwReferralId,
     string Influencer,
-    IReadOnlyList<DigiCardListItemDto> Cards);
+    IReadOnlyList<DigiCardListItemDto> Cards,
+    string? UserName = null,
+    string? Phone = null);
 
 public record FranchiseeDashboardDto(
     string Email,

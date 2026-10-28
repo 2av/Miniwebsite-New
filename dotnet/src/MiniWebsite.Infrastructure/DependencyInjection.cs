@@ -11,6 +11,7 @@ using MiniWebsite.Infrastructure.Identity;
 using MiniWebsite.Infrastructure.Options;
 using MiniWebsite.Infrastructure.Payments;
 using MiniWebsite.Infrastructure.Persistence;
+using MiniWebsite.Infrastructure.Storage;
 
 namespace MiniWebsite.Infrastructure;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<RazorpayOptions>(configuration.GetSection(RazorpayOptions.SectionName));
         services.Configure<AppOptions>(configuration.GetSection(AppOptions.SectionName));
+        services.Configure<R2Options>(configuration.GetSection(R2Options.SectionName));
         services.Configure<AdminSeedOptions>(configuration.GetSection(AdminSeedOptions.SectionName));
 
         var connectionString = configuration.GetConnectionString("Default")
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, AspNetPasswordHasher>();
         services.AddScoped<IReferralEarningLookup, ReferralEarningLookup>();
+        services.AddSingleton<IObjectStorage, R2ObjectStorage>();
         services.AddDataSeeder();
 
         var jwt = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();

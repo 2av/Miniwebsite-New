@@ -74,9 +74,8 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         if (priced.Data.Quote.FinalTotal <= 0)
             return ApiResult<DbProfileCheckoutResultDto>.Fail("This plan does not have a payable amount.");
 
+        var gatewayReady = _gateway.IsConfigured;
         var order = await _gateway.CreateOrderAsync(priced.Data.Quote.FinalTotal, $"dbp-{request.CardId}", ct);
-        if (string.IsNullOrWhiteSpace(order.KeyId))
-            return ApiResult<DbProfileCheckoutResultDto>.Fail("Online payment is not set up yet. Please try again later.");
 
         var quote = priced.Data.Quote;
         var plan = priced.Data.Plan;
@@ -114,9 +113,9 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             SgstAmount = quote.SgstAmount,
             TotalAmount = quote.FinalTotal,
             RazorpayOrderId = order.OrderId,
-            RazorpayPaymentId = "",
-            RazorpaySignature = "",
-            PaymentStatus = "Pending",
+            RazorpayPaymentId = gatewayReady ? "" : "bypass_" + Guid.NewGuid().ToString("N")[..12],
+            RazorpaySignature = gatewayReady ? "" : "bypass",
+            PaymentStatus = gatewayReady ? "Pending" : "Success",
             ServiceName = PlanCommissionValues.CategoryDbProfile,
             ServiceDescription = plan.PlanName,
             HsnSacCode = "998313",
@@ -125,11 +124,15 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             ReferenceNumber = order.OrderId,
             PlanName = plan.PlanName,
             PlanValidity = PricingLabel(plan.ValidityMonths),
+            PaymentDate = gatewayReady ? null : now,
             CreatedAt = now,
             UpdatedAt = now,
         };
 
         _db.Invoices.Add(invoice);
+        if (!gatewayReady)
+            await ApplyPaidEffectsAsync(invoice, priced.Data.Card, now, ct);
+
         await _db.SaveChangesAsync(ct);
 
         return ApiResult<DbProfileCheckoutResultDto>.Ok(new DbProfileCheckoutResultDto(
@@ -137,8 +140,9 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             order.OrderId,
             order.AmountInRupees,
             order.Currency,
-            order.KeyId,
-            plan.PlanName));
+            gatewayReady ? order.KeyId : "",
+            plan.PlanName,
+            !gatewayReady));
     }
 
     public async Task<ApiResult> VerifyAsync(DbProfileVerifyRequest request, CancellationToken ct = default)
@@ -170,11 +174,22 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         var now = AppClock.Now;
         invoice.RazorpayPaymentId = request.RazorpayPaymentId.Trim();
         invoice.RazorpaySignature = request.RazorpaySignature.Trim();
+        await ApplyPaidEffectsAsync(invoice, loaded.Data.Card, now, ct);
+
+        await _db.SaveChangesAsync(ct);
+        return ApiResult.Ok("Payment received.");
+    }
+
+    /// <summary>
+    /// Records a successful DB Profile payment: invoice, card status, validity, and promo usage.
+    /// Used by live gateway verification and by the temporary no-gateway checkout.
+    /// </summary>
+    private async Task ApplyPaidEffectsAsync(Invoice invoice, Card card, DateTime now, CancellationToken ct)
+    {
         invoice.PaymentStatus = "Success";
         invoice.PaymentDate = now;
         invoice.UpdatedAt = now;
 
-        var card = loaded.Data.Card;
         card.CardStatus = "Active";
 
         var plan = await _db.PricingPlans.AsNoTracking()
@@ -188,9 +203,6 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.CouponCode == invoice.PromoCode, ct);
             if (coupon != null) coupon.CurrentUsage += 1;
         }
-
-        await _db.SaveChangesAsync(ct);
-        return ApiResult.Ok("Payment received.");
     }
 
     private async Task<ApiResult<Priced>> PriceAsync(

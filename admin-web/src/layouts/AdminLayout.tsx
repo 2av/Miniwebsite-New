@@ -27,6 +27,7 @@ import {
   Monitor,
   FileSignature,
   FileText,
+  Files,
   Mail,
   Network,
   Search,
@@ -96,6 +97,7 @@ const nav: NavNode[] = [
   { kind: 'link', to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { kind: 'link', to: '/sb-user-details', label: 'SB User Details', icon: Users },
   { kind: 'link', to: '/db-profile-details', label: 'DB Profile Details', icon: Globe2 },
+  { kind: 'link', to: '/files', label: 'Files', icon: Files },
   
   {
     kind: 'group',

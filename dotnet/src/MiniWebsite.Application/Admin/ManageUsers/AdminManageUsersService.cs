@@ -313,7 +313,18 @@ public class AdminManageUsersService : IAdminManageUsersService
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync(ct);
 
-        var sales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
+        var cardIds = cards.Select(c => c.Id).ToList();
+        var sales = await CardSales.ByCardIdAsync(_db, cardIds, ct);
+        var invoiceRows = cardIds.Count == 0
+            ? []
+            : await _db.Invoices.AsNoTracking()
+                .Where(i => i.CardId != null && cardIds.Contains(i.CardId.Value))
+                .Select(i => new { CardId = i.CardId!.Value, i.Id, i.OrderCode })
+                .ToListAsync(ct);
+        var orderIdByCard = new Dictionary<int, string>();
+        foreach (var invoice in invoiceRows.OrderByDescending(i => i.Id))
+            orderIdByCard.TryAdd(invoice.CardId, UserCodeGenerator.FormatDisplay(invoice.OrderCode));
+
         var sites = cards.Select(c =>
         {
             var sale = CardSales.For(sales, c.Id);
@@ -332,7 +343,8 @@ public class AdminManageUsersService : IAdminManageUsersService
                 status.Class,
                 status.Text,
                 FormatValidityDisplay(c, sale),
-                FormatPaymentLabel(c, sale));
+                FormatPaymentLabel(c, sale),
+                orderIdByCard.GetValueOrDefault(c.Id) ?? "");
         }).ToList();
 
         return ApiResult<DashboardDetailsDto>.Ok(new DashboardDetailsDto(email, sites));

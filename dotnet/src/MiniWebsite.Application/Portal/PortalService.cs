@@ -10,6 +10,8 @@ using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Application.Portal.Dtos;
+using MiniWebsite.Application.Uploads;
+using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Domain.Common;
 
@@ -25,17 +27,23 @@ public class PortalService : IPortalService
     private readonly IApplicationDbContext _db;
     private readonly IAdminKitManagementService _kits;
     private readonly IAdminInvoiceAccessService _invoices;
+    private readonly IObjectStorage _storage;
+    private readonly IUploadedFileTracker _files;
     private readonly AppOptions _app;
 
     public PortalService(
         IApplicationDbContext db,
         IAdminKitManagementService kits,
         IAdminInvoiceAccessService invoices,
+        IObjectStorage storage,
+        IUploadedFileTracker files,
         IOptions<AppOptions> app)
     {
         _db = db;
         _kits = kits;
         _invoices = invoices;
+        _storage = storage;
+        _files = files;
         _app = app.Value;
     }
 
@@ -100,15 +108,12 @@ public class PortalService : IPortalService
             .ToListAsync(ct);
 
         var pendingAmount = earnings.Where(e => e.Status == "Pending").Sum(e => e.Amount);
-        var totalEarning = earnings.Where(e => e.Status == "Paid").Sum(e => e.Amount);
-        var referralCount = earnings.Select(e => e.Id).Distinct().Count();
+        var totalEarning = earnings.Sum(e => e.Amount);
 
         var referredIdsFromUsers = await _db.Users.AsNoTracking()
             .Where(u => u.Referral.ReferrerUserId == user.Id)
             .Select(u => u.Id)
             .ToListAsync(ct);
-
-        var totalReferrals = Math.Max(referralCount, referredIdsFromUsers.Count);
 
         var allReferredKeys = earnings
             .Select(e => ReferredKey.From(e.ReferredUserId, e.ReferredEmail))
@@ -141,6 +146,44 @@ public class PortalService : IPortalService
             cardByUser.TryAdd(c.UserId!.Value, c);
         var cardSales = await CardSales.ByCardIdAsync(_db, cards.Select(c => c.Id).ToList(), ct);
 
+        var linkedInvoiceIds = earnings.Where(e => e.InvoiceId != null).Select(e => e.InvoiceId!.Value).Distinct().ToList();
+        var orderFacts = allReferredIds.Count == 0 && linkedInvoiceIds.Count == 0
+            ? new List<ReferralOrderFact>()
+            : await _db.Invoices.AsNoTracking()
+                .Where(i =>
+                    (i.UserId != null && allReferredIds.Contains(i.UserId.Value))
+                    || linkedInvoiceIds.Contains(i.Id))
+                .Select(i => new ReferralOrderFact(
+                    i.Id,
+                    i.UserId,
+                    i.InvoiceDate,
+                    i.ServiceName,
+                    i.PlanName,
+                    i.PaymentStatus))
+                .ToListAsync(ct);
+        var ordersByUser = orderFacts
+            .Where(i => i.UserId != null)
+            .GroupBy(i => i.UserId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(i => (i.Id, i.InvoiceDate)).ToList());
+        var orderById = orderFacts.ToDictionary(i => i.Id);
+
+        var earningIds = earnings.Select(e => e.Id).ToList();
+        var paymentRows = earningIds.Count == 0
+            ? []
+            : await _db.ReferralPayments.AsNoTracking()
+                .Where(p => earningIds.Contains(p.ReferralEarningId))
+                .Select(p => new { p.ReferralEarningId, p.Amount, p.PaymentDate })
+                .ToListAsync(ct);
+        var paymentsByEarning = paymentRows
+            .GroupBy(p => p.ReferralEarningId)
+            .ToDictionary(g => g.Key, g => (Paid: g.Sum(x => x.Amount), Last: (DateTime?)g.Max(x => x.PaymentDate)));
+
+        var paidCardUsers = await CardSales.PaidUserIdsAsync(_db, allReferredIds, ct);
+        var partnerInvoices = await _db.Invoices.AsNoTracking()
+            .Where(i => i.UserId == user.Id)
+            .Select(i => new { i.Id, i.PaymentStatus })
+            .ToListAsync(ct);
+
         var earningByReferred = earnings
             .GroupBy(e => ReferredKey.From(e.ReferredUserId, e.ReferredEmail))
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First());
@@ -157,28 +200,87 @@ public class PortalService : IPortalService
             }
             earningByReferred.TryGetValue(key, out var re);
             var sale = dc == null ? CardSale.Unpaid : CardSales.For(cardSales, dc.Id);
+            var amount = re?.Amount ?? 0;
+            paymentsByEarning.TryGetValue(re?.Id ?? 0, out var pay);
+
+            ReferralOrderFact? order = null;
+            if (re != null)
+            {
+                var candidates = re.ReferredUserId is int orderUserId
+                    ? ordersByUser.GetValueOrDefault(orderUserId) ?? []
+                    : [];
+                var orderId = ReferralOrderMatching.ResolveInvoiceId(re.InvoiceId, re.ReferralDate, candidates);
+                if (orderId is int resolvedId)
+                    orderById.TryGetValue(resolvedId, out order);
+            }
+
+            var customerPaid = sale.Paid
+                || (ud != null && paidCardUsers.Contains(ud.Id))
+                || (order != null && CardSales.IsPaid(order.PaymentStatus))
+                || string.Equals(re?.Status, "Paid", StringComparison.OrdinalIgnoreCase)
+                || pay.Paid > 0;
+            var isRejected = string.Equals(re?.Status, "Rejected", StringComparison.OrdinalIgnoreCase);
+            var commission = isRejected
+                ? "Rejected"
+                : amount <= 0 || !customerPaid
+                    ? "Not Eligible"
+                    : "Eligible";
+            var pending = Math.Max(0, amount - pay.Paid);
+            var isPaid = string.Equals(re?.Status, "Paid", StringComparison.OrdinalIgnoreCase)
+                         || (amount > 0 && pending <= 0);
+            string payout;
+            if (isRejected && pay.Paid <= 0)
+                payout = "Rejected";
+            else if (isPaid)
+            {
+                var paidOn = re?.PaymentDate ?? (pay.Paid > 0 ? pay.Last : null);
+                payout = "Paid on " + (paidOn ?? AppClock.Now).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+            }
+            else
+                payout = "Pending";
+
+            var commissionGst = decimal.Round(amount * 0.18m, 2, MidpointRounding.AwayFromZero);
+            var tds = decimal.Round(amount * 0.02m, 2, MidpointRounding.AwayFromZero);
+            var partnerInvoice = partnerInvoices
+                .Where(i => i.Id != order?.Id)
+                .OrderByDescending(i => i.Id)
+                .FirstOrDefault();
+            var (approval, _) = PartnerInvoiceApproval(partnerInvoice?.PaymentStatus, partnerInvoice != null);
+            var dbId = dc == null
+                ? ""
+                : UserCodeGenerator.FormatDbId(string.IsNullOrWhiteSpace(dc.DbCode) ? dc.Slug : dc.DbCode);
 
             referredRows.Add(new ReferredUserSql
             {
                 ReferralId = re?.Id ?? 0,
                 ReferredEmail = re?.ReferredEmail ?? ud?.Email,
                 ReferralDate = (re?.ReferralDate ?? ud?.CreatedAt)?.ToString("o", CultureInfo.InvariantCulture),
-                Amount = re?.Amount ?? 0,
+                Amount = amount,
                 Status = re?.Status ?? "Pending",
                 PaymentDate = re?.PaymentDate?.ToString("o", CultureInfo.InvariantCulture),
                 IsCollaboration = re?.IsCollaboration ?? "NO",
                 UserId = ud?.Id,
+                ReferredUserCode = ud == null ? "" : UserCodeGenerator.FormatDisplay(ud.UserCode),
                 ReferredRole = ud == null ? null : RoleApi(ud.LoginRole),
                 UserEmail = ud?.Email,
                 UserContact = ud?.Phone,
                 UserName = ud?.FullName,
+                JoinedOn = ud?.CreatedAt,
                 CardId = dc?.Id,
+                DbId = dbId,
+                CardStatus = dc?.CardStatus,
                 CardUploadedDate = dc?.CreatedAt?.ToString("o", CultureInfo.InvariantCulture),
                 CardValidityDate = dc?.ValidityDate?.ToString("o", CultureInfo.InvariantCulture),
                 ComplimentaryEnabled = dc?.ComplimentaryEnabled,
                 DPaymentStatus = dc == null ? null : sale.Paid ? "Success" : sale.Status,
                 DPaymentDate = dc == null ? null : sale.PaidOn?.ToString("o", CultureInfo.InvariantCulture),
                 FUserEmail = dc?.FranchiseeEmail,
+                OrderDescription = order == null ? "" : DescribeOrder(order.ServiceName, order.PlanName),
+                CommissionStatus = commission,
+                PayableAmount = amount + commissionGst - tds,
+                PartnerInvoiceId = partnerInvoice?.Id,
+                PartnerInvoiceApproval = approval,
+                SbPayoutStatus = payout,
             });
         }
 
@@ -248,7 +350,7 @@ public class PortalService : IPortalService
             link,
             pendingAmount,
             totalEarning,
-            totalReferrals,
+            referredRows.Count,
             totalSales,
             totalMwCreated,
             bankComplete,
@@ -516,17 +618,21 @@ public class PortalService : IPortalService
         if (current.Data.IsLocked)
             return ApiResult<VerificationStatusDto>.Fail("Documents are locked and cannot be changed.");
 
-        var fsDir = ResolveVerificationFsDir();
-        if (string.IsNullOrWhiteSpace(fsDir))
-            return ApiResult<VerificationStatusDto>.Fail("Verification upload path is not configured (App:VerificationUploadsFsPath).");
+        var fsDir = "";
+        if (!_storage.IsEnabled)
+        {
+            fsDir = ResolveVerificationFsDir();
+            if (string.IsNullOrWhiteSpace(fsDir))
+                return ApiResult<VerificationStatusDto>.Fail("Verification upload path is not configured (App:VerificationUploadsFsPath).");
 
-        try
-        {
-            Directory.CreateDirectory(fsDir);
-        }
-        catch (Exception ex)
-        {
-            return ApiResult<VerificationStatusDto>.Fail("Cannot create upload folder: " + ex.Message);
+            try
+            {
+                Directory.CreateDirectory(fsDir);
+            }
+            catch (Exception ex)
+            {
+                return ApiResult<VerificationStatusDto>.Fail("Cannot create upload folder: " + ex.Message);
+            }
         }
 
         var gstNumber = (request.GstNumber ?? "").Trim().ToUpperInvariant();
@@ -545,31 +651,27 @@ public class PortalService : IPortalService
         if (!request.ElectronicAcceptance)
             return ApiResult<VerificationStatusDto>.Fail("Electronic acceptance is required.");
 
-        string? panFile = null, frontFile = null, backFile = null, gstFile = null, agreementFile = null;
+        VerificationSave? panFile = null, frontFile = null, backFile = null, gstFile = null, agreementFile = null;
         try
         {
-            panFile = await SaveVerificationImageAsync(fsDir, request.PanCardBase64, "pan", ct);
-            frontFile = await SaveVerificationImageAsync(fsDir, request.AadhaarFrontBase64, "aadhaar_front", ct);
-            backFile = await SaveVerificationImageAsync(fsDir, request.AadhaarBackBase64, "aadhaar_back", ct);
-            gstFile = await SaveVerificationImageAsync(fsDir, request.GstCertificateBase64, "gst", ct);
-            agreementFile = await SaveVerificationImageAsync(fsDir, request.AgreementBase64, "agreement", ct);
+            panFile = await SaveVerificationImageAsync(fsDir, request.PanCardBase64, "pan", UploadedFileDocument.Pan, ct);
+            frontFile = await SaveVerificationImageAsync(fsDir, request.AadhaarFrontBase64, "aadhaar_front", UploadedFileDocument.AadhaarFront, ct);
+            backFile = await SaveVerificationImageAsync(fsDir, request.AadhaarBackBase64, "aadhaar_back", UploadedFileDocument.AadhaarBack, ct);
+            gstFile = await SaveVerificationImageAsync(fsDir, request.GstCertificateBase64, "gst", UploadedFileDocument.GstCertificate, ct);
+            agreementFile = await SaveVerificationImageAsync(fsDir, request.AgreementBase64, "agreement", UploadedFileDocument.Agreement, ct);
         }
         catch (Exception ex)
         {
             return ApiResult<VerificationStatusDto>.Fail(ex.Message);
         }
 
-        // Merge with existing filenames when a slot was not re-uploaded
-        var existingPan = Path.GetFileName(current.Data.PanCardUrl ?? "");
-        var existingFront = Path.GetFileName(current.Data.AadhaarFrontUrl ?? "");
-        var existingBack = Path.GetFileName(current.Data.AadhaarBackUrl ?? "");
-        var existingGst = Path.GetFileName(current.Data.GstCertificateUrl ?? "");
-        var existingAgreement = Path.GetFileName(current.Data.AgreementUrl ?? "");
-        var finalPan = panFile ?? (string.IsNullOrWhiteSpace(existingPan) ? null : existingPan);
-        var finalFront = frontFile ?? (string.IsNullOrWhiteSpace(existingFront) ? null : existingFront);
-        var finalBack = backFile ?? (string.IsNullOrWhiteSpace(existingBack) ? null : existingBack);
-        var finalGst = gstFile ?? (string.IsNullOrWhiteSpace(existingGst) ? null : existingGst);
-        var finalAgreement = agreementFile ?? (string.IsNullOrWhiteSpace(existingAgreement) ? null : existingAgreement);
+        // Keep the stored file key when a slot was not re-uploaded.
+        var storedDocs = await LoadStoredVerificationDocsAsync(email, ct);
+        var finalPan = panFile?.Stored ?? storedDocs.Pan;
+        var finalFront = frontFile?.Stored ?? storedDocs.Front;
+        var finalBack = backFile?.Stored ?? storedDocs.Back;
+        var finalGst = gstFile?.Stored ?? storedDocs.Gst;
+        var finalAgreement = agreementFile?.Stored ?? storedDocs.Agreement;
 
         if (string.IsNullOrWhiteSpace(finalPan) || string.IsNullOrWhiteSpace(finalFront) || string.IsNullOrWhiteSpace(finalBack)
             || string.IsNullOrWhiteSpace(finalGst) || string.IsNullOrWhiteSpace(finalAgreement))
@@ -589,6 +691,11 @@ public class PortalService : IPortalService
                 .FirstOrDefaultAsync(v => v.UserId == user.Id, ct);
             var now = AppClock.Now;
             var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!, finalGst!, finalAgreement!, true);
+            foreach (var uploaded in new[] { panFile, frontFile, backFile, gstFile, agreementFile })
+            {
+                if (uploaded?.Tracked is { } tracked)
+                    await _files.TrackAsync(user.Id, tracked, ct);
+            }
 
             if (entity != null)
             {
@@ -633,10 +740,28 @@ public class PortalService : IPortalService
         return "";
     }
 
+    private async Task<VerificationDocs> LoadStoredVerificationDocsAsync(string email, CancellationToken ct)
+    {
+        var user = await FindUserAsync(email, ct);
+        if (user == null) return new(null, null, null, null, null, false);
+        var row = await _db.FranchiseVerifications.AsNoTracking()
+            .Where(v => v.UserId == user.Id)
+            .OrderByDescending(v => v.Id)
+            .FirstOrDefaultAsync(ct);
+        return ParseVerificationDocs(row?.DocumentPath);
+    }
+
     private string? ToVerificationPublicUrl(string? filename)
     {
         if (string.IsNullOrWhiteSpace(filename)) return null;
-        var name = Path.GetFileName(filename.Trim().Replace('\\', '/'));
+        var stored = filename.Trim().Replace('\\', '/');
+        if (stored.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || stored.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return stored;
+        if (_storage.IsEnabled && _storage.IsUnder(stored, _storage.VerificationPrefix))
+            return _storage.VerificationReadUrl(stored);
+
+        var name = Path.GetFileName(stored);
         if (string.IsNullOrWhiteSpace(name)) return null;
         var prefix = string.IsNullOrWhiteSpace(_app.VerificationUploadsRelativePath)
             ? "assets/upload/verification"
@@ -646,8 +771,10 @@ public class PortalService : IPortalService
         return baseUrl + "/" + prefix + "/" + name;
     }
 
-    private static async Task<string?> SaveVerificationImageAsync(
-        string fsDir, string? base64OrDataUrl, string kind, CancellationToken ct)
+    private readonly record struct VerificationSave(string Stored, NewUploadedFile? Tracked);
+
+    private async Task<VerificationSave?> SaveVerificationImageAsync(
+        string fsDir, string? base64OrDataUrl, string kind, string document, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(base64OrDataUrl)) return null;
         var raw = base64OrDataUrl.Trim();
@@ -671,9 +798,23 @@ public class PortalService : IPortalService
 
         var stamp = AppClock.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
         var fileName = $"{stamp}_{kind}.jpg";
+        if (_storage.IsEnabled)
+        {
+            var key = _storage.BuildKey(_storage.VerificationPrefix, fileName);
+            await _storage.UploadAsync(key, bytes, "image/jpeg", ct);
+            return new VerificationSave(key, new NewUploadedFile(
+                UploadedFileFolder.Verification,
+                document,
+                fileName,
+                fileName,
+                key,
+                "image/jpeg",
+                bytes.LongLength));
+        }
+
         var fullPath = Path.Combine(fsDir, fileName);
         await File.WriteAllBytesAsync(fullPath, bytes, ct);
-        return fileName;
+        return new VerificationSave(fileName, null);
     }
 
     public async Task<ApiResult<IdCardProfileDto>> GetIdCardAsync(string email, CancellationToken ct = default)
@@ -738,17 +879,21 @@ public class PortalService : IPortalService
         if (string.IsNullOrWhiteSpace(ctNorm) || !AllowedProfileContentTypes.Contains(ctNorm))
             return ApiResult<ProfileImageUploadDto>.Fail("Invalid image type. Use JPG, PNG, GIF, or WebP.");
 
-        var fsDir = ResolveProfileFsDir();
-        if (string.IsNullOrWhiteSpace(fsDir))
-            return ApiResult<ProfileImageUploadDto>.Fail("Profile upload path is not configured (App:ProfileUploadsFsPath).");
+        var fsDir = "";
+        if (!_storage.IsEnabled)
+        {
+            fsDir = ResolveProfileFsDir();
+            if (string.IsNullOrWhiteSpace(fsDir))
+                return ApiResult<ProfileImageUploadDto>.Fail("Profile upload path is not configured (App:ProfileUploadsFsPath).");
 
-        try
-        {
-            Directory.CreateDirectory(fsDir);
-        }
-        catch (Exception ex)
-        {
-            return ApiResult<ProfileImageUploadDto>.Fail("Cannot create upload folder: " + ex.Message);
+            try
+            {
+                Directory.CreateDirectory(fsDir);
+            }
+            catch (Exception ex)
+            {
+                return ApiResult<ProfileImageUploadDto>.Fail("Cannot create upload folder: " + ex.Message);
+            }
         }
 
         var ext = Path.GetExtension(originalFileName ?? "").ToLowerInvariant();
@@ -764,26 +909,41 @@ public class PortalService : IPortalService
         }
 
         var uniqueName = $"{Guid.NewGuid():N}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{ext}";
-        var fullPath = Path.Combine(fsDir, uniqueName);
         var relativePrefix = string.IsNullOrWhiteSpace(_app.ProfileUploadsRelativePath)
             ? "assets/upload/profile_image"
             : _app.ProfileUploadsRelativePath.Trim().Trim('/').Replace('\\', '/');
-        var dbPath = $"{relativePrefix}/{uniqueName}";
+        var useR2 = _storage.IsEnabled;
+        var dbPath = useR2
+            ? _storage.BuildKey(_storage.ProfilePrefix, uniqueName)
+            : $"{relativePrefix}/{uniqueName}";
+        var fullPath = useR2 ? "" : Path.Combine(fsDir, uniqueName);
 
         try
         {
-            await using (var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            byte[]? uploadedBytes = null;
+            if (useR2)
             {
+                using var buffer = new MemoryStream();
+                await fileStream.CopyToAsync(buffer, ct);
+                uploadedBytes = buffer.ToArray();
+                await _storage.UploadAsync(dbPath, uploadedBytes, ctNorm, ct);
+            }
+            else
+            {
+                await using var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 await fileStream.CopyToAsync(fs, ct);
             }
 
-            // Delete previous file when it lives under our profile folder
             var oldRel = user.ProfileImage?.Trim().Replace('\\', '/');
-            if (!string.IsNullOrWhiteSpace(oldRel)
+            if (useR2 && _storage.IsUnder(oldRel, _storage.ProfilePrefix))
+            {
+                try { await _storage.DeleteAsync(oldRel!, ct); } catch { /* ignore */ }
+            }
+            else if (!string.IsNullOrWhiteSpace(oldRel)
                 && oldRel.StartsWith(relativePrefix + "/", StringComparison.OrdinalIgnoreCase))
             {
                 var oldName = Path.GetFileName(oldRel);
-                if (!string.IsNullOrWhiteSpace(oldName))
+                if (!string.IsNullOrWhiteSpace(oldName) && !string.IsNullOrWhiteSpace(fsDir))
                 {
                     var oldFull = Path.Combine(fsDir, oldName);
                     if (File.Exists(oldFull))
@@ -795,6 +955,18 @@ public class PortalService : IPortalService
 
             user.ProfileImage = dbPath;
             user.UpdatedAt = AppClock.Now;
+            if (useR2 && uploadedBytes != null)
+            {
+                var originalName = Path.GetFileName(originalFileName ?? "");
+                await _files.TrackAsync(user.Id, new NewUploadedFile(
+                    UploadedFileFolder.Profile,
+                    UploadedFileDocument.ProfilePhoto,
+                    string.IsNullOrWhiteSpace(originalName) ? uniqueName : originalName,
+                    uniqueName,
+                    dbPath,
+                    ctNorm,
+                    uploadedBytes.LongLength), ct);
+            }
             await _db.SaveChangesAsync(ct);
 
             var publicUrl = ToPublicProfileUrl(dbPath) ?? "";
@@ -804,7 +976,11 @@ public class PortalService : IPortalService
         }
         catch (Exception ex)
         {
-            if (File.Exists(fullPath))
+            if (useR2)
+            {
+                try { await _storage.DeleteAsync(dbPath, ct); } catch { /* ignore */ }
+            }
+            else if (!string.IsNullOrWhiteSpace(fullPath) && File.Exists(fullPath))
             {
                 try { File.Delete(fullPath); } catch { /* ignore */ }
             }
@@ -1359,6 +1535,9 @@ public class PortalService : IPortalService
             || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return path;
 
+        if (_storage.IsEnabled && _storage.IsUnder(path, _storage.ProfilePrefix))
+            return _storage.ProfileReadUrl(path);
+
         // Match PHP header.php: only use DB path when the file exists on disk.
         if (!ProfileImageFileExists(path)) return null;
 
@@ -1428,137 +1607,82 @@ public class PortalService : IPortalService
 
     private static ReferredUserRowDto MapReferredUserRow(ReferredUserSql row)
     {
-        var isFranchise = string.Equals(row.IsCollaboration, "YES", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(row.ReferredRole, "FRANCHISEE", StringComparison.OrdinalIgnoreCase);
-
-        string mwFrLabel;
-        var mwFrIsLink = false;
-        if (isFranchise && row.UserId is > 0)
-        {
-            mwFrLabel = "FR - " + row.UserId.Value.ToString("D3", CultureInfo.InvariantCulture);
-        }
-        else if (row.CardId is > 0)
-        {
-            mwFrLabel = row.CardId.Value.ToString(CultureInfo.InvariantCulture);
-            mwFrIsLink = true;
-        }
-        else
-        {
-            mwFrLabel = "N/A";
-        }
-
-        var uploaded = TryParseDate(row.CardUploadedDate);
         var validity = TryParseDate(row.CardValidityDate);
-        var paymentDate = TryParseDate(row.DPaymentDate);
-        var referralPayDate = TryParseDate(row.PaymentDate);
-
-        string? validityDisplay = null;
-        if (validity.HasValue)
-            validityDisplay = validity.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-        else if (uploaded.HasValue)
-        {
-            if (string.Equals(row.ComplimentaryEnabled, "Yes", StringComparison.OrdinalIgnoreCase))
-                validityDisplay = uploaded.Value.AddYears(1).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-            else if (string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase) && paymentDate.HasValue)
-                validityDisplay = paymentDate.Value.AddYears(1).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-            else
-                validityDisplay = uploaded.Value.AddDays(7).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-        }
-
-        var (mwStatusClass, mwStatus) = ResolveMwShortStatus(
-            row.ComplimentaryEnabled, row.DPaymentStatus, validity, uploaded, row.FUserEmail);
-
-        string userPayLabel;
-        string userPayClass;
-        if (string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
-        {
-            var pd = paymentDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
-                     ?? AppClock.Now.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
-            userPayLabel = "Paid on " + pd;
-            userPayClass = "bg-success";
-        }
-        else
-        {
-            userPayLabel = "Unpaid";
-            userPayClass = "bg-unpaid";
-        }
-
-        string refPayLabel;
-        string refPayClass;
-        var status = row.Status ?? "";
-        if (string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase))
-        {
-            refPayLabel = "Paid on " + (referralPayDate?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) ?? "N/A");
-            refPayClass = "bg-success";
-        }
-        else if (string.Equals(status, "Partial", StringComparison.OrdinalIgnoreCase)
-                 && string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
-        {
-            refPayLabel = "Partial Payment";
-            refPayClass = "bg-pending";
-        }
-        else if (string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase)
-                 && string.Equals(row.DPaymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
-        {
-            refPayLabel = "Pending";
-            refPayClass = "bg-pending";
-        }
-        else
-        {
-            refPayLabel = "Not Eligible";
-            refPayClass = "not-eligible";
-        }
+        var (profileStatus, profileClass) = ResolveDbProfileStatus(row.CardId, row.CardStatus, validity);
+        var referredUserId = !string.IsNullOrWhiteSpace(row.ReferredUserCode)
+            ? row.ReferredUserCode
+            : row.UserId is > 0 ? row.UserId.Value.ToString(CultureInfo.InvariantCulture) : "N/A";
 
         return new ReferredUserRowDto(
             row.UserId,
+            referredUserId,
             row.CardId,
-            mwFrLabel,
-            mwFrIsLink,
+            string.IsNullOrWhiteSpace(row.DbId) ? "N/A" : row.DbId,
+            row.CardId is > 0,
             row.ReferredEmail ?? row.UserEmail,
-            isFranchise ? "Franchise" : "MW",
             string.IsNullOrWhiteSpace(row.UserName) ? "Unknown" : row.UserName,
             string.IsNullOrWhiteSpace(row.UserContact) ? "N/A" : row.UserContact,
-            FormatDate(row.ReferralDate) ?? "-",
-            "Referral",
+            FormatDate(row.JoinedOn) ?? FormatDate(row.ReferralDate) ?? "-",
             FormatDate(row.CardUploadedDate) ?? "-",
-            validityDisplay ?? "-",
-            mwStatus,
-            mwStatusClass,
-            userPayLabel,
-            userPayClass,
+            FormatDate(validity) ?? "-",
+            profileStatus,
+            profileClass,
+            string.IsNullOrWhiteSpace(row.OrderDescription) ? "-" : row.OrderDescription,
+            row.CommissionStatus,
+            StatusClass(row.CommissionStatus),
             row.Amount,
-            refPayLabel,
-            refPayClass);
+            row.PayableAmount,
+            row.PartnerInvoiceId,
+            row.PartnerInvoiceApproval,
+            StatusClass(row.PartnerInvoiceApproval),
+            row.SbPayoutStatus,
+            StatusClass(row.SbPayoutStatus));
     }
 
-    private static (string Class, string Text) ResolveMwShortStatus(
-        string? complimentary,
-        string? paymentStatus,
-        DateTime? validity,
-        DateTime? uploaded,
-        string? fUserEmail)
+    private static (string Text, string Class) ResolveDbProfileStatus(int? cardId, string? cardStatus, DateTime? expiry)
     {
-        if (string.Equals(complimentary, "Yes", StringComparison.OrdinalIgnoreCase))
-            return ("bg-success", "Active");
+        if (cardId is not > 0) return ("-", "");
 
-        if (string.Equals(paymentStatus, "Success", StringComparison.OrdinalIgnoreCase))
-        {
-            if (validity.HasValue && validity.Value < AppClock.Now)
-                return ("bg-secondary lightGray", "Expired on " + validity.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture));
-            return ("bg-success", "Active");
-        }
+        var raw = (cardStatus ?? "").Trim();
+        if (raw.Equals("Suspended", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("Inactive", StringComparison.OrdinalIgnoreCase)
+            || raw.Equals("InActive", StringComparison.OrdinalIgnoreCase))
+            return ("Suspended", "bg-unpaid");
 
-        var trialEnd = uploaded?.AddDays(7);
-        var trialExpired = trialEnd.HasValue && trialEnd.Value < AppClock.Now;
-        var franchiseLinked = !string.IsNullOrWhiteSpace(fUserEmail) && fUserEmail.Trim().Length >= 3;
+        if (expiry.HasValue && expiry.Value.Date < AppClock.Now.Date)
+            return ("Expired on " + expiry.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture), "bg-secondary");
 
-        if (franchiseLinked)
-            return trialExpired ? ("bg-secondary lightGray", "Inactive") : ("bg-pending", "Pending Payment");
+        return ("Active", "bg-success");
+    }
 
-        if (trialExpired)
-            return ("bg-secondary lightGray", "Inactive");
+    private static string StatusClass(string label)
+    {
+        if (label.StartsWith("Paid on ", StringComparison.OrdinalIgnoreCase)
+            || label is "Active" or "Eligible" or "Approved")
+            return "bg-success";
+        if (label is "Pending") return "bg-pending";
+        if (label is "Not Eligible") return "not-eligible";
+        if (label is "Rejected" or "Suspended") return "bg-unpaid";
+        if (label.StartsWith("Expired on ", StringComparison.OrdinalIgnoreCase)) return "bg-secondary";
+        return "";
+    }
 
-        return ("bg-pending", "7 Day Trial");
+    private static string DescribeOrder(string? serviceName, string? planName)
+    {
+        var name = (serviceName ?? "").Trim();
+        var plan = (planName ?? "").Trim();
+        if (plan.Length == 0 || name.Contains(plan, StringComparison.OrdinalIgnoreCase))
+            return name;
+        return name.Length == 0 ? plan : $"{name} ({plan})";
+    }
+
+    private static (string Label, string Tone) PartnerInvoiceApproval(string? paymentStatus, bool hasInvoice)
+    {
+        if (!hasInvoice) return ("Pending", "warn");
+        if (string.Equals(paymentStatus, "Rejected", StringComparison.OrdinalIgnoreCase))
+            return ("Rejected", "danger");
+        if (CardSales.IsPaid(paymentStatus)) return ("Approved", "ok");
+        return ("Pending", "warn");
     }
 
     private static DateTime? TryParseDate(string? raw)
@@ -1610,18 +1734,36 @@ public class PortalService : IPortalService
         public string? PaymentDate { get; set; }
         public string? IsCollaboration { get; set; }
         public int? UserId { get; set; }
+        public string ReferredUserCode { get; set; } = "";
         public string? ReferredRole { get; set; }
         public string? UserEmail { get; set; }
         public string? UserContact { get; set; }
         public string? UserName { get; set; }
+        public DateTime? JoinedOn { get; set; }
         public int? CardId { get; set; }
+        public string DbId { get; set; } = "";
+        public string? CardStatus { get; set; }
         public string? CardUploadedDate { get; set; }
         public string? CardValidityDate { get; set; }
         public string? ComplimentaryEnabled { get; set; }
         public string? DPaymentStatus { get; set; }
         public string? DPaymentDate { get; set; }
         public string? FUserEmail { get; set; }
+        public string OrderDescription { get; set; } = "";
+        public string CommissionStatus { get; set; } = "Not Eligible";
+        public decimal PayableAmount { get; set; }
+        public int? PartnerInvoiceId { get; set; }
+        public string PartnerInvoiceApproval { get; set; } = "Pending";
+        public string SbPayoutStatus { get; set; } = "Pending";
     }
+
+    private sealed record ReferralOrderFact(
+        int Id,
+        int? UserId,
+        DateTime InvoiceDate,
+        string? ServiceName,
+        string? PlanName,
+        string? PaymentStatus);
 
     /// <summary>Referred user identity; earnings without a linked account fall back to their email.</summary>
     private readonly record struct ReferredKey(int? UserId, string Email)

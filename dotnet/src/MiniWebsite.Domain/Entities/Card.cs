@@ -14,6 +14,8 @@ public class Card
     public string? FranchiseeEmail { get; set; }
     public string? UserEmail { get; set; }
     public string? Slug { get; set; }
+    /// <summary>Public profile id shown as <c>DB 4E5T8Y9C</c>.</summary>
+    public string? DbCode { get; set; }
     public string? Password { get; set; }
     public string? ThemeCss { get; set; }
     public string? MobileCss { get; set; }

@@ -282,6 +282,10 @@ export function DbProfilePaymentPage() {
         agreed,
       })
       const data = (res.data ?? {}) as Record<string, unknown>
+      if (Boolean(pick(data, 'paymentCompleted', 'PaymentCompleted'))) {
+        setPaid(true)
+        return
+      }
       const Razorpay = await loadRazorpay()
       const amount = num(pick(data, 'amount', 'Amount'))
       const invoiceId = num(pick(data, 'invoiceId', 'InvoiceId'))

@@ -15,5 +15,6 @@ Follow `dotnet/docs/STATUS-VALUES.md`. Use these exact strings.
 - Coupon Status: `Active`, `InActive`, `Expired` (Expired is automatic once the validity date has passed; admins pick only Active or InActive)
 - Plan Commission Status: `Active`, `InActive`
 - Document verification: `Not Submitted`, `Pending Review`, `Approved`, `Resubmission Required`, `Rejected`
+- Uploaded file: `Current`, `Replaced`
 
 `{date}` is the real date. Do not replace these with Success, Failed, Inactive, or Pending Payment.

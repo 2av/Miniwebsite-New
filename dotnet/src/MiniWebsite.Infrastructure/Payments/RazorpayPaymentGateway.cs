@@ -22,6 +22,9 @@ public class RazorpayPaymentGateway : IPaymentGateway
         _logger = logger;
     }
 
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(_options.KeyId) && !string.IsNullOrWhiteSpace(_options.KeySecret);
+
     public Task<CreatePaymentOrderResult> CreateOrderAsync(decimal amountInRupees, string receipt, CancellationToken cancellationToken = default)
     {
         // Phase 3: call Razorpay Orders API. For scaffold we return a placeholder order id.

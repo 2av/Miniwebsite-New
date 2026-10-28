@@ -14,6 +14,7 @@ public static class DatabaseBootstrap
     {
         await db.Database.MigrateAsync(ct);
         logger.LogInformation("EF Core migrations applied.");
+        await db.EnsureDbCodesAsync(ct);
         await seeder.SeedAsync(ct);
     }
 }

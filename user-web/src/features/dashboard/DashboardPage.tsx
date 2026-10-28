@@ -4,7 +4,7 @@ import { apiGet } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { dashboardTitleForRole } from '@/shared/auth/session'
 import { assetUrl, siteUrl } from '@/lib/utils'
-import { TablePagination, useClientPagination } from '@/components/table'
+import { DashboardProfileTable, type DashboardProfileRow } from '@/components/table'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type DigiCardListItem = {
@@ -18,6 +18,7 @@ type DigiCardListItem = {
   validityDate?: string | null
   validityDisplay: string
   publicUrl: string
+  dbIdDisplay: string
 }
 
 type CustomerDashboard = {
@@ -26,9 +27,10 @@ type CustomerDashboard = {
   referralCode: string
   refundStatus?: string | null
   refundStatusDate?: string | null
-  showInvoiceColumn: boolean
   mwReferralId?: number | null
   influencer: string
+  userName: string
+  phone: string
   cards: DigiCardListItem[]
 }
 
@@ -47,6 +49,8 @@ type FranchiseeManagedUser = {
   paymentDate?: string | null
   validityDate?: string | null
   validityDisplay: string
+  cardSlug?: string | null
+  dbIdDisplay: string
 }
 
 type FranchiseeDashboard = {
@@ -54,16 +58,6 @@ type FranchiseeDashboard = {
   role: string
   totalCardsCreated: number
   managedUsers: FranchiseeManagedUser[]
-}
-
-function fmtDate(value?: string | null) {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}-${mm}-${yyyy}`
 }
 
 function pick<T>(obj: Record<string, unknown>, camel: string, pascal: string): T {
@@ -79,9 +73,10 @@ function normalizeCustomer(raw: unknown): CustomerDashboard {
     referralCode: String(pick(o, 'referralCode', 'ReferralCode') ?? ''),
     refundStatus: pick(o, 'refundStatus', 'RefundStatus') as string | null,
     refundStatusDate: pick(o, 'refundStatusDate', 'RefundStatusDate') as string | null,
-    showInvoiceColumn: Boolean(pick(o, 'showInvoiceColumn', 'ShowInvoiceColumn')),
     mwReferralId: pick(o, 'mwReferralId', 'MwReferralId') as number | null,
     influencer: String(pick(o, 'influencer', 'Influencer') ?? 'NO'),
+    userName: String(pick(o, 'userName', 'UserName') ?? ''),
+    phone: String(pick(o, 'phone', 'Phone') ?? ''),
     cards: cardsRaw.map((c) => {
       const r = (c ?? {}) as Record<string, unknown>
       return {
@@ -95,6 +90,7 @@ function normalizeCustomer(raw: unknown): CustomerDashboard {
         validityDate: pick(r, 'validityDate', 'ValidityDate') as string | null,
         validityDisplay: String(pick(r, 'validityDisplay', 'ValidityDisplay') ?? '-'),
         publicUrl: String(pick(r, 'publicUrl', 'PublicUrl') ?? ''),
+        dbIdDisplay: String(pick(r, 'dbIdDisplay', 'DbIdDisplay') ?? ''),
       }
     }),
   }
@@ -124,34 +120,63 @@ function normalizeFranchisee(raw: unknown): FranchiseeDashboard {
         paymentDate: pick(r, 'paymentDate', 'PaymentDate') as string | null,
         validityDate: pick(r, 'validityDate', 'ValidityDate') as string | null,
         validityDisplay: String(pick(r, 'validityDisplay', 'ValidityDisplay') ?? '-'),
+        cardSlug: pick(r, 'cardSlug', 'CardSlug') as string | null,
+        dbIdDisplay: String(pick(r, 'dbIdDisplay', 'DbIdDisplay') ?? ''),
       }
     }),
   }
 }
 
-function mwStatus(paymentStatus?: string | null, cardStatus?: string | null) {
-  if (paymentStatus === 'Success') return { className: 'bg-success', text: cardStatus || 'Active' }
-  if (paymentStatus === 'Failed') return { className: 'not-eligible', text: 'Inactive' }
-  return { className: 'not-eligible', text: 'Pending Payment' }
+function toFranchiseeProfileRows(users: FranchiseeManagedUser[]): DashboardProfileRow[] {
+  return users.map((user) => ({
+    key: `${user.userId}-${user.cardDbId ?? 0}`,
+    dbId: user.dbIdDisplay || user.cardDbId,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    companyName: user.companyName,
+    createdAt: user.cardCreatedDate || user.userCreatedAt,
+    expiryDate: user.validityDate,
+    expiryDisplay: user.validityDisplay,
+    paymentStatus: user.paymentStatus,
+    paymentDate: user.paymentDate,
+    cardSlug: user.cardSlug,
+    cardId: user.cardDbId,
+  }))
+}
+
+function toCustomerProfileRows(
+  cards: DigiCardListItem[],
+  customer: CustomerDashboard,
+  fallbackName?: string,
+): DashboardProfileRow[] {
+  return cards.map((card) => ({
+    key: String(card.id),
+    dbId: card.dbIdDisplay || card.id,
+    email: customer.email,
+    name: customer.userName || fallbackName,
+    phone: customer.phone,
+    companyName: card.companyName,
+    createdAt: card.uploadedDate,
+    expiryDate: card.validityDate,
+    expiryDisplay: card.validityDisplay,
+    paymentStatus: card.paymentStatus,
+    cardStatus: card.cardStatus,
+    paymentDate: card.paymentDate,
+    cardSlug: card.cardSlug,
+    cardId: card.id,
+  }))
 }
 
 export function DashboardPage() {
   const session = useAuthSession()
-  const isFranchisee = (session?.rolePrefix || '').toUpperCase() === 'FRP' || (!session?.rolePrefix && session?.role === 'FRANCHISEE')
+  const prefix = (session?.rolePrefix || '').toUpperCase()
+  const isFranchisee = prefix === 'FRP' || (!prefix && session?.role === 'FRANCHISEE')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [customer, setCustomer] = useState<CustomerDashboard | null>(null)
   const [franchisee, setFranchisee] = useState<FranchiseeDashboard | null>(null)
-  const [portalQuery, setPortalQuery] = useState('')
   const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
-
-  useEffect(() => {
-    const onSearch = (event: Event) => {
-      setPortalQuery(String((event as CustomEvent<string>).detail ?? ''))
-    }
-    window.addEventListener('sb-portal-search', onSearch)
-    return () => window.removeEventListener('sb-portal-search', onSearch)
-  }, [])
 
   useEffect(() => {
     if (!session?.email) return
@@ -187,30 +212,9 @@ export function DashboardPage() {
 
   const managedUsers = franchisee?.managedUsers ?? []
   const cards = customer?.cards ?? []
-  const query = portalQuery.trim().toLowerCase()
-  const filteredUsers = query
-    ? managedUsers.filter((u) =>
-        [u.name, u.email, u.phone, u.companyName, String(u.userId), String(u.cardDbId ?? '')]
-          .join(' ')
-          .toLowerCase()
-          .includes(query),
-      )
-    : managedUsers
-  const filteredCards = query
-    ? cards.filter((c) =>
-        [c.companyName, c.cardSlug, c.paymentStatus, c.cardStatus, String(c.id)].join(' ').toLowerCase().includes(query),
-      )
-    : cards
-  const tableRows = isFranchisee ? filteredUsers : filteredCards
-  const pager = useClientPagination(tableRows.length, { resetKey: session?.email ?? '' })
-  const pagedUsers = pager.slice(filteredUsers)
-  const pagedCards = pager.slice(filteredCards)
-
   const pageTitle = dashboardTitleForRole(mappedRoleName || session?.roleName, session?.role)
-  const showRefundCol = Boolean(customer?.refundStatus && customer.refundStatus !== 'None')
-
-  const activeCount = filteredCards.filter((c) => c.paymentStatus === 'Success').length
-  const pendingCount = filteredCards.length - activeCount
+  const franchiseeRows = toFranchiseeProfileRows(managedUsers)
+  const customerRows = customer ? toCustomerProfileRows(cards, customer, session?.name) : []
 
   return (
     <div className="sb-dash">
@@ -229,22 +233,6 @@ export function DashboardPage() {
         {!loading && !error && isFranchisee && franchisee && (
           <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
-              <div className="sb-stat-grid">
-                <div className="sb-stat sb-stat--purple">
-                  <i className="fa fa-id-card" aria-hidden />
-                  <div>
-                    <strong>{franchisee.totalCardsCreated}</strong>
-                    <span>DB Profiles created</span>
-                  </div>
-                </div>
-                <div className="sb-stat sb-stat--green">
-                  <i className="fa fa-users" aria-hidden />
-                  <div>
-                    <strong>{filteredUsers.length}</strong>
-                    <span>Managed users</span>
-                  </div>
-                </div>
-              </div>
               <div className="FranchiseeDashboard-head">
                 <div className="mw-dash-card-grid">
                   <div className="card_area">
@@ -277,61 +265,12 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              <div className="ManageUsers">
-                <h4 className="heading">Manage Users: </h4>
-                <div className="table-responsive mw-table-scroll mw-table-scroll-wide mw-dashboard-table-wrap">
-                  <table id="ReferredUsers" className="display table mb-0" style={{ textAlign: 'center' }}>
-                    <thead className="bg-secondary">
-                      <tr>
-                        <th className="text-left">User ID</th>
-                        <th className="text-left">DB ID</th>
-                        <th className="text-left">User Email</th>
-                        <th className="text-left">User Name</th>
-                        <th className="text-left">User Number</th>
-                        <th className="text-left">Date Created</th>
-                        <th className="text-left">Validity Date</th>
-                        <th className="text-left">DB Profile Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="text-center">
-                            No users found.
-                          </td>
-                        </tr>
-                      ) : (
-                        pagedUsers.map((u) => {
-                          const st = mwStatus(u.paymentStatus)
-                          return (
-                            <tr key={`${u.userId}-${u.cardDbId ?? 0}`}>
-                              <td className="text-left">{u.userId}</td>
-                              <td className="text-left">{u.cardDbId ?? '-'}</td>
-                              <td className="text-left">{u.email}</td>
-                              <td className="text-left">{u.name}</td>
-                              <td className="text-left">{u.phone}</td>
-                              <td className="text-left">{fmtDate(u.userCreatedAt || u.cardCreatedDate)}</td>
-                              <td className="text-left">{u.validityDisplay || fmtDate(u.validityDate)}</td>
-                              <td className="text-left">
-                                <span className={st.className}>{st.text}</span>
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                {pager.showPager ? (
-                  <TablePagination
-                    total={filteredUsers.length}
-                    page={pager.page}
-                    pageSize={pager.pageSize}
-                    onPageChange={pager.setPage}
-                    onPageSizeChange={pager.setPageSize}
-                  />
-                ) : null}
-              </div>
+              <DashboardProfileTable
+                title="Manage Users: "
+                rows={franchiseeRows}
+                resetKey={session?.email ?? ''}
+                emptyMessage="No users found."
+              />
             </div>
           </div>
         )}
@@ -339,43 +278,6 @@ export function DashboardPage() {
         {!loading && !error && !isFranchisee && customer && (
           <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
-              <div className="sb-stat-grid">
-                <div className="sb-stat sb-stat--purple">
-                  <i className="fa fa-th-large" aria-hidden />
-                  <div>
-                    <strong>{filteredCards.length}</strong>
-                    <span>DB Profiles</span>
-                  </div>
-                </div>
-                <div className="sb-stat sb-stat--green">
-                  <i className="fa fa-check-circle" aria-hidden />
-                  <div>
-                    <strong>{activeCount}</strong>
-                    <span>Active</span>
-                  </div>
-                </div>
-                <div className="sb-stat sb-stat--orange">
-                  <i className="fa fa-clock-o" aria-hidden />
-                  <div>
-                    <strong>{pendingCount}</strong>
-                    <span>Pending payment</span>
-                  </div>
-                </div>
-                <div className="sb-stat sb-stat--pink">
-                  <i className="fa fa-share-alt" aria-hidden />
-                  <div>
-                    <strong>{customer.referralCode ? 1 : 0}</strong>
-                    <span>Referral code</span>
-                  </div>
-                </div>
-                <div className="sb-stat sb-stat--blue">
-                  <i className="fa fa-file-text-o" aria-hidden />
-                  <div>
-                    <strong>{customer.showInvoiceColumn ? activeCount : 0}</strong>
-                    <span>Invoices</span>
-                  </div>
-                </div>
-              </div>
               <div className="CustomerDashboard-head">
                 <div className="mw-dash-card-grid">
                   <div className="card_area top_section">
@@ -397,132 +299,11 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              <div className="table-responsive mw-table-scroll mw-dashboard-table-wrap" id="dashboardTableWrap">
-                <table id="ReferredUsers" className="display table mb-0" style={{ textAlign: 'center' }}>
-                  <thead className="bg-secondary">
-                    <tr>
-                      <th>DB ID</th>
-                      <th>Company Name</th>
-                      <th>Date Created</th>
-                      <th>Validity Date</th>
-                      <th>DB Profile Status</th>
-                      <th>View/Edit/Share</th>
-                      <th>User Payment Status</th>
-                      {customer.showInvoiceColumn && <th>Invoice</th>}
-                      {showRefundCol && <th>Refund Status</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCards.length === 0 ? (
-                      <tr>
-                        <td colSpan={customer.showInvoiceColumn ? (showRefundCol ? 9 : 8) : showRefundCol ? 8 : 7} className="text-center">
-                          No DB Profiles found. Create your first one!
-                        </td>
-                      </tr>
-                    ) : (
-                      pagedCards.map((card) => {
-                        const st = mwStatus(card.paymentStatus, card.cardStatus)
-                        const viewUrl = `/n/${encodeURIComponent(card.cardSlug || String(card.id))}`
-                        const editUrl = `/website/business-name?card_number=${card.id}`
-                        const absShare = `${window.location.origin}${viewUrl}`
-                        const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(absShare)}`
-                        const paid = card.paymentStatus === 'Success'
-                        return (
-                          <tr key={card.id}>
-                            <td>{card.id}</td>
-                            <td>{card.companyName}</td>
-                            <td>{fmtDate(card.uploadedDate)}</td>
-                            <td>{card.validityDisplay || fmtDate(card.validityDate)}</td>
-                            <td>
-                              <span className={st.className}>{st.text}</span>
-                            </td>
-                            <td>
-                              <div className="mw-table-cell-inline">
-                                <span className="view">
-                                  <a href={viewUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
-                                    <span className="view_icon_style">
-                                      <i className="fa-regular fa-eye" />
-                                    </span>
-                                  </a>
-                                </span>
-                                <span className="edit">
-                                  <Link to={editUrl}>
-                                    <span className="edit_icon_style">
-                                      <i className="fa-solid fa-pen" />
-                                    </span>
-                                  </Link>
-                                </span>
-                                <span className="share">
-                                  <a href={shareUrl} target="_blank" rel="noreferrer">
-                                    <span className="share_icon_style">
-                                      <i className="fa-solid fa-share-nodes" />
-                                    </span>
-                                  </a>
-                                </span>
-                              </div>
-                            </td>
-                            <td>
-                              {!paid ? (
-                                <Link
-                                  className="btn btn-primary paynow_btn"
-                                  to={`/payment/db-profile?id=${card.id}`}
-                                >
-                                  Pay Now
-                                </Link>
-                              ) : (
-                                <span className="badge bg-success paidOn_text">
-                                  {card.paymentDate ? `Paid on ${fmtDate(card.paymentDate)}` : 'Paid'}
-                                </span>
-                              )}
-                            </td>
-                            {customer.showInvoiceColumn && (
-                              <td style={{ textAlign: 'left' }}>
-                                {paid ? (
-                                  <Link
-                                    className="btn btn-info btn-sm view_btn"
-                                    to={`/dashboard/invoices?cardId=${card.id}`}
-                                    title="View Invoice History"
-                                  >
-                                    View
-                                  </Link>
-                                ) : (
-                                  <span className="download" title="Payment required to download invoice">
-                                    <span className="download_icon_style" style={{ filter: 'grayscale(100%)', opacity: 0.5 }}>
-                                      <i className="fa-solid fa-arrow-down" />
-                                    </span>
-                                  </span>
-                                )}
-                              </td>
-                            )}
-                            {showRefundCol && (
-                              <td style={{ textAlign: 'left' }}>
-                                <span className={`badge ${customer.refundStatus === 'Refund Settled' ? 'bg-success' : 'bg-warning'}`}>
-                                  {customer.refundStatus === 'Refund Settled' ? 'Refund Settled' : 'Refund Claimed'}
-                                  {customer.refundStatusDate ? (
-                                    <>
-                                      <br />
-                                      on {fmtDate(customer.refundStatusDate)}
-                                    </>
-                                  ) : null}
-                                </span>
-                              </td>
-                            )}
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
-                {pager.showPager ? (
-                  <TablePagination
-                    total={filteredCards.length}
-                    page={pager.page}
-                    pageSize={pager.pageSize}
-                    onPageChange={pager.setPage}
-                    onPageSizeChange={pager.setPageSize}
-                  />
-                ) : null}
-              </div>
+              <DashboardProfileTable
+                rows={customerRows}
+                resetKey={session?.email ?? ''}
+                emptyMessage="No DB Profiles found. Create your first one!"
+              />
 
               <br />
               <br />

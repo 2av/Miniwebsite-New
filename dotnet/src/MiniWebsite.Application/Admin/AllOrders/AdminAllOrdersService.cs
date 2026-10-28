@@ -99,7 +99,7 @@ public class AdminAllOrdersService : IAdminAllOrdersService
                 ? new Dictionary<int, string?>()
                 : await _db.Cards.AsNoTracking()
                     .Where(c => cardIds.Contains(c.Id))
-                    .ToDictionaryAsync(c => c.Id, c => c.Slug, ct);
+                    .ToDictionaryAsync(c => c.Id, c => c.DbCode ?? c.Slug, ct);
 
             var rows = invoices.Select(inv =>
             {

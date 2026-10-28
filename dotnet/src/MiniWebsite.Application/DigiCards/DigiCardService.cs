@@ -141,7 +141,9 @@ public class DigiCardService : IDigiCardService
             showInvoice,
             user.Referral.MwReferralId,
             user.Referral.Influencer ? "YES" : "NO",
-            (await WithSales(cards, ct)).ToList()));
+            (await WithSales(cards, ct)).ToList(),
+            user.FullName,
+            user.Phone));
     }
 
     public async Task<ApiResult<FranchiseeDashboardDto>> GetFranchiseeDashboardAsync(string email, CancellationToken ct = default)
@@ -186,7 +188,9 @@ public class DigiCardService : IDigiCardService
                 x.dc.UploadedDate,
                 sale.PaidOn,
                 x.dc.ValidityDate,
-                FormatValidity(x.dc, sale));
+                FormatValidity(x.dc, sale),
+                x.dc.CardId,
+                UserCodeGenerator.FormatDbId(x.dc.DbCode));
         }).ToList();
 
         return ApiResult<FranchiseeDashboardDto>.Ok(new FranchiseeDashboardDto(
@@ -215,7 +219,8 @@ public class DigiCardService : IDigiCardService
             sale.PaidOn,
             c.ValidityDate,
             FormatValidity(c, sale),
-            BuildPublicUrl(c.CardId));
+            BuildPublicUrl(c.CardId),
+            UserCodeGenerator.FormatDbId(c.DbCode));
 
     private DigiCardDetailDto MapDetail(Card c, CardSlugHistory? meta, CardSale sale) =>
         new(

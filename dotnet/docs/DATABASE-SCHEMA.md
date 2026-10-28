@@ -1,6 +1,6 @@
 # Database schema
 
-MySQL schema for ShareBizz, taken from the current EF Core model (`ApplicationDbContextModelSnapshot`). There are 43 tables. Integer primary keys are `AUTO_INCREMENT`, except where the primary key is also the foreign key (`card_slug_history.CardId`, and `UserId` on the three owned user tables). `tinyint(1)` is a boolean. `datetime(6)` stores microseconds.
+MySQL schema for ShareBizz, taken from the current EF Core model (`ApplicationDbContextModelSnapshot`). There are 44 tables. Integer primary keys are `AUTO_INCREMENT`, except where the primary key is also the foreign key (`card_slug_history.CardId`, and `UserId` on the three owned user tables). `tinyint(1)` is a boolean. `datetime(6)` stores microseconds.
 
 `users`, `refresh_tokens`, `password_reset_tokens`, and `registration_pending` have `IsDeleted`. EF hides rows where that flag is true.
 
@@ -28,7 +28,7 @@ These are the overlaps to plan against. A foreign key plus a copied email is sti
 | customers | `OwnerUserId` (the owner, not the customer) | `CustomerName`, `EmailId`, `PhoneNumber` |
 | email_logs | none | `UserEmail` |
 
-`user_bank_details`, `user_custom_categories`, `user_joining_deals`, and `franchise_verifications` keep only `UserId`. Their copied `UserEmail` columns were removed.
+`user_bank_details`, `user_custom_categories`, `user_joining_deals`, `franchise_verifications`, and `uploaded_files` keep only `UserId`. Their copied `UserEmail` columns were removed. `uploaded_files` stores the R2 object key, name, size, and folder. The file itself stays in Cloudflare.
 
 `customer_followups.OwnerUserId` points at `users.Id`. Deleting a user does not delete the followup through that link; the customer delete does.
 
@@ -148,6 +148,7 @@ A stored value outside that list is rewritten to the normal default before the c
 | referral_earnings | ReferredUserId | users.Id | Set null | No |
 | referral_payments | ReferralEarningId | referral_earnings.Id | Restrict | Yes |
 | customers | OwnerUserId | users.Id | Cascade | Yes |
+| uploaded_files | UserId | users.Id | Cascade | Yes |
 | customer_followups | CustomerId | customers.Id | Cascade | Yes |
 | customer_followups | OwnerUserId | users.Id | Restrict | Yes |
 | card_products | ProductCategory | product_categories.Id | Set null | No |
@@ -166,7 +167,7 @@ No foreign keys: `content_pages`, `faqs`, `email_logs`, `email_templates`, `doc_
 Types below are the MySQL types. `identity` means `AUTO_INCREMENT`.
 
 ### cards
-Entity `Card`. Primary key `Id`. Indexes: INDEX(FranchiseeEmail) | INDEX(FranchiseeUserId) | UNIQUE(Slug) | INDEX(UserEmail) | INDEX(UserId).
+Entity `Card`. Primary key `Id`. Indexes: UNIQUE(DbCode) | INDEX(FranchiseeEmail) | INDEX(FranchiseeUserId) | UNIQUE(Slug) | INDEX(UserEmail) | INDEX(UserId).
 
 | Column | Type | Null |
 |---|---|---|
@@ -185,6 +186,7 @@ Entity `Card`. Primary key `Id`. Indexes: INDEX(FranchiseeEmail) | INDEX(Franchi
 | Contact | longtext | Yes |
 | Contact2 | longtext | Yes |
 | CreatedAt | datetime(6) | Yes |
+| DbCode | varchar(16) | Yes |
 | DisplayName | varchar(199) | Yes |
 | DisplayNameChangeCount | int | No |
 | Email | varchar(255) | Yes |
@@ -501,6 +503,24 @@ Entity `Faq`. Primary key `Id`. Indexes: INDEX(PageType,SortOrder).
 | SortOrder | int | No |
 | Status | varchar(20) | No |
 | UpdatedAt | datetime(6) | Yes |
+
+### uploaded_files
+Entity `UploadedFile`. Primary key `Id`. Indexes: INDEX(UserId, Folder, Document, Status).
+
+| Column | Type | Null |
+|---|---|---|
+| Id | int identity | No |
+| ContentType | varchar(100) | No |
+| Document | varchar(40) | No |
+| Folder | varchar(30) | No |
+| ObjectKey | varchar(500) | No |
+| OriginalFileName | varchar(255) | No |
+| ReplacedAt | datetime(6) | Yes |
+| SizeBytes | bigint | No |
+| Status | varchar(20) | No |
+| StoredFileName | varchar(255) | No |
+| UploadedAt | datetime(6) | No |
+| UserId | int | No |
 
 ### franchise_verifications
 Entity `FranchiseVerification`. Primary key `Id`. Indexes: UNIQUE(UserId).

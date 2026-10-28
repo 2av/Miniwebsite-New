@@ -93,7 +93,8 @@ public record DashboardWebsiteDto(
     string StatusClass,
     string StatusText,
     string ValidityDisplay,
-    string PaymentLabel);
+    string PaymentLabel,
+    string OrderIdDisplay);
 
 public record ReferralDetailsDto(
     string ReferrerEmail,

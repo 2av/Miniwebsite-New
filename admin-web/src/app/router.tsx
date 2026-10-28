@@ -13,6 +13,7 @@ import { ManagePricingPage } from '@/features/manage-pricing/ManagePricingPage'
 import { PlanCommissionsPage } from '@/features/plan-commissions/PlanCommissionsPage'
 import { ManageEmailTemplatesPage } from '@/features/email-templates/ManageEmailTemplatesPage'
 import { ManageFaqsPage } from '@/features/manage-faqs/ManageFaqsPage'
+import { FilesPage } from '@/features/files/FilesPage'
 import { ManageContentPage } from '@/features/manage-content/ManageContentPage'
 import { ManageCategoriesPage } from '@/features/manage-categories/ManageCategoriesPage'
 import { ManageTeamsPage } from '@/features/manage-teams/ManageTeamsPage'
@@ -48,6 +49,7 @@ export function AppRouter() {
         <Route path="user-details" element={<Navigate to="/sb-user-details" replace />} />
         <Route path="manage-users" element={<Navigate to="/sb-user-details" replace />} />
         <Route path="db-profile-details" element={<ManageCardsPage />} />
+        <Route path="files" element={<FilesPage />} />
         <Route path="sb-profile-details" element={<RedirectWithSearch to="/db-profile-details" />} />
         <Route path="miniwebsite-details" element={<RedirectWithSearch to="/db-profile-details" />} />
         <Route path="franchisee-details" element={<FranchiseesPage />} />

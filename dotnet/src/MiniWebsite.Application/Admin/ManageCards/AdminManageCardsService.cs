@@ -57,6 +57,7 @@ public class AdminManageCardsService : IAdminManageCardsService
                 || (c.UserEmail != null && c.UserEmail.Contains(s))
                 || (c.FranchiseeEmail != null && c.FranchiseeEmail.Contains(s))
                 || (c.Slug != null && (c.Slug.Contains(s) || c.Slug.Replace(" ", "").Contains(compact)))
+                || (c.DbCode != null && (c.DbCode.Contains(s) || c.DbCode.Replace(" ", "").Contains(compact)))
                 || (c.UserId != null && matchedIds.Contains(c.UserId.Value))
                 || c.Id.ToString().Contains(s));
         }
@@ -70,6 +71,7 @@ public class AdminManageCardsService : IAdminManageCardsService
             {
                 Id = c.Id,
                 Slug = c.Slug,
+                DbCode = c.DbCode,
                 UserId = c.UserId,
                 UserEmail = c.UserEmail,
                 FranchiseeEmail = c.FranchiseeEmail,
@@ -155,7 +157,7 @@ public class AdminManageCardsService : IAdminManageCardsService
                 string.IsNullOrWhiteSpace(c.Slug) ? siteBase : $"{siteBase}/{c.Slug}",
                 $"{siteBase}/admin/select_theme.php?card_number={c.Id}&user_email={Uri.EscapeDataString(c.UserEmail ?? "")}",
                 user == null ? "" : UserCodeGenerator.FormatDisplay(user.UserCode),
-                UserCodeGenerator.FormatDbId(c.Slug),
+                UserCodeGenerator.FormatDbId(string.IsNullOrWhiteSpace(c.DbCode) ? c.Slug : c.DbCode),
                 FormatDay(c.CreatedAt),
                 FormatDay(expiry),
                 inv.PromoCode,

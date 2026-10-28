@@ -95,6 +95,7 @@ export type DashboardWebsite = {
   statusText: string
   validityDisplay: string
   paymentLabel: string
+  orderIdDisplay?: string | null
 }
 
 export type DashboardDetails = {

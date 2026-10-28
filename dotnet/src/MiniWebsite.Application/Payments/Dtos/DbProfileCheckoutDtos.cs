@@ -73,7 +73,8 @@ public record DbProfileCheckoutResultDto(
     decimal Amount,
     string Currency,
     string KeyId,
-    string PlanName);
+    string PlanName,
+    bool PaymentCompleted);
 
 public record DbProfileVerifyRequest(
     string Email,

@@ -245,7 +245,7 @@ export function AllOrdersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {['DB ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
+                    {['Order ID', 'Company', 'Created', 'Validity', 'Status', 'Payment'].map((heading) => (
                       <TableHead key={heading}>{heading}</TableHead>
                     ))}
                   </TableRow>
@@ -253,7 +253,7 @@ export function AllOrdersPage() {
                 <TableBody>
                   {dashboardQuery.data.websites.map((w) => (
                     <TableRow key={w.id}>
-                      <TableCell>{w.id}</TableCell>
+                      <TableCell className="whitespace-nowrap">{w.orderIdDisplay || '-'}</TableCell>
                       <TableCell>{w.companyName || 'Unnamed'}</TableCell>
                       <TableCell>{w.uploadedDate ? w.uploadedDate.slice(0, 10) : ''}</TableCell>
                       <TableCell>{w.validityDisplay}</TableCell>

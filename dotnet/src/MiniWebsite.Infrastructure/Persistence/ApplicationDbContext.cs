@@ -51,6 +51,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<UserCustomCategory> UserCustomCategories => Set<UserCustomCategory>();
     public DbSet<UserBankDetails> UserBankDetails => Set<UserBankDetails>();
     public DbSet<FranchiseVerification> FranchiseVerifications => Set<FranchiseVerification>();
+    public DbSet<UploadedFile> UploadedFiles => Set<UploadedFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +63,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         await AssignUserCodesAsync(cancellationToken);
         await AssignOrderCodesAsync(cancellationToken);
+        await AssignDbCodesAsync(cancellationToken);
 
         for (var attempt = 1; ; attempt++)
         {
@@ -135,6 +137,43 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             do code = UserCodeGenerator.Generate(UserCodeGenerator.OrderPrefix);
             while (!claimed.Add(code) || await Invoices.AnyAsync(i => i.OrderCode == code, ct));
             invoice.OrderCode = code;
+        }
+    }
+
+    public async Task EnsureDbCodesAsync(CancellationToken ct = default)
+    {
+        var missing = await Cards
+            .Where(c => c.DbCode == null || c.DbCode == "")
+            .ToListAsync(ct);
+        if (missing.Count == 0) return;
+
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var card in missing)
+        {
+            string code;
+            do code = UserCodeGenerator.GenerateDbCode();
+            while (!claimed.Add(code) || await Cards.AnyAsync(c => c.DbCode == code, ct));
+            card.DbCode = code;
+        }
+
+        await SaveChangesAsync(ct);
+    }
+
+    private async Task AssignDbCodesAsync(CancellationToken ct)
+    {
+        var pending = ChangeTracker.Entries<Card>()
+            .Where(e => e.State == EntityState.Added && string.IsNullOrWhiteSpace(e.Entity.DbCode))
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0) return;
+
+        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var card in pending)
+        {
+            string code;
+            do code = UserCodeGenerator.GenerateDbCode();
+            while (!claimed.Add(code) || await Cards.AnyAsync(c => c.DbCode == code, ct));
+            card.DbCode = code;
         }
     }
 

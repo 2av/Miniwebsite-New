@@ -8,6 +8,7 @@ public static class UserCodeGenerator
     public const int RandomLength = 8;
     public const string FallbackPrefix = "USR";
     public const string OrderPrefix = "ORD";
+    public const string DbPrefix = "DB";
 
     private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -57,14 +58,34 @@ public static class UserCodeGenerator
         return code;
     }
 
-    /// <summary>DB profile ID from the card slug, e.g. <c>DB8I7A4B5D</c> → <c>DB 8I7A4B5D</c>.</summary>
+    /// <summary>
+    /// Public DB profile id, saved as <c>DB 4E5T8Y9C</c>.
+    /// <c>DB</c> is fixed, then 8 letters/digits that start with a number.
+    /// </summary>
+    public static string GenerateDbCode()
+    {
+        const string digits = "0123456789";
+        var chars = new char[RandomLength];
+        do
+        {
+            chars[0] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+            for (var i = 1; i < chars.Length; i++)
+                chars[i] = Alphabet[RandomNumberGenerator.GetInt32(Alphabet.Length)];
+        }
+        while (!chars.Any(char.IsLetter));
+
+        return DbPrefix + " " + new string(chars);
+    }
+
+    /// <summary>DB profile ID, e.g. <c>DB4E5T8Y9C</c> or <c>DB 4E5T8Y9C</c> → <c>DB 4E5T8Y9C</c>.</summary>
     public static string FormatDbId(string? slug)
     {
         if (string.IsNullOrWhiteSpace(slug)) return "";
-        var code = slug.Trim();
-        if (code.Contains(' ')) return code;
-        if (code.StartsWith("DB", StringComparison.OrdinalIgnoreCase) && code.Length > 2)
-            return "DB " + code[2..].ToUpperInvariant();
+        var code = slug.Trim().ToUpperInvariant();
+        if (code.StartsWith(DbPrefix + " ", StringComparison.Ordinal))
+            return DbPrefix + " " + code[(DbPrefix.Length + 1)..].Replace(" ", "");
+        if (code.StartsWith(DbPrefix, StringComparison.Ordinal) && code.Length > DbPrefix.Length)
+            return DbPrefix + " " + code[DbPrefix.Length..].Replace(" ", "");
         return code;
     }
 }

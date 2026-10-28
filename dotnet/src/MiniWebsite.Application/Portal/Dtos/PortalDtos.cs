@@ -36,27 +36,31 @@ public record ReferralEarningRowDto(
     string? ReferralDateDisplay,
     string? PaymentStatus);
 
-/// <summary>One referred-user table row (matches user/referral/index.php columns).</summary>
+/// <summary>One referred-user row on the portal referral page.</summary>
 public record ReferredUserRowDto(
     int? UserId,
+    string ReferredUserId,
     int? CardId,
-    string MwFrIdLabel,
-    bool MwFrIsCardLink,
+    string DbId,
+    bool DbIdIsLink,
     string? Email,
-    string UserType,
     string? Name,
     string? Phone,
-    string? JoinedOnDisplay,
-    string ReferralSource,
-    string? DateCreatedDisplay,
-    string? ValidityDisplay,
-    string MwStatus,
-    string MwStatusClass,
-    string UserPaymentLabel,
-    string UserPaymentClass,
-    decimal Amount,
-    string ReferralPaymentLabel,
-    string ReferralPaymentClass);
+    string JoinedOnDisplay,
+    string DateCreatedDisplay,
+    string ExpiryDateDisplay,
+    string DbProfileStatus,
+    string DbProfileStatusClass,
+    string OrderDescription,
+    string CommissionStatus,
+    string CommissionStatusClass,
+    decimal CommissionAmount,
+    decimal TotalPayableAmount,
+    int? PartnerInvoiceId,
+    string PartnerInvoiceApproval,
+    string PartnerInvoiceApprovalClass,
+    string SbPayoutStatus,
+    string SbPayoutStatusClass);
 
 public record ReferralPageDto(
     string Role,

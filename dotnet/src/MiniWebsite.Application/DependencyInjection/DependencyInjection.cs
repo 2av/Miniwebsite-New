@@ -16,6 +16,7 @@ using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.RoleManagement;
 using MiniWebsite.Application.Admin.SalesChannelPartners;
 using MiniWebsite.Application.Admin.Coupons;
+using MiniWebsite.Application.Admin.Dashboard;
 using MiniWebsite.Application.Admin.ManagePricing;
 using MiniWebsite.Application.Admin.PlanCommissions;
 using MiniWebsite.Application.Admin.ManageReferrals;
@@ -28,6 +29,8 @@ using MiniWebsite.Application.Website;
 using MiniWebsite.Application.PublicSite;
 using MiniWebsite.Application.Payments;
 using MiniWebsite.Application.Portal;
+using MiniWebsite.Application.Uploads;
+using MiniWebsite.Application.Admin.Files;
 using System.Reflection;
 
 namespace MiniWebsite.Application;
@@ -42,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<IRegistrationService, RegistrationService>();
         services.AddScoped<IDigiCardService, DigiCardService>();
         services.AddScoped<IWebsiteService, WebsiteService>();
+        services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         services.AddScoped<IAdminManageUsersService, AdminManageUsersService>();
         services.AddScoped<IAdminManageCardsService, AdminManageCardsService>();
         services.AddScoped<IAdminFranchiseDistributorsService, AdminFranchiseDistributorsService>();
@@ -66,6 +70,8 @@ public static class DependencyInjection
         services.AddScoped<IPublicSiteService, PublicSiteService>();
         services.AddScoped<IPublicCardService, PublicCardService>();
         services.AddScoped<IPortalService, PortalService>();
+        services.AddScoped<IUploadedFileTracker, UploadedFileTracker>();
+        services.AddScoped<IAdminFilesService, AdminFilesService>();
         services.AddScoped<IDbProfileCheckoutService, DbProfileCheckoutService>();
         return services;
     }

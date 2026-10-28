@@ -136,6 +136,12 @@ export function IdCardPage() {
   const [profile, setProfile] = useState<IdCardProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [alert, setAlert] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (alert?.type !== 'success') return
+    const timer = window.setTimeout(() => setAlert(null), 3500)
+    return () => window.clearTimeout(timer)
+  }, [alert])
   const [bgReady, setBgReady] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [cropFile, setCropFile] = useState<File | null>(null)

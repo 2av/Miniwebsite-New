@@ -42,6 +42,13 @@ The admin chooses only Active or InActive. A coupon shows Expired automatically 
 
 Only Active terms are used for the referrer's sign-up earning.
 
+## Uploaded file
+
+- Current
+- Replaced
+
+Current is the file in use. Replaced is an older file kept for tracking after a newer upload.
+
 ## Document verification
 
 - Not Submitted

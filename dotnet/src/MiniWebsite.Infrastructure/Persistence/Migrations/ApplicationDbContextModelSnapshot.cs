@@ -82,6 +82,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("DbCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("varchar(16)");
+
                     b.Property<string>("DisplayName")
                         .HasMaxLength(199)
                         .HasColumnType("varchar(199)");
@@ -196,6 +200,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DbCode")
+                        .IsUnique();
 
                     b.HasIndex("FranchiseeEmail");
 
@@ -752,6 +759,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CouponId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -759,9 +769,6 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<int>("CouponId")
-                        .HasColumnType("int");
 
                     b.Property<string>("CustomerEmail")
                         .IsRequired()
@@ -2133,6 +2140,73 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("theme_catalog", (string)null);
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.UploadedFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Document")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Folder")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("ObjectKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("ReplacedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Folder", "Document", "Status");
+
+                    b.ToTable("uploaded_files", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_uploaded_files_Folder", "`Folder` IN ('profile', 'verification')");
+
+                            t.HasCheckConstraint("CK_uploaded_files_Status", "`Status` IN ('Current', 'Replaced')");
+                        });
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -2740,6 +2814,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ReferrerUserId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.UploadedFile", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.User", b =>

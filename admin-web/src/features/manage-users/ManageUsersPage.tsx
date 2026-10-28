@@ -251,7 +251,7 @@ export function ManageUsersPage() {
                 <TableRow>
                   <TableCell colSpan={COLUMNS.length} className="px-4 py-10 text-center text-destructive">
                     {(listQuery.error as Error).message}
-                    <div className="mt-1 text-xs text-muted-foreground">Start the .NET API on localhost:5209</div>
+                    <div className="mt-1 text-xs text-muted-foreground">The API did not respond. Upload the site from the single publish folder so the admin app and the API stay on the same address.</div>
                   </TableCell>
                 </TableRow>
               )}

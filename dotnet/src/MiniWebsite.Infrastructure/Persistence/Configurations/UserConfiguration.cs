@@ -99,6 +99,8 @@ public class CardConfiguration : IEntityTypeConfiguration<Card>
             "`CardStatus` IS NULL OR `CardStatus` IN ('Active', 'Suspended', 'Inactive', 'InActive')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Slug).HasMaxLength(200);
+        builder.Property(x => x.DbCode).HasMaxLength(16);
+        builder.HasIndex(x => x.DbCode).IsUnique();
         builder.Property(x => x.Email).HasMaxLength(255);
         builder.Property(x => x.CardStatus).HasMaxLength(20);
         builder.Property(x => x.UserEmail).HasMaxLength(200);
