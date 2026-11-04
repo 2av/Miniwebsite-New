@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { MwAlert, MwField, MwInput, MwStepActions } from '@/components/form/MwControls'
 
 export function VideosPage() {
   const { cardId, email } = useOutletContext<WebsiteOutletContext>()
@@ -43,32 +44,28 @@ export function VideosPage() {
   return (
     <>
       <PortalPageHeader title="YouTube Videos" />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
-        {msg && <div className="alert alert-success">{msg}</div>}
-        <form onSubmit={save} className="row g-2">
-          {urls.map((u, i) => (
-            <div className="col-md-6" key={i}>
-              <input
-                className="form-control"
-                placeholder={`YouTube URL ${i + 1}`}
-                value={u}
-                onChange={(e) => setUrls((arr) => arr.map((x, idx) => (idx === i ? e.target.value : x)))}
-              />
-            </div>
-          ))}
-          <div className="col-12 d-flex gap-2 mt-2">
-            <Link className="btn btn-outline-secondary" to={stepPath('/website/products', cardId)}>
-              Back
-            </Link>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
-            <Link className="btn btn-outline-primary" to={stepPath('/website/image-gallery', cardId)}>
-              Next
-            </Link>
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+        {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
+        <form onSubmit={save} className="mw-form">
+          <div className="mw-form-grid-2">
+            {urls.map((u, i) => (
+              <MwField label={`Video ${i + 1}`} key={i} htmlFor={`video-${i}`}>
+                <MwInput
+                  id={`video-${i}`}
+                  placeholder="YouTube URL"
+                  value={u}
+                  onChange={(e) => setUrls((arr) => arr.map((x, idx) => (idx === i ? e.target.value : x)))}
+                />
+              </MwField>
+            ))}
           </div>
+          <MwStepActions
+            back={stepPath('/website/products', cardId)}
+            next={stepPath('/website/image-gallery', cardId)}
+            saveLabel="Save"
+          />
         </form>
       </div>
     </div>
@@ -126,39 +123,34 @@ export function PaymentDetailsPage() {
   return (
     <>
       <PortalPageHeader title="Payment Details" />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
-        {msg && <div className="alert alert-success">{msg}</div>}
-        <form onSubmit={save} className="row g-3">
-          {(
-            [
-              ['googlePay', 'Google Pay'],
-              ['phonePay', 'PhonePe'],
-              ['paytm', 'Paytm'],
-              ['bankName', 'Bank Name'],
-              ['acName', 'Account Name'],
-              ['accountNo', 'Account Number'],
-              ['ifsc', 'IFSC'],
-              ['acType', 'Account Type / GST label'],
-            ] as const
-          ).map(([k, label]) => (
-            <div className="col-md-6" key={k}>
-              <label className="form-label">{label}</label>
-              <input className="form-control" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-            </div>
-          ))}
-          <div className="col-12 d-flex gap-2">
-            <Link className="btn btn-outline-secondary" to={stepPath('/website/image-gallery', cardId)}>
-              Back
-            </Link>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
-            <Link className="btn btn-outline-primary" to={stepPath('/website/social-links', cardId)}>
-              Next
-            </Link>
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+        {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
+        <form onSubmit={save} className="mw-form">
+          <div className="mw-form-grid-2">
+            {(
+              [
+                ['googlePay', 'Google Pay'],
+                ['phonePay', 'PhonePe'],
+                ['paytm', 'Paytm'],
+                ['bankName', 'Bank Name'],
+                ['acName', 'Account Name'],
+                ['accountNo', 'Account Number'],
+                ['ifsc', 'IFSC'],
+                ['acType', 'Account Type'],
+              ] as const
+            ).map(([k, label]) => (
+              <MwField label={label} key={k} htmlFor={`pay-${k}`}>
+                <MwInput id={`pay-${k}`} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+              </MwField>
+            ))}
           </div>
+          <MwStepActions
+            back={stepPath('/website/image-gallery', cardId)}
+            next={stepPath('/website/social-links', cardId)}
+            saveLabel="Save"
+          />
         </form>
       </div>
     </div>
@@ -212,37 +204,28 @@ export function SocialLinksPage() {
   return (
     <>
       <PortalPageHeader title="Social Links" />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
-        {msg && <div className="alert alert-success">{msg}</div>}
-        <form onSubmit={save} className="row g-3">
-          {(
-            [
-              ['fb', 'Facebook'],
-              ['twitter', 'Twitter / X'],
-              ['instagram', 'Instagram'],
-              ['linkedin', 'LinkedIn'],
-              ['youtube', 'YouTube'],
-              ['pinterest', 'Pinterest'],
-            ] as const
-          ).map(([k, label]) => (
-            <div className="col-md-6" key={k}>
-              <label className="form-label">{label}</label>
-              <input className="form-control" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-            </div>
-          ))}
-          <div className="col-12 d-flex gap-2">
-            <Link className="btn btn-outline-secondary" to={stepPath('/website/payment-details', cardId)}>
-              Back
-            </Link>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
-            <Link className="btn btn-success" to="/dashboard">
-              Done — Dashboard
-            </Link>
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+        {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
+        <form onSubmit={save} className="mw-form">
+          <div className="mw-form-grid-2">
+            {(
+              [
+                ['fb', 'Facebook'],
+                ['twitter', 'Twitter / X'],
+                ['instagram', 'Instagram'],
+                ['linkedin', 'LinkedIn'],
+                ['youtube', 'YouTube'],
+                ['pinterest', 'Pinterest'],
+              ] as const
+            ).map(([k, label]) => (
+              <MwField label={label} key={k} htmlFor={`social-${k}`}>
+                <MwInput id={`social-${k}`} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+              </MwField>
+            ))}
           </div>
+          <MwStepActions back={stepPath('/website/payment-details', cardId)} next="/dashboard" nextLabel="Dashboard" saveLabel="Save" />
         </form>
       </div>
     </div>

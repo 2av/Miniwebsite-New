@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { setCardInProcess, stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
-import { assetUrl, siteUrl } from '@/lib/utils'
+import { siteUrl } from '@/lib/utils'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { MwAlert, MwField, MwInput, MwStepActions } from '@/components/form/MwControls'
 
 function publicUrlForSlug(slug: string) {
   const clean = slug.replace(/^\//, '')
@@ -100,25 +101,14 @@ export function BusinessNamePage() {
     }
   }
 
-  const saveIcon = assetUrl('images/Save.png')
   const nextHref = stepPath('/website/select-theme', activeId)
 
   return (
     <>
       <PortalPageHeader title="Business Name" subtitle="Website Builder" />
 
-      {err && (
-        <div className="alert alert-danger mw-alert mw-alert-danger" role="alert">
-          <i className="fa fa-exclamation-circle mw-alert-icon" aria-hidden />
-          <div className="mw-alert-body">{err}</div>
-        </div>
-      )}
-      {msg && (
-        <div className="alert alert-success mw-alert mw-alert-success" role="alert">
-          <i className="fa fa-check-circle mw-alert-icon" aria-hidden />
-          <div className="mw-alert-body">{msg}</div>
-        </div>
-      )}
+      {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+      {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
 
       <div className="card mb-4 mw-card">
         <div className="card-body mw-card-body">
@@ -128,31 +118,25 @@ export function BusinessNamePage() {
             onSubmit={(e) => void save(e)}
           >
             <div className="mw-business-name-fields-row">
-              <div className="form-group top_header_section mw-form-group">
-                <label className="mw-label mw-label-lg" htmlFor="d_display_name">
-                  Business Name<span className="req">*</span>
-                </label>
-                <input
+              <MwField label="Business Name" required htmlFor="d_display_name" large>
+                <MwInput
                   type="text"
                   id="d_display_name"
                   name="d_display_name"
-                  className="form-control d_display_name mw-input mw-input-lg"
+                  className="d_display_name mw-input-lg"
                   maxLength={199}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Enter Business Name"
                   required
                 />
-              </div>
-              <div className="form-group top_header_section mw-form-group">
-                <label className="mw-label mw-label-lg" htmlFor="d_comp_name">
-                  Business URL<span className="req">*</span>
-                </label>
-                <input
+              </MwField>
+              <MwField label="Business URL" required htmlFor="d_comp_name" large>
+                <MwInput
                   type="text"
                   id="d_comp_name"
                   name="d_comp_name"
-                  className="form-control d_comp_name mw-input mw-input-lg"
+                  className="d_comp_name mw-input-lg"
                   maxLength={199}
                   value={compName}
                   onChange={(e) => setCompName(e.target.value)}
@@ -161,7 +145,7 @@ export function BusinessNamePage() {
                   title="Only letters, numbers, spaces and hyphen (-) are allowed."
                   required
                 />
-              </div>
+              </MwField>
             </div>
 
             {activeId ? (
@@ -205,28 +189,7 @@ export function BusinessNamePage() {
               </div>
             ) : null}
 
-            <div className="Product-ServicesBtn mw-btn-row d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
-              <Link to="/dashboard" className="mw-btn mw-btn-back">
-                <span className="mw-btn-angle angle">
-                  <i className="fa fa-angle-left" aria-hidden />
-                </span>
-                <span>Back</span>
-              </Link>
-              <button type="submit" className="mw-btn mw-btn-save save_btn" disabled={busy}>
-                <img src={saveIcon} alt="" style={{ width: 18, height: 18, marginRight: 6 }} />
-                <span>{busy ? 'Saving...' : 'Save'}</span>
-              </button>
-              {activeId ? (
-                <Link to={nextHref} className="mw-btn mw-btn-next">
-                  <span>Next</span>
-                  <span className="mw-btn-angle angle">
-                    <i className="fa fa-angle-right" aria-hidden />
-                  </span>
-                </Link>
-              ) : (
-                <span style={{ width: 1 }} aria-hidden />
-              )}
-            </div>
+            <MwStepActions back="/dashboard" next={activeId ? nextHref : undefined} saveLabel="Save" busy={busy} />
           </form>
         </div>
       </div>

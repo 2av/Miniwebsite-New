@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { MwAlert, MwStepActions } from '@/components/form/MwControls'
 
 type ThemeItem = { number: number; name: string; cssValue: string; previewImageUrl?: string | null }
 
@@ -56,10 +57,10 @@ export function SelectThemePage() {
   return (
     <>
       <PortalPageHeader title="Select Theme" />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
-        {msg && <div className="alert alert-success">{msg}</div>}
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+        {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
         <div className="row">
           {themes.map((t) => (
             <div className="col-6 col-md-3 mb-3" key={t.number}>
@@ -80,17 +81,14 @@ export function SelectThemePage() {
             </div>
           ))}
         </div>
-        <div className="d-flex gap-2 mt-2">
-          <Link className="btn btn-outline-secondary" to={stepPath('/website/business-name', cardId)}>
-            Back
-          </Link>
-          <button type="button" className="btn btn-primary" onClick={() => void save()} disabled={!selected}>
-            Save Theme
-          </button>
-          <Link className="btn btn-outline-primary" to={stepPath('/website/company-details', cardId)}>
-            Next
-          </Link>
-        </div>
+        <MwStepActions
+          back={stepPath('/website/business-name', cardId)}
+          next={stepPath('/website/company-details', cardId)}
+          saveLabel="Save Theme"
+          disabled={!selected}
+          submit={false}
+          onSave={() => void save()}
+        />
       </div>
     </div>
     </>

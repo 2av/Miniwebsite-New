@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { MwAlert, MwField, MwInput, MwStepActions, MwTextarea } from '@/components/form/MwControls'
 
 const FIELDS = [
   ['firstName', 'First Name'],
@@ -149,8 +150,7 @@ export function CompanyDetailsPage() {
     const note = imageError[kind]
     const busy = uploading === kind || removing === kind
     return (
-      <div className="col-md-6">
-        <p className="addlogo">{title}</p>
+      <MwField label={title}>
         <label className={`company-image-box${busy ? ' is-busy' : ''}`}>
           {uploading === kind ? (
             <div className="company-image-progress">
@@ -194,49 +194,42 @@ export function CompanyDetailsPage() {
             }}
           />
         </label>
-      </div>
+      </MwField>
     )
   }
 
   return (
     <>
       <PortalPageHeader title="Company Details" />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
-        {msg && <div className="alert alert-success">{msg}</div>}
-        <form onSubmit={save} className="row g-3">
-          {FIELDS.map(([key, label]) => (
-            <div className="col-md-6" key={key}>
-              <label className="form-label">{label}</label>
-              <input
-                className="form-control"
-                value={form[key] || ''}
-                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-              />
-            </div>
-          ))}
-          <div className="col-12">
-            <label className="form-label">About Us</label>
-            <textarea className="form-control" rows={4} value={aboutUs} onChange={(e) => setAboutUs(e.target.value)} />
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
+        {msg ? <MwAlert tone="success">{msg}</MwAlert> : null}
+        <form onSubmit={save} className="mw-form">
+          <div className="mw-form-grid-2">
+            {FIELDS.map(([key, label]) => (
+              <MwField label={label} key={key} htmlFor={`company-${key}`}>
+                <MwInput
+                  id={`company-${key}`}
+                  value={form[key] || ''}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                />
+              </MwField>
+            ))}
+            <MwField label="About Us" wide htmlFor="company-about">
+              <MwTextarea id="company-about" rows={4} value={aboutUs} onChange={(e) => setAboutUs(e.target.value)} />
+            </MwField>
+            <MwField label="Business Hours" wide htmlFor="company-hours">
+              <MwTextarea id="company-hours" rows={2} value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} />
+            </MwField>
+            <ImageBox kind="logo" title="Logo" src={logoUrl} inputRef={logoRef} />
+            <ImageBox kind="hero" title="Hero image" src={heroUrl} inputRef={heroRef} />
           </div>
-          <div className="col-12">
-            <label className="form-label">Business Hours (JSON or text)</label>
-            <textarea className="form-control" rows={2} value={businessHours} onChange={(e) => setBusinessHours(e.target.value)} />
-          </div>
-          <ImageBox kind="logo" title="Logo" src={logoUrl} inputRef={logoRef} />
-          <ImageBox kind="hero" title="Hero image" src={heroUrl} inputRef={heroRef} />
-          <div className="col-12 d-flex gap-2">
-            <Link className="btn btn-outline-secondary" to={stepPath('/website/select-theme', cardId)}>
-              Back
-            </Link>
-            <button type="submit" className="btn btn-primary">
-              Save
-            </button>
-            <Link className="btn btn-outline-primary" to={stepPath('/website/services', cardId)}>
-              Next
-            </Link>
-          </div>
+          <MwStepActions
+            back={stepPath('/website/select-theme', cardId)}
+            next={stepPath('/website/services', cardId)}
+            saveLabel="Save"
+          />
         </form>
       </div>
     </div>
@@ -255,11 +248,6 @@ export function CompanyDetailsPage() {
           background: #fff;
         }
         .company-image-box.is-busy { cursor: default; }
-        .addlogo {
-          font-size: 18px;
-          margin-bottom: 10px;
-          margin-top: 0;
-        }
         .company-image-box span {
           font-size: 16px;
           font-weight: 500;

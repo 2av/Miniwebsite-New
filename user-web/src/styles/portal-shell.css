@@ -542,6 +542,13 @@ main.Dashboard .ManageUsers > #customerTrackerTableWrap table#customerTrackerTab
 .mw-business-name-fields-row .form-control {
   width: 100%;
 }
+.mw-form-grid-2 > .mw-form-span {
+  grid-column: 1 / -1;
+}
+select.form-control.mw-input {
+  appearance: auto;
+  cursor: pointer;
+}
 .mw-business-name-url-extra {
   width: 100%;
   margin-top: 1rem;

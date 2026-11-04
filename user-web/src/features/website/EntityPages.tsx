@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { TablePagination, useClientPagination } from '@/components/table'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { MwAlert, MwField, MwInput, MwSelect, MwStepActions } from '@/components/form/MwControls'
 
 function asList(raw: unknown) {
   return Array.isArray(raw) ? raw : []
@@ -249,14 +250,15 @@ export function ServicesPage() {
       next={stepPath('/website/special-offers', cardId)}
       err={err}
     >
-      <form onSubmit={add} className="row g-2 mb-3 align-items-start">
-        <div className="col-md-4">
-          <input className="form-control" placeholder="Service name*" required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="col-md-4">
-          <input className="form-control" placeholder="Description" value={desc} onChange={(e) => setDesc(e.target.value)} />
-        </div>
-        <div className="col-md-3">
+      <form onSubmit={add} className="mw-form mb-3">
+        <div className="mw-form-grid-2">
+        <MwField label="Service name" required htmlFor="service-name">
+          <MwInput id="service-name" required value={name} onChange={(e) => setName(e.target.value)} />
+        </MwField>
+        <MwField label="Description" htmlFor="service-desc">
+          <MwInput id="service-desc" value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </MwField>
+        <MwField label="Image">
           <label className={`company-image-box service-image-box${uploading ? ' is-busy' : ''}`}>
             {uploading ? (
               <div className="company-image-progress">
@@ -303,10 +305,11 @@ export function ServicesPage() {
               }}
             />
           </label>
+        </MwField>
         </div>
-        <div className="col-md-1">
-          <button className="btn btn-primary w-100" type="submit" disabled={uploading}>
-            Add
+        <div>
+          <button className="mw-btn mw-btn-save" type="submit" disabled={uploading}>
+            <span>{uploading ? 'Uploading...' : 'Add'}</span>
           </button>
         </div>
       </form>
@@ -401,36 +404,44 @@ export function ProductsPage() {
 
   return (
     <CrudShell title="Details & Pricing" back={stepPath('/website/special-offers', cardId)} next={stepPath('/website/videos', cardId)} err={err}>
-      <form onSubmit={add} className="row g-2 mb-3">
-        <div className="col-md-3">
-          <input className="form-control" placeholder="Product*" required value={form.productName} onChange={(e) => setForm((current) => ({ ...current, productName: e.target.value }))} />
+      <form onSubmit={add} className="mw-form mb-3">
+        <div className="mw-form-grid-2">
+          <MwField label="Product" required htmlFor="product-name">
+            <MwInput id="product-name" required value={form.productName} onChange={(e) => setForm((current) => ({ ...current, productName: e.target.value }))} />
+          </MwField>
+          <MwField label="Price type" htmlFor="product-price-type">
+            <MwSelect id="product-price-type" value={form.priceType} onChange={(e) => setForm((current) => ({ ...current, priceType: e.target.value }))}>
+              <option value="Fixed">Fixed</option>
+              <option value="on_request">On request</option>
+            </MwSelect>
+          </MwField>
+          <MwField label="MRP" htmlFor="product-mrp">
+            <MwInput id="product-mrp" inputMode="decimal" value={form.mrp} onChange={(e) => setForm((current) => ({ ...current, mrp: e.target.value }))} />
+          </MwField>
+          <MwField label="Price" htmlFor="product-price">
+            <MwInput id="product-price" inputMode="decimal" value={form.sellingPrice} onChange={(e) => setForm((current) => ({ ...current, sellingPrice: e.target.value }))} />
+          </MwField>
+          <MwField label="Description" wide htmlFor="product-desc">
+            <MwInput id="product-desc" value={form.productDescription} onChange={(e) => setForm((current) => ({ ...current, productDescription: e.target.value }))} />
+          </MwField>
+          <MwField label="Image">
+            <WebsiteImageBox
+              cardId={cardId}
+              email={email}
+              kind="product"
+              imageKey={form.productImage}
+              imageUrl={imageUrl}
+              onChange={(key, url) => {
+                setForm((current) => ({ ...current, productImage: key }))
+                setImageUrl(url)
+              }}
+            />
+          </MwField>
         </div>
-        <div className="col-md-2">
-          <input className="form-control" placeholder="MRP" value={form.mrp} onChange={(e) => setForm((current) => ({ ...current, mrp: e.target.value }))} />
-        </div>
-        <div className="col-md-2">
-          <input className="form-control" placeholder="Price" value={form.sellingPrice} onChange={(e) => setForm((current) => ({ ...current, sellingPrice: e.target.value }))} />
-        </div>
-        <div className="col-md-3">
-          <WebsiteImageBox
-            cardId={cardId}
-            email={email}
-            kind="product"
-            imageKey={form.productImage}
-            imageUrl={imageUrl}
-            onChange={(key, url) => {
-              setForm((current) => ({ ...current, productImage: key }))
-              setImageUrl(url)
-            }}
-          />
-        </div>
-        <div className="col-md-2">
-          <button className="btn btn-primary w-100" type="submit">
-            Add
+        <div>
+          <button className="mw-btn mw-btn-save" type="submit">
+            <span>Add</span>
           </button>
-        </div>
-        <div className="col-12">
-          <input className="form-control" placeholder="Description" value={form.productDescription} onChange={(e) => setForm((current) => ({ ...current, productDescription: e.target.value }))} />
         </div>
       </form>
       <ItemTable
@@ -486,33 +497,41 @@ export function SpecialOffersPage() {
 
   return (
     <CrudShell title="Special Offers" back={stepPath('/website/services', cardId)} next={stepPath('/website/products', cardId)} err={err}>
-      <form onSubmit={add} className="row g-2 mb-3">
-        <div className="col-md-4">
-          <input className="form-control" placeholder="Title*" required value={form.offerTitle} onChange={(e) => setForm((current) => ({ ...current, offerTitle: e.target.value }))} />
+      <form onSubmit={add} className="mw-form mb-3">
+        <div className="mw-form-grid-2">
+          <MwField label="Title" required htmlFor="offer-title">
+            <MwInput id="offer-title" required value={form.offerTitle} onChange={(e) => setForm((current) => ({ ...current, offerTitle: e.target.value }))} />
+          </MwField>
+          <MwField label="Discount %" htmlFor="offer-discount">
+            <MwInput id="offer-discount" inputMode="decimal" value={form.discountPercentage} onChange={(e) => setForm((current) => ({ ...current, discountPercentage: e.target.value }))} />
+          </MwField>
+          <MwField label="Status" htmlFor="offer-status">
+            <MwSelect id="offer-status" value={form.status} onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </MwSelect>
+          </MwField>
+          <MwField label="Description" htmlFor="offer-desc">
+            <MwInput id="offer-desc" value={form.offerDescription} onChange={(e) => setForm((current) => ({ ...current, offerDescription: e.target.value }))} />
+          </MwField>
+          <MwField label="Image">
+            <WebsiteImageBox
+              cardId={cardId}
+              email={email}
+              kind="offer"
+              imageKey={form.offerImage}
+              imageUrl={imageUrl}
+              onChange={(key, url) => {
+                setForm((current) => ({ ...current, offerImage: key }))
+                setImageUrl(url)
+              }}
+            />
+          </MwField>
         </div>
-        <div className="col-md-2">
-          <input className="form-control" placeholder="Discount %" value={form.discountPercentage} onChange={(e) => setForm((current) => ({ ...current, discountPercentage: e.target.value }))} />
-        </div>
-        <div className="col-md-3">
-          <WebsiteImageBox
-            cardId={cardId}
-            email={email}
-            kind="offer"
-            imageKey={form.offerImage}
-            imageUrl={imageUrl}
-            onChange={(key, url) => {
-              setForm((current) => ({ ...current, offerImage: key }))
-              setImageUrl(url)
-            }}
-          />
-        </div>
-        <div className="col-md-2">
-          <button className="btn btn-primary w-100" type="submit">
-            Add
+        <div>
+          <button className="mw-btn mw-btn-save" type="submit">
+            <span>Add</span>
           </button>
-        </div>
-        <div className="col-12">
-          <input className="form-control" placeholder="Description" value={form.offerDescription} onChange={(e) => setForm((current) => ({ ...current, offerDescription: e.target.value }))} />
         </div>
       </form>
       <ItemTable
@@ -564,8 +583,8 @@ export function ImageGalleryPage() {
 
   return (
     <CrudShell title="Image Gallery" back={stepPath('/website/videos', cardId)} next={stepPath('/website/payment-details', cardId)} err={err}>
-      <form onSubmit={add} className="row g-2 mb-3 align-items-start">
-        <div className="col-md-8">
+      <form onSubmit={add} className="mw-form mb-3">
+        <MwField label="Gallery image" required>
           <WebsiteImageBox
             cardId={cardId}
             email={email}
@@ -578,10 +597,10 @@ export function ImageGalleryPage() {
               setErr(null)
             }}
           />
-        </div>
-        <div className="col-md-4">
-          <button className="btn btn-primary" type="submit">
-            Add Image
+        </MwField>
+        <div>
+          <button className="mw-btn mw-btn-save" type="submit">
+            <span>Add Image</span>
           </button>
         </div>
       </form>
@@ -613,18 +632,11 @@ function CrudShell({
   return (
     <>
       <PortalPageHeader title={title} />
-      <div className="card">
-      <div className="card-body">
-        {err && <div className="alert alert-danger">{err}</div>}
+      <div className="card mb-4 mw-card">
+      <div className="card-body mw-card-body">
+        {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
         {children}
-        <div className="d-flex gap-2 mt-3">
-          <Link className="btn btn-outline-secondary" to={back}>
-            Back
-          </Link>
-          <Link className="btn btn-outline-primary" to={next}>
-            Next
-          </Link>
-        </div>
+        <MwStepActions back={back} next={next} />
       </div>
     </div>
     </>
@@ -668,8 +680,8 @@ function ItemTable({
                 <td>{r.title}</td>
                 <td>{r.extra}</td>
                 <td>
-                  <button type="button" className="btn btn-sm btn-danger" onClick={() => void onDelete(r.id)}>
-                    Delete
+                  <button type="button" className="mw-btn mw-btn-danger mw-btn-sm" onClick={() => void onDelete(r.id)}>
+                    <span>Delete</span>
                   </button>
                 </td>
               </tr>
