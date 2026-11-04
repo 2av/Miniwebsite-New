@@ -5,6 +5,7 @@ using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
+using MiniWebsite.Application.Uploads;
 using MiniWebsite.Application.Website.Dtos;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Common;
@@ -14,11 +15,15 @@ namespace MiniWebsite.Application.Website;
 public partial class WebsiteService : IWebsiteService
 {
     private readonly IApplicationDbContext _db;
+    private readonly IObjectStorage _storage;
+    private readonly IUploadedFileTracker _files;
     private readonly AppOptions _app;
 
-    public WebsiteService(IApplicationDbContext db, IOptions<AppOptions> app)
+    public WebsiteService(IApplicationDbContext db, IObjectStorage storage, IUploadedFileTracker files, IOptions<AppOptions> app)
     {
         _db = db;
+        _storage = storage;
+        _files = files;
         _app = app.Value;
     }
 
@@ -406,8 +411,11 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardProducts.FirstOrDefaultAsync(
             p => p.Id == productId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Product not found.");
+        var imageKey = row.ProductImage;
         _db.CardProducts.Remove(row);
+        await RemoveTrackedWebsiteImageAsync(ctx.Value.UserId, imageKey, ct);
         await _db.SaveChangesAsync(ct);
+        await DeleteWebsiteObjectAsync(imageKey, ct);
         return ApiResult.Ok("Product deleted.");
     }
 
@@ -469,8 +477,11 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardServices.FirstOrDefaultAsync(
             p => p.Id == serviceId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Service not found.");
+        var imageKey = row.ProductImage;
         _db.CardServices.Remove(row);
+        await RemoveTrackedWebsiteImageAsync(ctx.Value.UserId, imageKey, ct);
         await _db.SaveChangesAsync(ct);
+        await DeleteWebsiteObjectAsync(imageKey, ct);
         return ApiResult.Ok("Service deleted.");
     }
 
@@ -513,8 +524,11 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardGallery.FirstOrDefaultAsync(
             g => g.Id == imageId && (g.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Gallery image not found.");
+        var imageKey = row.GalleryImage;
         _db.CardGallery.Remove(row);
+        await RemoveTrackedWebsiteImageAsync(ctx.Value.UserId, imageKey, ct);
         await _db.SaveChangesAsync(ct);
+        await DeleteWebsiteObjectAsync(imageKey, ct);
         return ApiResult.Ok("Gallery image deleted.");
     }
 
@@ -586,8 +600,11 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardOffers.FirstOrDefaultAsync(
             o => o.Id == offerId && (o.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult.Fail("Offer not found.");
+        var imageKey = row.OfferImage;
         _db.CardOffers.Remove(row);
+        await RemoveTrackedWebsiteImageAsync(ctx.Value.UserId, imageKey, ct);
         await _db.SaveChangesAsync(ct);
+        await DeleteWebsiteObjectAsync(imageKey, ct);
         return ApiResult.Ok("Offer deleted.");
     }
 
@@ -647,8 +664,8 @@ public partial class WebsiteService : IWebsiteService
             address?.AddressLine, address?.Address2, address?.City, address?.State, address?.Pincode, address?.Country,
             c.DEmail, c.DWebsite, c.DLocation, c.DCompEstDate, c.DAboutUs, c.DBusinessHours,
             c.DLogoLocation, c.DHeroImageLocation,
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, c.DLogoLocation),
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, c.DHeroImageLocation),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, c.DLogoLocation),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, c.DHeroImageLocation),
             c.BusinessProfileType ?? "", c.BusinessType ?? "", c.BusinessOperationArea ?? "",
             c.BusinessOperationLocations);
     }
@@ -656,22 +673,22 @@ public partial class WebsiteService : IWebsiteService
     private ProductDto MapProduct(CardProduct p, (int CardId, string CardSlug, int UserId) ctx) =>
         new(p.Id, ctx.CardSlug, ctx.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription,
             p.ProductImage,
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductPricingFolder, p.ProductImage),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ProductPricingFolder, p.ProductImage),
             p.Mrp, p.SellingPrice, p.PriceType, p.PricingUnit, p.CtaText, p.DisplayOrder);
 
     private ServiceItemDto MapService(CardService p, (int CardId, string CardSlug, int UserId) ctx) =>
         new(p.Id, ctx.CardSlug, ctx.UserId, p.ProductName, p.ProductCategory, p.CategorySource, p.ProductDescription, p.ProductImage,
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductServicesFolder, p.ProductImage),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ProductServicesFolder, p.ProductImage),
             p.DisplayOrder);
 
     private GalleryItemDto MapGallery(CardGalleryImage g, (int CardId, string CardSlug, int UserId) ctx) =>
         new(g.Id, ctx.CardSlug, ctx.UserId, g.GalleryImage,
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ImageGalleryFolder, g.GalleryImage),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ImageGalleryFolder, g.GalleryImage),
             g.DisplayOrder);
 
     private SpecialOfferDto MapOffer(CardOffer o, (int CardId, string CardSlug, int UserId) ctx) =>
         new(o.Id, ctx.CardSlug, ctx.UserId, o.OfferTitle, o.OfferDescription, o.OfferImage,
-            WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.SpecialOffersFolder, o.OfferImage),
+            WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.SpecialOffersFolder, o.OfferImage),
             o.Badge, o.DiscountPercentage,
             o.StartDate, o.StartTime, o.EndDate, o.EndTime, o.Status, o.DisplayOrder);
 

@@ -62,6 +62,8 @@ public record UpsertServiceRequest(
     string ProductName, int? ProductCategory, string? CategorySource, string? ProductDescription,
     string? ProductImage, int DisplayOrder = 0);
 
+public record WebsiteImageDto(string ImageKey, string ImageUrl);
+
 public record GalleryItemDto(int Id, string CardId, int UserId, string? GalleryImage, string? GalleryImageUrl, int DisplayOrder);
 
 /// <summary>galleryImage = filename from PHP upload.</summary>

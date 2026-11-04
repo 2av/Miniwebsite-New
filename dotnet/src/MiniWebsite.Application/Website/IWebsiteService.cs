@@ -16,6 +16,9 @@ public interface IWebsiteService
 
     Task<ApiResult<CompanyDetailsDto>> GetCompanyDetailsAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<CompanyDetailsDto>> UpdateCompanyDetailsAsync(int cardId, string ownerEmail, UpdateCompanyDetailsRequest request, CancellationToken ct = default);
+    Task<ApiResult<CompanyDetailsDto>> UploadCompanyImageAsync(
+        int cardId, string ownerEmail, string kind, Stream file, string fileName, string contentType, long length, CancellationToken ct = default);
+    Task<ApiResult<CompanyDetailsDto>> DeleteCompanyImageAsync(int cardId, string ownerEmail, string kind, CancellationToken ct = default);
 
     Task<ApiResult<SocialLinksDto>> GetSocialAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<SocialLinksDto>> UpdateSocialAsync(int cardId, string ownerEmail, UpdateSocialLinksRequest request, CancellationToken ct = default);
@@ -35,6 +38,12 @@ public interface IWebsiteService
     Task<ApiResult<ServiceItemDto>> CreateServiceAsync(int cardId, string ownerEmail, UpsertServiceRequest request, CancellationToken ct = default);
     Task<ApiResult<ServiceItemDto>> UpdateServiceAsync(int cardId, string ownerEmail, int serviceId, UpsertServiceRequest request, CancellationToken ct = default);
     Task<ApiResult> DeleteServiceAsync(int cardId, string ownerEmail, int serviceId, CancellationToken ct = default);
+    Task<ApiResult<WebsiteImageDto>> UploadServiceImageAsync(
+        int cardId, string ownerEmail, Stream file, string fileName, string contentType, long length, CancellationToken ct = default);
+    Task<ApiResult> DeleteServiceImageAsync(int cardId, string ownerEmail, string imageKey, CancellationToken ct = default);
+    Task<ApiResult<WebsiteImageDto>> UploadCardImageAsync(
+        int cardId, string ownerEmail, string kind, Stream file, string fileName, string contentType, long length, CancellationToken ct = default);
+    Task<ApiResult> DeleteCardImageAsync(int cardId, string ownerEmail, string imageKey, CancellationToken ct = default);
 
     Task<ApiResult<IReadOnlyList<GalleryItemDto>>> ListGalleryAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<GalleryItemDto>> CreateGalleryAsync(int cardId, string ownerEmail, UpsertGalleryRequest request, CancellationToken ct = default);

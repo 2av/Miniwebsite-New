@@ -1,3 +1,4 @@
+using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Options;
 
 namespace MiniWebsite.Application.Website;
@@ -21,6 +22,22 @@ public static class WebsiteAssetUrls
     public const string PlannedServiceImageUploadPath = "/api/upload/website/service-image.php";
     public const string PlannedGalleryUploadPath = "/api/upload/website/gallery.php";
     public const string PlannedOfferImageUploadPath = "/api/upload/website/offer-image.php";
+
+    /// <summary>
+    /// Public address for a stored website image. Cloudflare keys under <c>website/</c> use the R2 address.
+    /// Older filenames still use the site upload folder.
+    /// </summary>
+    public static string Resolve(IObjectStorage storage, AppOptions app, string legacyFolder, string? stored)
+    {
+        if (string.IsNullOrWhiteSpace(stored)) return "";
+        var path = stored.Trim().Replace('\\', '/');
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return path;
+        if (storage.IsEnabled && storage.IsUnder(path, storage.WebsitePrefix))
+            return storage.PublicUrl(path) ?? "";
+        return PublicUrl(app, legacyFolder, stored);
+    }
 
     public static string PublicUrl(AppOptions app, string folder, string? fileName)
     {

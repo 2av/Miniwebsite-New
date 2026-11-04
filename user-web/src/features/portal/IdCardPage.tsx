@@ -44,6 +44,13 @@ function canvasSafeUrl(url: string): string {
   return url
 }
 
+/** Same-origin (or API) photo so the ID card canvas can draw it. The public storage URL blocks canvas reads. */
+function profileImageFileUrl(email: string, cacheBust?: number) {
+  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+  const stamp = cacheBust ? `&t=${cacheBust}` : ''
+  return `${base}/api/v1/portal/profile-image/file?email=${encodeURIComponent(email)}${stamp}`
+}
+
 /** Prefer same-origin public copy; fall back to PHP assets. */
 function idCardBackgroundUrl(): string {
   const base = import.meta.env.BASE_URL || '/'
@@ -164,7 +171,8 @@ export function IdCardPage() {
         const raw = await apiGet<Record<string, unknown>>('/api/v1/portal/id-card', { email })
         const mapped = mapProfile(raw, fallback)
         setProfile(mapped)
-        if (mapped.profileImageUrl) setPreviewUrl(mapped.profileImageUrl)
+        if (mapped.profileImageUrl) setPreviewUrl(profileImageFileUrl(email, Date.now()))
+        else setPreviewUrl(null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load')
       }
@@ -390,10 +398,8 @@ export function IdCardPage() {
       }>('/api/v1/portal/profile-image', fd)
       const data = (res.data ?? {}) as Record<string, unknown>
       const url = String(data.profileImageUrl ?? data.ProfileImageUrl ?? '')
-      if (url) {
-        setPreviewUrl(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`)
-        setProfile((prev) => (prev ? { ...prev, profileImageUrl: url } : prev))
-      }
+      setPreviewUrl(profileImageFileUrl(session.email, Date.now()))
+      if (url) setProfile((prev) => (prev ? { ...prev, profileImageUrl: url } : prev))
       setPendingBlob(null)
       setAlert({
         type: 'success',

@@ -95,9 +95,17 @@ export async function apiGet<T>(url: string, params?: Record<string, unknown>): 
 export async function apiUploadForm<T = unknown>(
   url: string,
   formData: FormData,
+  onProgress?: (percent: number) => void,
 ): Promise<{ message?: string | null; data?: T }> {
   try {
-    const res = await api.post<ApiResult<T>>(url, formData)
+    const res = await api.post<ApiResult<T>>(url, formData, {
+      onUploadProgress: (event) => {
+        if (!onProgress) return
+        const total = event.total ?? 0
+        const percent = total > 0 ? Math.min(99, Math.round((event.loaded / total) * 100)) : 0
+        onProgress(percent)
+      },
+    })
     const payload = res.data
     const success = (payload as { Success?: boolean }).Success ?? payload.success
     const message = (payload as { Message?: string }).Message ?? payload.message
@@ -129,6 +137,17 @@ export async function apiSend<T = unknown>(
   }
 }
 
+function problemMessage(body: object): string | null {
+  const errors = (body as { errors?: Record<string, string[]>; Errors?: Record<string, string[]> }).errors
+    ?? (body as { Errors?: Record<string, string[]> }).Errors
+  if (errors && typeof errors === 'object') {
+    const first = Object.values(errors).flat().find((item) => typeof item === 'string' && item.trim())
+    if (first) return first
+  }
+  const title = (body as { title?: string }).title
+  return title && title !== 'One or more validation errors occurred.' ? title : null
+}
+
 function toApiError(e: unknown): ApiError {
   if (e instanceof ApiError) return e
   const ax = e as AxiosError<ApiResult>
@@ -138,7 +157,7 @@ function toApiError(e: unknown): ApiError {
     const fromBody =
       typeof d === 'string'
         ? null
-        : ((d as { Message?: string }).Message ?? d.message)
+        : ((d as { Message?: string }).Message ?? d.message ?? problemMessage(d))
     let message = fromBody || ax.message || 'Request failed'
     if (ax.response.status >= 500 && /status code 5\d\d/i.test(message)) {
       message = 'Server is unavailable. Please try again in a moment.'

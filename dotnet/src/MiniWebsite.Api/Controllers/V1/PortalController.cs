@@ -98,8 +98,39 @@ public class PortalController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("verification-document")]
+    [RequestSizeLimit(3_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 3_000_000)]
+    public async Task<ActionResult<ApiResult<VerificationStatusDto>>> UploadVerificationDocument(
+        [FromForm] string email,
+        [FromForm] string kind,
+        IFormFile? file,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(ApiResult<VerificationStatusDto>.Fail("email is required."));
+        if (file == null || file.Length <= 0)
+            return BadRequest(ApiResult<VerificationStatusDto>.Fail("No document selected."));
+        await using var stream = file.OpenReadStream();
+        var result = await _portal.UploadVerificationDocumentAsync(
+            email, kind, stream, file.FileName, file.ContentType, file.Length, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpDelete("verification-document")]
+    public async Task<ActionResult<ApiResult<VerificationStatusDto>>> DeleteVerificationDocument(
+        [FromQuery] string email,
+        [FromQuery] string kind,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(ApiResult<VerificationStatusDto>.Fail("email is required."));
+        var result = await _portal.DeleteVerificationDocumentAsync(email, kind, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("verification")]
-    [RequestSizeLimit(8_000_000)]
+    [RequestSizeLimit(20_000_000)]
     public async Task<ActionResult<ApiResult<VerificationStatusDto>>> SubmitVerification(
         [FromBody] SubmitVerificationRequest request, CancellationToken ct)
     {
@@ -113,6 +144,17 @@ public class PortalController : ControllerBase
     {
         var result = await _portal.GetIdCardAsync(email, ct);
         return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>Profile photo bytes for the ID card. Served here so the canvas can draw a same-origin image.</summary>
+    [HttpGet("profile-image/file")]
+    public async Task<IActionResult> ProfileImageFile([FromQuery] string email, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return BadRequest();
+        var file = await _portal.OpenProfileImageAsync(email, ct);
+        if (file == null) return NotFound();
+        Response.Headers.CacheControl = "private, no-cache";
+        return File(file.Content, file.ContentType);
     }
 
     /// <summary>Upload portal avatar — same folder as PHP <c>common/upload_profile.php</c>.</summary>

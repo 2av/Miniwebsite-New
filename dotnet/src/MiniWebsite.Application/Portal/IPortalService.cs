@@ -17,6 +17,16 @@ public interface IPortalService
     Task<ApiResult<KitExplorerDto>> GetKitExplorerAsync(string email, string category, int folderId, CancellationToken ct = default);
     Task<ApiResult<VerificationStatusDto>> GetVerificationAsync(string email, CancellationToken ct = default);
     Task<ApiResult<VerificationStatusDto>> SubmitVerificationAsync(SubmitVerificationRequest request, CancellationToken ct = default);
+    Task<ApiResult<VerificationStatusDto>> UploadVerificationDocumentAsync(
+        string email,
+        string kind,
+        Stream file,
+        string fileName,
+        string contentType,
+        long length,
+        CancellationToken ct = default);
+    Task<ApiResult<VerificationStatusDto>> DeleteVerificationDocumentAsync(
+        string email, string kind, CancellationToken ct = default);
     Task<ApiResult<IdCardProfileDto>> GetIdCardAsync(string email, CancellationToken ct = default);
     Task<ApiResult<ProfileImageUploadDto>> UploadProfileImageAsync(
         string email,
@@ -25,6 +35,7 @@ public interface IPortalService
         string contentType,
         long contentLength,
         CancellationToken ct = default);
+    Task<ProfileImageContent?> OpenProfileImageAsync(string email, CancellationToken ct = default);
     Task<ApiResult<CustomerTrackerPageDto>> ListCustomersAsync(string ownerEmail, string? search = null, CancellationToken ct = default);
     Task<ApiResult<CustomerManagerRowDto>> SaveCustomerAsync(SaveCustomerRequest request, CancellationToken ct = default);
     Task<ApiResult> DeleteCustomerAsync(string ownerEmail, int id, CancellationToken ct = default);

@@ -524,7 +524,6 @@ public class PortalService : IPortalService
         var bank = await _db.UserBankDetails.AsNoTracking()
             .FirstOrDefaultAsync(b => b.UserId == me.Data.UserId, ct);
         var gstNumber = profile?.Gst?.Trim();
-        var bankComplete = IsBankComplete(bank);
 
         try
         {
@@ -546,19 +545,8 @@ public class PortalService : IPortalService
                 remarks = row.AdminRemarks;
                 reviewedAt = FormatDateTime(row.ReviewedAt);
                 reviewedBy = row.ReviewedBy;
-                var allDocs = !string.IsNullOrWhiteSpace(pan)
-                    && !string.IsNullOrWhiteSpace(front)
-                    && !string.IsNullOrWhiteSpace(back)
-                    && !string.IsNullOrWhiteSpace(gstDoc)
-                    && !string.IsNullOrWhiteSpace(agreementDoc)
-                    && accepted
-                    && !string.IsNullOrWhiteSpace(gstNumber)
-                    && bankComplete;
                 isLocked = string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase)
-                           || string.Equals(status, "verified", StringComparison.OrdinalIgnoreCase)
-                           || (string.Equals(status, "submitted", StringComparison.OrdinalIgnoreCase) && allDocs);
-                if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
-                    isLocked = false;
+                           || string.Equals(status, "verified", StringComparison.OrdinalIgnoreCase);
             }
         }
         catch
@@ -618,22 +606,8 @@ public class PortalService : IPortalService
         if (current.Data.IsLocked)
             return ApiResult<VerificationStatusDto>.Fail("Documents are locked and cannot be changed.");
 
-        var fsDir = "";
         if (!_storage.IsEnabled)
-        {
-            fsDir = ResolveVerificationFsDir();
-            if (string.IsNullOrWhiteSpace(fsDir))
-                return ApiResult<VerificationStatusDto>.Fail("Verification upload path is not configured (App:VerificationUploadsFsPath).");
-
-            try
-            {
-                Directory.CreateDirectory(fsDir);
-            }
-            catch (Exception ex)
-            {
-                return ApiResult<VerificationStatusDto>.Fail("Cannot create upload folder: " + ex.Message);
-            }
-        }
+            return ApiResult<VerificationStatusDto>.Fail("Cloudflare storage is not configured.");
 
         var gstNumber = (request.GstNumber ?? "").Trim().ToUpperInvariant();
         if (gstNumber.Length != 15 || gstNumber.Any(c => !char.IsLetterOrDigit(c)))
@@ -651,14 +625,18 @@ public class PortalService : IPortalService
         if (!request.ElectronicAcceptance)
             return ApiResult<VerificationStatusDto>.Fail("Electronic acceptance is required.");
 
+        var user = await FindUserAsync(email, ct);
+        if (user == null)
+            return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
+
         VerificationSave? panFile = null, frontFile = null, backFile = null, gstFile = null, agreementFile = null;
         try
         {
-            panFile = await SaveVerificationImageAsync(fsDir, request.PanCardBase64, "pan", UploadedFileDocument.Pan, ct);
-            frontFile = await SaveVerificationImageAsync(fsDir, request.AadhaarFrontBase64, "aadhaar_front", UploadedFileDocument.AadhaarFront, ct);
-            backFile = await SaveVerificationImageAsync(fsDir, request.AadhaarBackBase64, "aadhaar_back", UploadedFileDocument.AadhaarBack, ct);
-            gstFile = await SaveVerificationImageAsync(fsDir, request.GstCertificateBase64, "gst", UploadedFileDocument.GstCertificate, ct);
-            agreementFile = await SaveVerificationImageAsync(fsDir, request.AgreementBase64, "agreement", UploadedFileDocument.Agreement, ct);
+            panFile = await SaveVerificationImageAsync(user.UserCode, request.PanCardBase64, "pan", UploadedFileDocument.Pan, ct);
+            frontFile = await SaveVerificationImageAsync(user.UserCode, request.AadhaarFrontBase64, "aadhaar_front", UploadedFileDocument.AadhaarFront, ct);
+            backFile = await SaveVerificationImageAsync(user.UserCode, request.AadhaarBackBase64, "aadhaar_back", UploadedFileDocument.AadhaarBack, ct);
+            gstFile = await SaveVerificationImageAsync(user.UserCode, request.GstCertificateBase64, "gst", UploadedFileDocument.GstCertificate, ct);
+            agreementFile = await SaveVerificationImageAsync(user.UserCode, request.AgreementBase64, "agreement", UploadedFileDocument.Agreement, ct);
         }
         catch (Exception ex)
         {
@@ -679,10 +657,6 @@ public class PortalService : IPortalService
 
         try
         {
-            var user = await FindUserAsync(email, ct);
-            if (user == null)
-                return ApiResult<VerificationStatusDto>.Fail("Unable to save documents: no account found for this email.");
-
             user.Address.Gst = gstNumber;
             user.UpdatedAt = AppClock.Now;
             await SaveVerificationBankAsync(user.Id, request, ct);
@@ -733,13 +707,6 @@ public class PortalService : IPortalService
         return ApiResult<VerificationStatusDto>.Ok(refreshed.Data, "Documents submitted successfully.");
     }
 
-    private string ResolveVerificationFsDir()
-    {
-        if (!string.IsNullOrWhiteSpace(_app.VerificationUploadsFsPath))
-            return _app.VerificationUploadsFsPath.Trim();
-        return "";
-    }
-
     private async Task<VerificationDocs> LoadStoredVerificationDocsAsync(string email, CancellationToken ct)
     {
         var user = await FindUserAsync(email, ct);
@@ -759,7 +726,7 @@ public class PortalService : IPortalService
             || stored.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return stored;
         if (_storage.IsEnabled && _storage.IsUnder(stored, _storage.VerificationPrefix))
-            return _storage.VerificationReadUrl(stored);
+            return _storage.PublicUrl(stored) ?? _storage.VerificationReadUrl(stored);
 
         var name = Path.GetFileName(stored);
         if (string.IsNullOrWhiteSpace(name)) return null;
@@ -771,10 +738,228 @@ public class PortalService : IPortalService
         return baseUrl + "/" + prefix + "/" + name;
     }
 
+    public async Task<ApiResult<VerificationStatusDto>> UploadVerificationDocumentAsync(
+        string email,
+        string kind,
+        Stream file,
+        string fileName,
+        string contentType,
+        long length,
+        CancellationToken ct = default)
+    {
+        email = (email ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            return ApiResult<VerificationStatusDto>.Fail("Email is required.");
+        if (!_storage.IsEnabled)
+            return ApiResult<VerificationStatusDto>.Fail("Cloudflare storage is not configured.");
+        if (file == null || length <= 0)
+            return ApiResult<VerificationStatusDto>.Fail("No document selected.");
+        if (length > 2_500_000)
+            return ApiResult<VerificationStatusDto>.Fail("Image is too large (max ~2.5MB).");
+
+        var slot = (kind ?? "").Trim().ToLowerInvariant();
+        var storedKind = slot switch
+        {
+            "pan" => "pan",
+            "front" => "aadhaar_front",
+            "back" => "aadhaar_back",
+            "gst" => "gst",
+            "agreement" => "agreement",
+            _ => "",
+        };
+        var document = slot switch
+        {
+            "pan" => UploadedFileDocument.Pan,
+            "front" => UploadedFileDocument.AadhaarFront,
+            "back" => UploadedFileDocument.AadhaarBack,
+            "gst" => UploadedFileDocument.GstCertificate,
+            "agreement" => UploadedFileDocument.Agreement,
+            _ => "",
+        };
+        if (storedKind.Length == 0)
+            return ApiResult<VerificationStatusDto>.Fail("Unknown document.");
+
+        var type = (contentType ?? "").Split(';')[0].Trim().ToLowerInvariant();
+        var ext = Path.GetExtension(fileName ?? "").ToLowerInvariant();
+        if (type is not ("image/jpeg" or "image/jpg" or "image/png" or "image/gif" or "image/webp")
+            && ext is not (".jpg" or ".jpeg" or ".png" or ".gif" or ".webp"))
+            return ApiResult<VerificationStatusDto>.Fail("Please choose an image file (JPG, PNG, GIF, or WebP).");
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".gif" or ".webp"))
+        {
+            ext = type switch
+            {
+                "image/png" => ".png",
+                "image/gif" => ".gif",
+                "image/webp" => ".webp",
+                _ => ".jpg",
+            };
+        }
+        if (!type.StartsWith("image/", StringComparison.Ordinal))
+        {
+            type = ext switch
+            {
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                _ => "image/jpeg",
+            };
+        }
+
+        var user = await FindUserAsync(email, ct);
+        if (user == null)
+            return ApiResult<VerificationStatusDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Verification))
+            return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
+
+        var current = await GetVerificationAsync(email, ct);
+        if (!current.Success || current.Data == null)
+            return ApiResult<VerificationStatusDto>.Fail(current.Message ?? "Unable to load verification.");
+        if (current.Data.IsLocked)
+            return ApiResult<VerificationStatusDto>.Fail("Documents are approved and cannot be changed.");
+
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, ct);
+        var bytes = buffer.ToArray();
+        if (bytes.Length == 0 || bytes.Length > 2_500_000)
+            return ApiResult<VerificationStatusDto>.Fail("Image is too large (max ~2.5MB).");
+
+        var stamp = AppClock.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
+        var storedName = $"{stamp}_{storedKind}{ext}";
+        var key = _storage.BuildUserKey(user.UserCode, _storage.VerificationPrefix, storedName);
+        try
+        {
+            await _storage.UploadAsync(key, bytes, type, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<VerificationStatusDto>.Fail("Unable to upload document: " + ex.Message);
+        }
+
+        var docs = await LoadStoredVerificationDocsAsync(email, ct);
+        var docPath = EncodeVerificationDocs(
+            slot == "pan" ? key : docs.Pan ?? "",
+            slot == "front" ? key : docs.Front ?? "",
+            slot == "back" ? key : docs.Back ?? "",
+            slot == "gst" ? key : docs.Gst ?? "",
+            slot == "agreement" ? key : docs.Agreement ?? "",
+            docs.Accepted);
+
+        var now = AppClock.Now;
+        var entity = await _db.FranchiseVerifications.FirstOrDefaultAsync(v => v.UserId == user.Id, ct);
+        if (entity == null)
+        {
+            entity = new Domain.Entities.FranchiseVerification
+            {
+                UserId = user.Id,
+                Status = "pending",
+                CreatedAt = now,
+            };
+            _db.FranchiseVerifications.Add(entity);
+        }
+        entity.DocumentPath = docPath;
+        entity.UpdatedAt = now;
+
+        var original = Path.GetFileName(fileName ?? "");
+        await _files.TrackAsync(user.Id, new NewUploadedFile(
+            UploadedFileFolder.Verification,
+            document,
+            string.IsNullOrWhiteSpace(original) ? storedName : original,
+            storedName,
+            key,
+            type,
+            bytes.LongLength), ct);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            try { await _storage.DeleteAsync(key, ct); } catch { /* the database row was not saved */ }
+            return ApiResult<VerificationStatusDto>.Fail("Unable to save document: " + ex.Message);
+        }
+
+        return await GetVerificationAsync(email, ct);
+    }
+
+    public async Task<ApiResult<VerificationStatusDto>> DeleteVerificationDocumentAsync(
+        string email, string kind, CancellationToken ct = default)
+    {
+        email = (email ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            return ApiResult<VerificationStatusDto>.Fail("Email is required.");
+
+        var slot = (kind ?? "").Trim().ToLowerInvariant();
+        var document = slot switch
+        {
+            "pan" => UploadedFileDocument.Pan,
+            "front" => UploadedFileDocument.AadhaarFront,
+            "back" => UploadedFileDocument.AadhaarBack,
+            "gst" => UploadedFileDocument.GstCertificate,
+            "agreement" => UploadedFileDocument.Agreement,
+            _ => "",
+        };
+        if (document.Length == 0)
+            return ApiResult<VerificationStatusDto>.Fail("Unknown document.");
+
+        var user = await FindUserAsync(email, ct);
+        if (user == null)
+            return ApiResult<VerificationStatusDto>.Fail("User not found.");
+        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Verification))
+            return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
+
+        var current = await GetVerificationAsync(email, ct);
+        if (!current.Success || current.Data == null)
+            return ApiResult<VerificationStatusDto>.Fail(current.Message ?? "Unable to load verification.");
+        if (current.Data.IsLocked)
+            return ApiResult<VerificationStatusDto>.Fail("Documents are approved and cannot be changed.");
+
+        var docs = await LoadStoredVerificationDocsAsync(email, ct);
+        var key = slot switch
+        {
+            "pan" => docs.Pan,
+            "front" => docs.Front,
+            "back" => docs.Back,
+            "gst" => docs.Gst,
+            "agreement" => docs.Agreement,
+            _ => null,
+        };
+
+        var entity = await _db.FranchiseVerifications.FirstOrDefaultAsync(v => v.UserId == user.Id, ct);
+        if (entity != null)
+        {
+            entity.DocumentPath = EncodeVerificationDocs(
+                slot == "pan" ? "" : docs.Pan ?? "",
+                slot == "front" ? "" : docs.Front ?? "",
+                slot == "back" ? "" : docs.Back ?? "",
+                slot == "gst" ? "" : docs.Gst ?? "",
+                slot == "agreement" ? "" : docs.Agreement ?? "",
+                docs.Accepted);
+            entity.UpdatedAt = AppClock.Now;
+        }
+
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            var tracked = await _db.UploadedFiles
+                .Where(f => f.UserId == user.Id && f.ObjectKey == key)
+                .ToListAsync(ct);
+            _db.UploadedFiles.RemoveRange(tracked);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(key) && _storage.IsEnabled && _storage.IsUnder(key, _storage.VerificationPrefix))
+        {
+            try { await _storage.DeleteAsync(key, ct); } catch { /* the form no longer points at this file */ }
+        }
+
+        return await GetVerificationAsync(email, ct);
+    }
+
     private readonly record struct VerificationSave(string Stored, NewUploadedFile? Tracked);
 
     private async Task<VerificationSave?> SaveVerificationImageAsync(
-        string fsDir, string? base64OrDataUrl, string kind, string document, CancellationToken ct)
+        string userCode, string? base64OrDataUrl, string kind, string document, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(base64OrDataUrl)) return null;
         var raw = base64OrDataUrl.Trim();
@@ -798,23 +983,16 @@ public class PortalService : IPortalService
 
         var stamp = AppClock.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
         var fileName = $"{stamp}_{kind}.jpg";
-        if (_storage.IsEnabled)
-        {
-            var key = _storage.BuildKey(_storage.VerificationPrefix, fileName);
-            await _storage.UploadAsync(key, bytes, "image/jpeg", ct);
-            return new VerificationSave(key, new NewUploadedFile(
-                UploadedFileFolder.Verification,
-                document,
-                fileName,
-                fileName,
-                key,
-                "image/jpeg",
-                bytes.LongLength));
-        }
-
-        var fullPath = Path.Combine(fsDir, fileName);
-        await File.WriteAllBytesAsync(fullPath, bytes, ct);
-        return new VerificationSave(fileName, null);
+        var key = _storage.BuildUserKey(userCode, _storage.VerificationPrefix, fileName);
+        await _storage.UploadAsync(key, bytes, "image/jpeg", ct);
+        return new VerificationSave(key, new NewUploadedFile(
+            UploadedFileFolder.Verification,
+            document,
+            fileName,
+            fileName,
+            key,
+            "image/jpeg",
+            bytes.LongLength));
     }
 
     public async Task<ApiResult<IdCardProfileDto>> GetIdCardAsync(string email, CancellationToken ct = default)
@@ -914,7 +1092,7 @@ public class PortalService : IPortalService
             : _app.ProfileUploadsRelativePath.Trim().Trim('/').Replace('\\', '/');
         var useR2 = _storage.IsEnabled;
         var dbPath = useR2
-            ? _storage.BuildKey(_storage.ProfilePrefix, uniqueName)
+            ? _storage.BuildUserKey(user.UserCode, _storage.ProfilePrefix, uniqueName)
             : $"{relativePrefix}/{uniqueName}";
         var fullPath = useR2 ? "" : Path.Combine(fsDir, uniqueName);
 
@@ -986,6 +1164,30 @@ public class PortalService : IPortalService
             }
             return ApiResult<ProfileImageUploadDto>.Fail("Failed to save profile image: " + ex.Message);
         }
+    }
+
+    public async Task<ProfileImageContent?> OpenProfileImageAsync(string email, CancellationToken ct = default)
+    {
+        var user = await FindUserAsync(email, ct);
+        if (user == null) return null;
+        var stored = user.ProfileImage?.Trim().Replace('\\', '/');
+        if (string.IsNullOrWhiteSpace(stored)
+            || stored.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || stored.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (_storage.IsEnabled && _storage.IsUnder(stored, _storage.ProfilePrefix))
+        {
+            var downloaded = await _storage.DownloadAsync(stored, ct);
+            if (downloaded == null || downloaded.Content.Length == 0) return null;
+            return new ProfileImageContent(downloaded.Content, ImageContentType(stored, downloaded.ContentType));
+        }
+
+        var fullPath = TryResolveProfileFile(stored);
+        if (fullPath == null) return null;
+        var bytes = await File.ReadAllBytesAsync(fullPath, ct);
+        if (bytes.Length == 0) return null;
+        return new ProfileImageContent(bytes, ImageContentType(fullPath, null));
     }
 
     public async Task<ApiResult<CustomerTrackerPageDto>> ListCustomersAsync(
@@ -1571,6 +1773,52 @@ public class PortalService : IPortalService
         }
 
         return ToPublicProfileUrl(stored);
+    }
+
+    private static string ImageContentType(string path, string? fromStorage)
+    {
+        if (!string.IsNullOrWhiteSpace(fromStorage)
+            && fromStorage.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return fromStorage.Split(';')[0].Trim();
+
+        return Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            _ => "image/jpeg",
+        };
+    }
+
+    private string? TryResolveProfileFile(string relativePath)
+    {
+        var fsDir = ResolveProfileFsDir();
+        if (string.IsNullOrWhiteSpace(fsDir)) return null;
+
+        try
+        {
+            var prefix = string.IsNullOrWhiteSpace(_app.ProfileUploadsRelativePath)
+                ? "assets/upload/profile_image"
+                : _app.ProfileUploadsRelativePath.Trim().Trim('/').Replace('\\', '/');
+
+            if (relativePath.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = Path.GetFileName(relativePath);
+                if (string.IsNullOrWhiteSpace(name)) return null;
+                var full = Path.Combine(fsDir, name);
+                return File.Exists(full) ? full : null;
+            }
+
+            var siteRoot = Path.GetFullPath(Path.Combine(fsDir, "..", "..", ".."));
+            var resolved = Path.GetFullPath(
+                Path.Combine(siteRoot, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+            if (!resolved.StartsWith(siteRoot, StringComparison.OrdinalIgnoreCase)) return null;
+            return File.Exists(resolved) ? resolved : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>True when <paramref name="relativePath"/> exists under the PHP site root (or profile upload folder).</summary>

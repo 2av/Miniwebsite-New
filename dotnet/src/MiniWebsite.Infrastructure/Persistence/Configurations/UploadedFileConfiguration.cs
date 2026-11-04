@@ -15,7 +15,7 @@ public class UploadedFileConfiguration : IEntityTypeConfiguration<UploadedFile>
                 "`Status` IN ('Current', 'Replaced')");
             t.HasCheckConstraint(
                 "CK_uploaded_files_Folder",
-                "`Folder` IN ('profile', 'verification')");
+                "`Folder` IN ('profile', 'verification', 'website')");
         });
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Folder).HasMaxLength(30).IsRequired();

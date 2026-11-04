@@ -20,6 +20,8 @@ public record PortalMeDto(
 
 public record ProfileImageUploadDto(string ImagePath, string ProfileImageUrl);
 
+public sealed record ProfileImageContent(byte[] Content, string ContentType);
+
 public record BankDetailsDto(
     string? BankName,
     string? AccountHolder,

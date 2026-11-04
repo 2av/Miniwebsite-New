@@ -64,7 +64,7 @@ public class AdminFilesService : IAdminFilesService
         }
 
         var folder = (filter.Folder ?? "").Trim();
-        if (folder is UploadedFileFolder.Profile or UploadedFileFolder.Verification)
+        if (folder is UploadedFileFolder.Profile or UploadedFileFolder.Verification or UploadedFileFolder.Website)
             query = query.Where(f => f.Folder == folder);
 
         var status = (filter.Status ?? "").Trim();

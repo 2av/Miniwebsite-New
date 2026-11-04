@@ -12,7 +12,7 @@ public sealed record NewUploadedFile(
 public interface IUploadedFileTracker
 {
     /// <summary>
-    /// Adds the new row. A previous profile photo is removed, because that object is deleted from storage.
+    /// Adds the new row. A previous profile photo or website image is removed, because that object is replaced in storage.
     /// A previous verification file is marked Replaced and kept. The caller saves the database.
     /// </summary>
     Task TrackAsync(int userId, NewUploadedFile file, CancellationToken cancellationToken = default);

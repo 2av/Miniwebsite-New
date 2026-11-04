@@ -2201,7 +2201,7 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.ToTable("uploaded_files", null, t =>
                         {
-                            t.HasCheckConstraint("CK_uploaded_files_Folder", "`Folder` IN ('profile', 'verification')");
+                            t.HasCheckConstraint("CK_uploaded_files_Folder", "`Folder` IN ('profile', 'verification', 'website')");
 
                             t.HasCheckConstraint("CK_uploaded_files_Status", "`Status` IN ('Current', 'Replaced')");
                         });

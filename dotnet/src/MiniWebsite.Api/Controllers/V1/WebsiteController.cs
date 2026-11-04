@@ -71,6 +71,39 @@ public class WebsiteController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("{cardId:int}/company-image")]
+    [RequestSizeLimit(3_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 3_000_000)]
+    public async Task<ActionResult<ApiResult<CompanyDetailsDto>>> UploadCompanyImage(
+        int cardId,
+        [FromForm] string ownerEmail,
+        [FromForm] string kind,
+        IFormFile? file,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult<CompanyDetailsDto>.Fail("ownerEmail is required."));
+        if (file == null || file.Length <= 0)
+            return BadRequest(ApiResult<CompanyDetailsDto>.Fail("No image selected."));
+        await using var stream = file.OpenReadStream();
+        var result = await _website.UploadCompanyImageAsync(
+            cardId, ownerEmail, kind, stream, file.FileName, file.ContentType, file.Length, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpDelete("{cardId:int}/company-image")]
+    public async Task<ActionResult<ApiResult<CompanyDetailsDto>>> DeleteCompanyImage(
+        int cardId,
+        [FromQuery] string ownerEmail,
+        [FromQuery] string kind,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult<CompanyDetailsDto>.Fail("ownerEmail is required."));
+        var result = await _website.DeleteCompanyImageAsync(cardId, ownerEmail, kind, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     // ---- social-links ----
     [HttpGet("{cardId:int}/social-links")]
     public async Task<ActionResult<ApiResult<SocialLinksDto>>> GetSocial(int cardId, [FromQuery] string ownerEmail, CancellationToken ct)
@@ -131,6 +164,71 @@ public class WebsiteController : ControllerBase
     {
         var result = await _website.DeleteProductAsync(cardId, ownerEmail, productId, ct);
         return result.Success ? Ok(result) : NotFound(result);
+    }
+
+    [HttpPost("{cardId:int}/card-image")]
+    [RequestSizeLimit(3_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 3_000_000)]
+    public async Task<ActionResult<ApiResult<WebsiteImageDto>>> UploadCardImage(
+        int cardId,
+        [FromForm] string ownerEmail,
+        [FromForm] string kind,
+        IFormFile? file,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult<WebsiteImageDto>.Fail("ownerEmail is required."));
+        if (file == null || file.Length <= 0)
+            return BadRequest(ApiResult<WebsiteImageDto>.Fail("No image selected."));
+        await using var stream = file.OpenReadStream();
+        var result = await _website.UploadCardImageAsync(
+            cardId, ownerEmail, kind, stream, file.FileName, file.ContentType, file.Length, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpDelete("{cardId:int}/card-image")]
+    public async Task<ActionResult<ApiResult>> DeleteCardImage(
+        int cardId,
+        [FromQuery] string ownerEmail,
+        [FromQuery] string imageKey,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult.Fail("ownerEmail is required."));
+        var result = await _website.DeleteCardImageAsync(cardId, ownerEmail, imageKey, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("{cardId:int}/service-image")]
+    [RequestSizeLimit(3_000_000)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 3_000_000)]
+    public async Task<ActionResult<ApiResult<WebsiteImageDto>>> UploadServiceImage(
+        int cardId,
+        [FromForm] string ownerEmail,
+        IFormFile? file,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult<WebsiteImageDto>.Fail("ownerEmail is required."));
+        if (file == null || file.Length <= 0)
+            return BadRequest(ApiResult<WebsiteImageDto>.Fail("No image selected."));
+        await using var stream = file.OpenReadStream();
+        var result = await _website.UploadServiceImageAsync(
+            cardId, ownerEmail, stream, file.FileName, file.ContentType, file.Length, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpDelete("{cardId:int}/service-image")]
+    public async Task<ActionResult<ApiResult>> DeleteServiceImage(
+        int cardId,
+        [FromQuery] string ownerEmail,
+        [FromQuery] string imageKey,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(ownerEmail))
+            return BadRequest(ApiResult.Fail("ownerEmail is required."));
+        var result = await _website.DeleteServiceImageAsync(cardId, ownerEmail, imageKey, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 
     // ---- services ----

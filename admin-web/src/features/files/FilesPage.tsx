@@ -45,6 +45,7 @@ function formatWhen(value?: string | null) {
 function folderLabel(folder: string) {
   if (folder === 'profile') return 'Profile'
   if (folder === 'verification') return 'Verification'
+  if (folder === 'website') return 'Website'
   return folder
 }
 
@@ -164,6 +165,7 @@ export function FilesPage() {
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="profile">Profile</SelectItem>
               <SelectItem value="verification">Verification</SelectItem>
+              <SelectItem value="website">Website</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { apiGet, apiSend, ApiError } from '@/shared/api/client'
+import { apiGet, apiSend, apiUploadForm, ApiError } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { siteUrl } from '@/lib/utils'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
@@ -71,15 +71,6 @@ function normalize(raw: unknown): VerificationData {
   }
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-}
-
 function statusBadge(status: string) {
   const s = status.toLowerCase()
   if (s === 'submitted' || s === 'pending review') {
@@ -123,6 +114,10 @@ export function VerificationPage() {
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [uploadingSlot, setUploadingSlot] = useState<DocSlot | null>(null)
+  const [uploadPercent, setUploadPercent] = useState(0)
+  const [removingSlot, setRemovingSlot] = useState<DocSlot | null>(null)
+  const [slotError, setSlotError] = useState<Partial<Record<DocSlot, string>>>({})
   const [preview, setPreview] = useState<DocPreview>({})
   const [pendingB64, setPendingB64] = useState<DocPreview>({})
   const [lightbox, setLightbox] = useState<string | null>(null)
@@ -177,46 +172,78 @@ export function VerificationPage() {
     void load()
   }, [session?.email])
 
+  function showSlotError(slot: DocSlot, message: string | null) {
+    setSlotError((prev) => {
+      const next = { ...prev }
+      if (message) next[slot] = message
+      else delete next[slot]
+      return next
+    })
+  }
+
+  function applyDocuments(page: VerificationData) {
+    setData(page)
+    setPreview({
+      pan: page.panCardUrl || undefined,
+      front: page.aadhaarFrontUrl || undefined,
+      back: page.aadhaarBackUrl || undefined,
+      gst: page.gstCertificateUrl || undefined,
+      agreement: page.agreementUrl || undefined,
+    })
+  }
+
   async function onPick(slot: DocSlot, file: File | null) {
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('Please choose an image file (JPG, PNG, GIF, WebP).')
+    if (!file || !session?.email) return
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const extOk = /\.(jpe?g|png|gif|webp)$/i.test(file.name)
+    if (!allowed.includes(file.type) && !(file.type === '' && extOk) && !file.type.startsWith('image/')) {
+      showSlotError(slot, 'Use a JPG, PNG, GIF, or WebP image.')
       return
     }
     if (file.size > 2_500_000) {
-      setError('Image is too large (max ~2.5MB).')
+      showSlotError(slot, 'Image is too large (max 2.5MB).')
       return
     }
+    showSlotError(slot, null)
+    setUploadingSlot(slot)
+    setUploadPercent(0)
+    setMsg(null)
     try {
-      const b64 = await fileToBase64(file)
-      setPendingB64((p) => ({ ...p, [slot]: b64 }))
-      setPreview((p) => ({ ...p, [slot]: b64 }))
-      setError(null)
-    } catch {
-      setError('Failed to read image')
+      const form = new FormData()
+      form.append('email', session.email)
+      form.append('kind', slot)
+      form.append('file', file)
+      const res = await apiUploadForm<unknown>('/api/v1/portal/verification-document', form, setUploadPercent)
+      setUploadPercent(100)
+      applyDocuments(normalize(res.data))
+      setMsg('Document uploaded.')
+    } catch (e) {
+      showSlotError(slot, e instanceof ApiError ? e.message : 'Upload failed')
+    } finally {
+      setUploadingSlot(null)
     }
   }
 
-  function clearSlot(slot: DocSlot) {
-    setPendingB64((p) => {
-      const next = { ...p }
-      delete next[slot]
-      return next
-    })
-    setPreview((p) => {
-      const next = { ...p }
-      // Restore server URL if present
-      const saved: Record<DocSlot, string | null | undefined> = {
-        pan: data?.panCardUrl,
-        front: data?.aadhaarFrontUrl,
-        back: data?.aadhaarBackUrl,
-        gst: data?.gstCertificateUrl,
-        agreement: data?.agreementUrl,
-      }
-      next[slot] = saved[slot] || undefined
-      if (!next[slot]) delete next[slot]
-      return next
-    })
+  async function removeSlot(slot: DocSlot) {
+    if (!session?.email || removingSlot) return
+    setRemovingSlot(slot)
+    showSlotError(slot, null)
+    try {
+      const res = await apiSend<unknown>(
+        'delete',
+        `/api/v1/portal/verification-document?email=${encodeURIComponent(session.email)}&kind=${encodeURIComponent(slot)}`,
+      )
+      applyDocuments(normalize(res.data))
+      setPendingB64((p) => {
+        const next = { ...p }
+        delete next[slot]
+        return next
+      })
+    } catch (e) {
+      showSlotError(slot, e instanceof ApiError ? e.message : 'Could not remove the image.')
+    } finally {
+      setRemovingSlot(null)
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -299,6 +326,8 @@ export function VerificationPage() {
     inputRef: React.RefObject<HTMLInputElement | null>
   }) {
     const src = preview[slot]
+    const note = slotError[slot]
+    const busySlot = uploadingSlot === slot || removingSlot === slot
     return (
       <div className="col-md-4 mb-4">
         <div className="upload-container text-center">
@@ -307,49 +336,66 @@ export function VerificationPage() {
             role="button"
             tabIndex={0}
             onClick={() => {
+              if (busySlot) return
               if (src) setLightbox(src)
               else if (!locked) inputRef.current?.click()
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
+                if (busySlot) return
                 if (src) setLightbox(src)
                 else if (!locked) inputRef.current?.click()
               }
             }}
           >
-            {src ? (
+            {uploadingSlot === slot ? (
+              <div className="doc-upload-progress">
+                <span>Uploading {uploadPercent}%</span>
+                <div className="doc-upload-track" aria-hidden>
+                  <div className="doc-upload-fill" style={{ width: `${uploadPercent}%` }} />
+                </div>
+              </div>
+            ) : src ? (
               <img src={src} alt={`${title} preview`} />
+            ) : note ? (
+              <p className="doc-box-note">{note}</p>
             ) : (
               <span>{label}</span>
             )}
+            {src && note && uploadingSlot !== slot ? <p className="doc-box-note doc-box-note-overlay">{note}</p> : null}
+            {src && !locked && !busySlot ? (
+              <button
+                type="button"
+                className="doc-remove"
+                aria-label={`Remove ${title}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void removeSlot(slot)
+                }}
+              >
+                <i className="fa fa-times" aria-hidden />
+              </button>
+            ) : null}
           </div>
           <p className="addlogo">{title}</p>
           {!locked ? (
             <div className="file-upload-visible">
-              <button
-                type="button"
-                className="choose-btn"
-                onClick={() => inputRef.current?.click()}
-              >
+              <label className={`choose-btn${busySlot ? ' disabled' : ''}`}>
                 Choose File
-              </button>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.gif,.webp,image/*"
-                className="d-none"
-                onChange={(e) => void onPick(slot, e.target.files?.[0] ?? null)}
-              />
-              {src && pendingB64[slot] ? (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-danger mt-2 w-100"
-                  onClick={() => clearSlot(slot)}
-                >
-                  <i className="fa fa-trash" aria-hidden /> Remove
-                </button>
-              ) : null}
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,image/*"
+                  className="verification-file-input"
+                  disabled={busySlot}
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0] ?? null
+                    e.target.value = ''
+                    void onPick(slot, picked)
+                  }}
+                />
+              </label>
             </div>
           ) : null}
         </div>
@@ -569,6 +615,7 @@ export function VerificationPage() {
 
       <style>{`
         .document-placeholder {
+          position: relative;
           width: 200px;
           height: 200px;
           border: 2px solid darkgray;
@@ -586,6 +633,73 @@ export function VerificationPage() {
           line-height: 33px;
           text-align: center;
           color: #666;
+        }
+        .doc-box-note {
+          margin: 0;
+          padding: 0 10px;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.35;
+          text-align: center;
+          color: #b42318;
+        }
+        .doc-box-note-overlay {
+          position: absolute;
+          left: 6px;
+          right: 6px;
+          bottom: 6px;
+          padding: 4px 6px;
+          background: rgba(255, 255, 255, 0.94);
+          border-radius: 4px;
+        }
+        .doc-remove {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          z-index: 2;
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          border: 0;
+          border-radius: 50%;
+          background: rgba(15, 23, 42, 0.72);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 12px;
+          line-height: 1;
+        }
+        .doc-remove:hover { background: #dc3545; }
+        .doc-upload-progress {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          width: 100%;
+          padding: 12px;
+          color: #334155;
+        }
+        .doc-upload-progress span {
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 1.3;
+          letter-spacing: 0;
+        }
+        .doc-upload-track {
+          width: 80%;
+          height: 4px;
+          border-radius: 999px;
+          background: #e2e8f0;
+          overflow: hidden;
+        }
+        .doc-upload-fill {
+          height: 100%;
+          border-radius: 999px;
+          background: #007bff;
+          transition: width 0.15s ease;
         }
         .document-placeholder img {
           max-width: 100%;
@@ -614,6 +728,18 @@ export function VerificationPage() {
           font-weight: 500;
         }
         .choose-btn:hover { background-color: #0056b3; color: white; }
+        .choose-btn.disabled { opacity: 0.7; pointer-events: none; }
+        .verification-file-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
         .btn-warning {
           background-color: #ffc107;
           border-color: #ffc107;

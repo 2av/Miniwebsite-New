@@ -27,7 +27,7 @@ public class UploadedFileTracker : IUploadedFileTracker
         foreach (var old in previous)
         {
             // A new profile photo replaces the object in storage, so the old row is not a stored file.
-            if (file.Folder == UploadedFileFolder.Profile)
+            if (file.Folder is UploadedFileFolder.Profile or UploadedFileFolder.Website)
             {
                 _db.UploadedFiles.Remove(old);
                 continue;

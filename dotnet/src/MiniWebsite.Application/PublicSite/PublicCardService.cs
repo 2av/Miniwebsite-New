@@ -18,11 +18,13 @@ public class PublicCardService : IPublicCardService
     private static readonly string DefaultImagePath = "assets/img/default.jpg";
 
     private readonly IApplicationDbContext _db;
+    private readonly IObjectStorage _storage;
     private readonly AppOptions _app;
 
-    public PublicCardService(IApplicationDbContext db, IOptions<AppOptions> app)
+    public PublicCardService(IApplicationDbContext db, IObjectStorage storage, IOptions<AppOptions> app)
     {
         _db = db;
+        _storage = storage;
         _app = app.Value;
     }
 
@@ -102,9 +104,9 @@ public class PublicCardService : IPublicCardService
         var layoutCss = $"theme/css/layout{themeNumber}.css";
         var defaultUrl = SiteAsset(DefaultImagePath);
 
-        var heroCover = WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, card.DHeroImageLocation);
+        var heroCover = WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, card.DHeroImageLocation);
         if (string.IsNullOrEmpty(heroCover)) heroCover = defaultUrl;
-        var logo = WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.CompanyDetailsFolder, card.DLogoLocation);
+        var logo = WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, card.DLogoLocation);
         if (string.IsNullOrEmpty(logo)) logo = heroCover;
 
         var heroName = FirstNonEmpty(
@@ -145,7 +147,7 @@ public class PublicCardService : IPublicCardService
                 s.ProductName!.Trim(),
                 s.ProductDescription,
                 FirstNonEmpty(
-                    WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductServicesFolder, s.ProductImage),
+                    WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ProductServicesFolder, s.ProductImage),
                     defaultUrl)!))
             .ToList();
 
@@ -159,7 +161,7 @@ public class PublicCardService : IPublicCardService
                 o.OfferTitle,
                 o.OfferDescription,
                 FirstNonEmpty(
-                    WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.SpecialOffersFolder, o.OfferImage),
+                    WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.SpecialOffersFolder, o.OfferImage),
                     defaultUrl)!,
                 o.Badge,
                 o.DiscountPercentage,
@@ -176,7 +178,7 @@ public class PublicCardService : IPublicCardService
                 p.ProductName!.Trim(),
                 p.ProductDescription,
                 FirstNonEmpty(
-                    WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ProductPricingFolder, p.ProductImage),
+                    WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ProductPricingFolder, p.ProductImage),
                     defaultUrl)!,
                 p.Mrp,
                 p.SellingPrice,
@@ -191,7 +193,7 @@ public class PublicCardService : IPublicCardService
             .OrderBy(g => g.DisplayOrder).ThenBy(g => g.Id)
             .ToListAsync(ct);
         var galleryUrls = gallery
-            .Select(g => WebsiteAssetUrls.PublicUrl(_app, WebsiteAssetUrls.ImageGalleryFolder, g.GalleryImage))
+            .Select(g => WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.ImageGalleryFolder, g.GalleryImage))
             .Where(u => !string.IsNullOrEmpty(u))
             .Cast<string>()
             .ToList();

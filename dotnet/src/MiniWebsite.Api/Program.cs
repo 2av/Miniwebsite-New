@@ -45,7 +45,7 @@ try
         options.AddPolicy("Frontend", policy =>
             policy.AllowAnyHeader()
                   .AllowAnyMethod()
-                  .AllowAnyOrigin());
+                  .SetIsOriginAllowed(IsAllowedOrigin));
     });
 
     builder.Services.AddHealthChecks();
@@ -145,4 +145,20 @@ finally
     Log.CloseAndFlush();
 }
 
-public partial class Program;
+public partial class Program
+{
+    private static bool IsAllowedOrigin(string origin)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            return false;
+
+        var host = uri.IdnHost;
+        return host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("::1", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("sharebizz.com", StringComparison.OrdinalIgnoreCase)
+            || host.Equals("sharebizz.in", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".sharebizz.com", StringComparison.OrdinalIgnoreCase)
+            || host.EndsWith(".sharebizz.in", StringComparison.OrdinalIgnoreCase);
+    }
+}

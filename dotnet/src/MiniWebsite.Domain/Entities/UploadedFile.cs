@@ -7,7 +7,7 @@ public class UploadedFile
     public int UserId { get; set; }
     public User User { get; set; } = null!;
 
-    /// <summary><c>profile</c> or <c>verification</c>.</summary>
+    /// <summary><c>profile</c>, <c>verification</c>, or <c>website</c>.</summary>
     public string Folder { get; set; } = "";
 
     /// <summary>Profile photo, PAN, Aadhaar front, Aadhaar back, GST certificate, or Agreement.</summary>
@@ -16,7 +16,7 @@ public class UploadedFile
     public string OriginalFileName { get; set; } = "";
     public string StoredFileName { get; set; } = "";
 
-    /// <summary>R2 object key, for example <c>profile/abc.jpg</c>. Not a public URL.</summary>
+    /// <summary>R2 object key, for example <c>PSP 0FPWZS6Q/profile/abc.jpg</c>. Not a public URL.</summary>
     public string ObjectKey { get; set; } = "";
 
     public string ContentType { get; set; } = "";
@@ -39,6 +39,7 @@ public static class UploadedFileFolder
 {
     public const string Profile = "profile";
     public const string Verification = "verification";
+    public const string Website = "website";
 }
 
 public static class UploadedFileDocument
@@ -49,4 +50,7 @@ public static class UploadedFileDocument
     public const string AadhaarBack = "Aadhaar back";
     public const string GstCertificate = "GST certificate";
     public const string Agreement = "Agreement";
+
+    public static string WebsiteLogo(int cardId) => "Logo " + cardId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    public static string WebsiteHero(int cardId) => "Hero " + cardId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }

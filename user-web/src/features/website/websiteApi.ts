@@ -1,4 +1,4 @@
-import { apiGet, apiSend } from '@/shared/api/client'
+import { apiGet, apiSend, apiUploadForm } from '@/shared/api/client'
 
 function ownerQS(email: string) {
   return { ownerEmail: email }
@@ -34,6 +34,20 @@ export const websiteApi = {
   putCompany: (cardId: number, email: string, body: Record<string, unknown>) =>
     apiSend('put', `/api/v1/digi-cards/${cardId}/company-details?ownerEmail=${encodeURIComponent(email)}`, body),
 
+  uploadCompanyImage: (cardId: number, email: string, kind: 'logo' | 'hero', file: File, onProgress?: (percent: number) => void) => {
+    const form = new FormData()
+    form.append('ownerEmail', email)
+    form.append('kind', kind)
+    form.append('file', file)
+    return apiUploadForm<Record<string, unknown>>(`/api/v1/digi-cards/${cardId}/company-image`, form, onProgress)
+  },
+
+  deleteCompanyImage: (cardId: number, email: string, kind: 'logo' | 'hero') =>
+    apiSend<Record<string, unknown>>(
+      'delete',
+      `/api/v1/digi-cards/${cardId}/company-image?ownerEmail=${encodeURIComponent(email)}&kind=${kind}`,
+    ),
+
   getSocial: (cardId: number, email: string) =>
     apiGet<Record<string, unknown>>(`/api/v1/digi-cards/${cardId}/social-links`, ownerQS(email)),
 
@@ -63,6 +77,39 @@ export const websiteApi = {
 
   deleteProduct: (cardId: number, productId: number, email: string) =>
     apiSend('delete', `/api/v1/digi-cards/${cardId}/products/${productId}?ownerEmail=${encodeURIComponent(email)}`),
+
+  uploadCardImage: (
+    cardId: number,
+    email: string,
+    kind: 'product' | 'offer' | 'gallery',
+    file: File,
+    onProgress?: (percent: number) => void,
+  ) => {
+    const form = new FormData()
+    form.append('ownerEmail', email)
+    form.append('kind', kind)
+    form.append('file', file)
+    return apiUploadForm<Record<string, unknown>>(`/api/v1/digi-cards/${cardId}/card-image`, form, onProgress)
+  },
+
+  deleteCardImage: (cardId: number, email: string, imageKey: string) =>
+    apiSend(
+      'delete',
+      `/api/v1/digi-cards/${cardId}/card-image?ownerEmail=${encodeURIComponent(email)}&imageKey=${encodeURIComponent(imageKey)}`,
+    ),
+
+  uploadServiceImage: (cardId: number, email: string, file: File, onProgress?: (percent: number) => void) => {
+    const form = new FormData()
+    form.append('ownerEmail', email)
+    form.append('file', file)
+    return apiUploadForm<Record<string, unknown>>(`/api/v1/digi-cards/${cardId}/service-image`, form, onProgress)
+  },
+
+  deleteServiceImage: (cardId: number, email: string, imageKey: string) =>
+    apiSend(
+      'delete',
+      `/api/v1/digi-cards/${cardId}/service-image?ownerEmail=${encodeURIComponent(email)}&imageKey=${encodeURIComponent(imageKey)}`,
+    ),
 
   listServices: (cardId: number, email: string) =>
     apiGet<unknown[]>(`/api/v1/digi-cards/${cardId}/services`, ownerQS(email)),
