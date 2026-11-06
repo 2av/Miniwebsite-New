@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { apiGet, apiSend, ApiError } from '@/shared/api/client'
 import { getAuthSession, LOGIN_PATH } from '@/shared/auth/session'
+import { clearPendingProfile, readPendingProfile, setCardInProcess, stepPath } from '@/features/website/cardContext'
 
 type Billing = {
   name: string
@@ -165,7 +166,11 @@ function loadRazorpay() {
 
 export function DbProfilePaymentPage() {
   const [params] = useSearchParams()
-  const cardId = Number(params.get('id') || 0)
+  const navigate = useNavigate()
+  const isNew = params.get('new') === '1'
+  const pending = isNew ? readPendingProfile() : null
+  const hasPending = Boolean(pending)
+  const cardId = isNew ? 0 : Number(params.get('id') || 0)
   const session = getAuthSession()
 
   const [loading, setLoading] = useState(true)
@@ -189,7 +194,11 @@ export function DbProfilePaymentPage() {
   const [paid, setPaid] = useState(false)
 
   useEffect(() => {
-    if (!session?.email || !cardId) {
+    if (!session?.email || (!cardId && !isNew)) {
+      setLoading(false)
+      return
+    }
+    if (isNew && !pending) {
       setLoading(false)
       return
     }
@@ -221,7 +230,7 @@ export function DbProfilePaymentPage() {
     return () => {
       cancelled = true
     }
-  }, [session?.email, cardId])
+  }, [session?.email, cardId, isNew, hasPending])
 
   const plan = page?.plans.find((p) => p.id === planId) ?? null
   const sellerState = page?.sellerState || 'Haryana'
@@ -280,10 +289,12 @@ export function DbProfilePaymentPage() {
         city: city.trim(),
         pincode: pincode.trim(),
         agreed,
+        compName: pending?.compName,
+        displayName: pending?.displayName,
       })
       const data = (res.data ?? {}) as Record<string, unknown>
       if (Boolean(pick(data, 'paymentCompleted', 'PaymentCompleted'))) {
-        setPaid(true)
+        finishPaid(num(pick(data, 'cardId', 'CardId')) || cardId)
         return
       }
       const Razorpay = await loadRazorpay()
@@ -301,7 +312,7 @@ export function DbProfilePaymentPage() {
         theme: { color: '#0B1F6E' },
         handler: async (response: { razorpay_order_id?: string; razorpay_payment_id?: string; razorpay_signature?: string }) => {
           try {
-            await apiSend('post', '/api/v1/payments/db-profile/verify', {
+            const verified = await apiSend<Record<string, unknown>>('post', '/api/v1/payments/db-profile/verify', {
               email: session.email,
               cardId,
               invoiceId,
@@ -309,7 +320,8 @@ export function DbProfilePaymentPage() {
               razorpayPaymentId: response.razorpay_payment_id || '',
               razorpaySignature: response.razorpay_signature || '',
             })
-            setPaid(true)
+            const verifiedData = (verified.data ?? {}) as Record<string, unknown>
+            finishPaid(num(pick(verifiedData, 'cardId', 'CardId')) || cardId)
           } catch (e) {
             setError(e instanceof Error ? e.message : 'Payment could not be verified.')
           }
@@ -336,7 +348,34 @@ export function DbProfilePaymentPage() {
     )
   }
 
-  if (!cardId) {
+  function finishPaid(id: number) {
+    if (isNew) {
+      if (id <= 0) {
+        setError('Payment was received, but the DB Profile could not be saved.')
+        return
+      }
+      clearPendingProfile()
+      setCardInProcess(id)
+      navigate(stepPath('/website/select-theme', id))
+      return
+    }
+    setPaid(true)
+  }
+
+  if (isNew && !pending) {
+    return (
+      <Shell>
+        <p className="px-6 py-10 text-center text-[#4B5563]">
+          Enter the business name and business URL before payment.{' '}
+          <Link className="font-semibold text-[#0B1F6E]" to="/website/business-name?new=1">
+            Back to Business Name
+          </Link>
+        </p>
+      </Shell>
+    )
+  }
+
+  if (!cardId && !isNew) {
     return (
       <Shell>
         <p className="px-6 py-10 text-center text-[#4B5563]">

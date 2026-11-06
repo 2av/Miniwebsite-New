@@ -58,6 +58,9 @@ public class CrmContentConfigurations :
         builder.Property(x => x.IsCollaboration).HasMaxLength(10);
         builder.Property(x => x.CommissionCode).HasMaxLength(30);
         builder.Property(x => x.AdminComment).HasMaxLength(1000);
+        builder.Property(x => x.PayoutAcceptance).HasMaxLength(40);
+        builder.HasIndex(x => x.PayoutInvoiceId);
+        builder.HasOne(x => x.PayoutInvoice).WithMany().HasForeignKey(x => x.PayoutInvoiceId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(x => x.CommissionCode).IsUnique();
         builder.HasIndex(x => x.ReferrerEmail);
         builder.HasIndex(x => x.ReferredEmail);

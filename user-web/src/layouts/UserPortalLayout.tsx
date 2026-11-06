@@ -10,6 +10,7 @@ import {
   getPortalMenu,
   getWebsiteBuilderMenu,
   normalizeRolePrefix,
+  type OnboardingGate,
   type PortalFlags,
   type WebsiteNavItem,
 } from '@/shared/portal/menu'
@@ -56,12 +57,14 @@ function PortalPageGate({
   ready,
   prefix,
   pathname,
+  gate,
 }: {
   ready: boolean
   prefix?: string | null
   pathname: string
+  gate?: OnboardingGate | null
 }) {
-  const allowed = canAccessPortalPath(prefix, pathname)
+  const allowed = canAccessPortalPath(prefix, pathname, gate)
   if (!ready && !allowed) return null
   if (!allowed) return <Navigate to="/dashboard" replace />
   return <Outlet />
@@ -92,6 +95,8 @@ export function UserPortalLayout() {
   const [franchiseInvoiceAvailable, setFranchiseInvoiceAvailable] = useState(false)
   const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
   const [rolePrefix, setRolePrefix] = useState(session?.rolePrefix ?? '')
+  const [gate, setGate] = useState<OnboardingGate>({})
+  const [notices, setNotices] = useState<{ id: number; title: string; message: string }[]>([])
   const [accessReady, setAccessReady] = useState(() => Boolean(normalizeRolePrefix(session?.rolePrefix)))
 
   const inWebsiteBuilder = location.pathname.startsWith('/website')
@@ -136,6 +141,11 @@ export function UserPortalLayout() {
         const roleName = String(pick(raw, 'roleName', 'RoleName') ?? '').trim()
         if (roleName) setMappedRoleName(roleName)
         const prefix = String(pick(raw, 'rolePrefix', 'RolePrefix') ?? '').trim().toUpperCase()
+        setGate({
+          stage: String(pick(raw, 'onboardingStage', 'OnboardingStage') ?? '') || null,
+          referralEligibleAt:
+            (pick(raw, 'referralEligibleAt', 'ReferralEligibleAt') as string | null) ?? null,
+        })
         if (prefix) {
           setRolePrefix(prefix)
           setAccessReady(true)
@@ -148,6 +158,23 @@ export function UserPortalLayout() {
         }
       } catch {
         if (!cancelled) setAccessReady(true)
+      }
+      try {
+        const notes = await apiGet<unknown[]>('/api/v1/portal/notifications', { email: session.email })
+        if (!cancelled && Array.isArray(notes)) {
+          setNotices(
+            notes.slice(0, 8).map((item) => {
+              const row = (item ?? {}) as Record<string, unknown>
+              return {
+                id: Number(pick(row, 'id', 'Id') ?? 0),
+                title: String(pick(row, 'title', 'Title') ?? ''),
+                message: String(pick(row, 'message', 'Message') ?? ''),
+              }
+            }),
+          )
+        }
+      } catch {
+        // notifications are optional
       }
       try {
         const cards = await apiGet<unknown[]>('/api/v1/digi-cards', { userEmail: session.email })
@@ -203,11 +230,16 @@ export function UserPortalLayout() {
     document.body.classList.toggle('sb-sidenav-toggled')
   }
 
-  const portalMenu = useMemo(() => getPortalMenu(rolePrefix || session?.rolePrefix), [rolePrefix, session?.rolePrefix])
+  const portalMenu = useMemo(
+    () => getPortalMenu(rolePrefix || session?.rolePrefix, gate),
+    [rolePrefix, session?.rolePrefix, gate],
+  )
 
+  const creatingProfile = searchParams.get('new') === '1'
+  const profilePaymentDue = gate.stage === 'Payment due' || gate.stage === 'Account only'
   const websiteMenu = useMemo(
-    () => getWebsiteBuilderMenu(builderCardId, flags, builderSlug),
-    [builderCardId, flags, builderSlug],
+    () => getWebsiteBuilderMenu(creatingProfile || profilePaymentDue ? null : builderCardId, flags, creatingProfile || profilePaymentDue ? null : builderSlug),
+    [creatingProfile, profilePaymentDue, builderCardId, flags, builderSlug],
   )
 
   if (!session || !isSessionValid(session)) {
@@ -416,7 +448,15 @@ export function UserPortalLayout() {
           </button>
           {alertsOpen ? (
             <div className="sb-alerts-pop" role="status">
-              No new notifications
+              {notices.length === 0
+                ? 'No new notifications'
+                : notices.map((note) => (
+                    <p key={note.id} className="mb-2">
+                      <strong>{note.title}</strong>
+                      <br />
+                      {note.message}
+                    </p>
+                  ))}
             </div>
           ) : null}
           <ul className="navbar-nav ms-auto ms-md-0 flex items-center">
@@ -602,6 +642,7 @@ export function UserPortalLayout() {
                 ready={accessReady}
                 prefix={rolePrefix || session?.rolePrefix}
                 pathname={location.pathname}
+                gate={gate}
               />
             </div>
           </main>

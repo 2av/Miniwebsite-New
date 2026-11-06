@@ -167,7 +167,7 @@ public class AdminInvoiceAccessService : IAdminInvoiceAccessService
         <div>KIROVA SOLUTIONS LLP</div>
         <div><strong>Address:</strong> plot no 535, 1st floor, block b, near madrasi mandir, sec 23, sanjay colony, Faridabad Sector 22, sector 23 police station, Faridabad, Faridabad- 121005, Haryana, India</div>
         <div><strong>Contact:</strong> +91 9429693061</div>
-        <div><strong>Email Id:</strong> support@miniwebsite.in</div>
+        <div><strong>Email Id:</strong> support@sharebizz.com</div>
         <div><strong>PAN No:</strong> ABDFK4023D</div>
         <div><strong>GST No:</strong> 06ABDFK4023D1ZW</div>
       </div>

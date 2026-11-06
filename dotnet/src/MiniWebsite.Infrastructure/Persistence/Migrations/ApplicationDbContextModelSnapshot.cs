@@ -22,6 +22,59 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.AccountInvite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("InvitedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsConsumed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("RolePrefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("InvitedByUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("account_invites", (string)null);
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Card", b =>
                 {
                     b.Property<int>("Id")
@@ -1070,6 +1123,41 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.ToTable("faqs", (string)null);
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.FieldSalesDeal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DealDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "DealDate");
+
+                    b.ToTable("field_sales_deals", (string)null);
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchiseVerification", b =>
                 {
                     b.Property<int>("Id")
@@ -1853,6 +1941,13 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("PaymentDate")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("PayoutAcceptance")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<int?>("PayoutInvoiceId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("ReferralDate")
                         .HasColumnType("datetime(6)");
 
@@ -1885,6 +1980,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("CouponId");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("PayoutInvoiceId");
 
                     b.HasIndex("ReferredEmail");
 
@@ -2006,6 +2103,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("IssuedPassword")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -2244,6 +2345,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("OnboardingStage")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<DateTime>("OnboardingStageAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("Password")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -2262,6 +2374,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("RefundStatusDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ReferralEligibleAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("RoleId")
@@ -2300,7 +2415,10 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RoleId", "CreatedAt");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_users_OnboardingStage", "`OnboardingStage` IN ('Account only', 'Payment due', 'Features', 'Document verification', 'Waiting for review', 'Approved', 'Ready to sell')");
+                        });
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.UserBankDetails", b =>
@@ -2452,6 +2570,14 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("user_joining_deals", (string)null);
+                });
+
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.AccountInvite", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("InvitedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("MiniWebsite.Domain.Entities.Card", b =>
@@ -2626,6 +2752,17 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Section");
                 });
 
+            modelBuilder.Entity("MiniWebsite.Domain.Entities.FieldSalesDeal", b =>
+                {
+                    b.HasOne("MiniWebsite.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("MiniWebsite.Domain.Entities.FranchiseVerification", b =>
                 {
                     b.HasOne("MiniWebsite.Domain.Entities.User", "User")
@@ -2767,6 +2904,11 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasForeignKey("InvoiceId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("MiniWebsite.Domain.Entities.Invoice", "PayoutInvoice")
+                        .WithMany()
+                        .HasForeignKey("PayoutInvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MiniWebsite.Domain.Entities.User", "ReferredUser")
                         .WithMany()
                         .HasForeignKey("ReferredUserId")
@@ -2780,6 +2922,8 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Navigation("Coupon");
 
                     b.Navigation("Invoice");
+
+                    b.Navigation("PayoutInvoice");
 
                     b.Navigation("ReferredUser");
 

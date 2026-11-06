@@ -51,9 +51,9 @@ export function PublicFooter() {
                   </a>
                 </p>
                 <p className="mb-3 text-base">
-                  <a href="mailto:support@miniwebsite.in" className="inline-flex items-center gap-2 hover:underline">
+                  <a href="mailto:support@sharebizz.com" className="inline-flex items-center gap-2 hover:underline">
                     <img src={assetUrl('images/09Footer/foot-mail.png')} alt="" className="h-5 w-5" />
-                    support@miniwebsite.in
+                    support@sharebizz.com
                   </a>
                 </p>
                 <p className="mb-3 flex items-start gap-2 text-base">

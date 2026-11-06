@@ -14,6 +14,10 @@ export function fetchSalesChannelPartners(
   return apiGet<SalesChannelPartnersPage>(`${BASE}/${slug}`, query as Record<string, unknown>)
 }
 
+export function inviteSalesChannelPartner(slug: string, email: string) {
+  return apiSend('post', `${BASE}/${slug}/invite`, { email })
+}
+
 export function createSalesChannelPartner(slug: string, payload: UpsertSalesChannelPartnerPayload & { password: string }) {
   return apiSend<SalesChannelPartnerRow>('post', `${BASE}/${slug}`, payload)
 }

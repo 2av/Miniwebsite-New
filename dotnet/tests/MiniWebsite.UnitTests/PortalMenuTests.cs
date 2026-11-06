@@ -58,6 +58,6 @@ public class PortalMenuTests
     public void Unknown_prefix_has_no_menu()
     {
         Assert.Empty(PortalMenu.FeaturesFor("ADM"));
-        Assert.False(PortalMenu.Allows(null, PortalMenu.Dashboard));
+        Assert.False(PortalMenu.Allows((string?)null, PortalMenu.Dashboard));
     }
 }

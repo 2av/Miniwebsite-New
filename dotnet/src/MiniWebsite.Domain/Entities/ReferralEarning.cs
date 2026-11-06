@@ -22,5 +22,9 @@ public class ReferralEarning
     /// <summary>Order this commission was earned on; when unset, readers fall back to the referred user's invoice closest to <see cref="ReferralDate"/>.</summary>
     public int? InvoiceId { get; set; }
     public Invoice? Invoice { get; set; }
+    /// <summary>One of <see cref="Common.PayoutAcceptanceStatus"/>. Null until a payout invoice exists.</summary>
+    public string? PayoutAcceptance { get; set; }
+    public int? PayoutInvoiceId { get; set; }
+    public Invoice? PayoutInvoice { get; set; }
     public ICollection<ReferralPayment> Payments { get; set; } = new List<ReferralPayment>();
 }

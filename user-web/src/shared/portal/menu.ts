@@ -68,22 +68,62 @@ export function normalizeRolePrefix(prefix?: string | null): UserTypePrefix | nu
   return value in MENU_BY_PREFIX ? (value as UserTypePrefix) : null
 }
 
-export function portalFeaturesFor(prefix?: string | null): PortalFeature[] {
+export type OnboardingGate = {
+  stage?: string | null
+  referralEligibleAt?: string | null
+}
+
+const STAGE_GATED = new Set<UserTypePrefix>(['SBU', 'DMP', 'FSP', 'PSP', 'FRP'])
+
+function referralUnlocked(gate?: OnboardingGate | null) {
+  if (!gate?.referralEligibleAt) return false
+  const at = Date.parse(gate.referralEligibleAt)
+  return !Number.isNaN(at) && Date.now() >= at
+}
+
+export function portalFeaturesFor(prefix?: string | null, gate?: OnboardingGate | null): PortalFeature[] {
   const key = normalizeRolePrefix(prefix)
-  return key ? MENU_BY_PREFIX[key] : ['dashboard']
+  const catalog = key ? MENU_BY_PREFIX[key] : (['dashboard'] as PortalFeature[])
+  if (!key || !STAGE_GATED.has(key)) return catalog
+  const stage = (gate?.stage || 'Ready to sell').trim()
+  if (key === 'SBU') {
+    if (stage === 'Account only' || stage === 'Payment due') return ['dashboard']
+    const open: PortalFeature[] = ['dashboard', 'customers', 'marketing']
+    if (referralUnlocked(gate)) open.push('referral', 'verification')
+    return open.filter((item) => catalog.includes(item))
+  }
+  if (stage === 'Account only' || stage === 'Payment due') return ['dashboard']
+  if (stage === 'Document verification' || stage === 'Waiting for review') return ['dashboard', 'verification']
+  return catalog
 }
 
-export function hasPortalFeature(prefix: string | null | undefined, feature: PortalFeature) {
-  return portalFeaturesFor(prefix).includes(feature)
+export function hasPortalFeature(
+  prefix: string | null | undefined,
+  feature: PortalFeature,
+  gate?: OnboardingGate | null,
+) {
+  return portalFeaturesFor(prefix, gate).includes(feature)
 }
 
-export function getPortalMenu(prefix?: string | null): PortalMenuItem[] {
-  return portalFeaturesFor(prefix).map((id) => ITEMS[id])
+export function getPortalMenu(prefix?: string | null, gate?: OnboardingGate | null): PortalMenuItem[] {
+  return portalFeaturesFor(prefix, gate).map((id) => ITEMS[id])
 }
 
-/** Account pages and the website builder stay available to every signed-in user. */
+function websiteAllowed(prefix: string | null | undefined, pathname: string, gate?: OnboardingGate | null) {
+  const key = normalizeRolePrefix(prefix)
+  if (!key || !STAGE_GATED.has(key)) return true
+  const stage = (gate?.stage || 'Ready to sell').trim()
+  if (key === 'SBU' && (stage === 'Payment due' || stage === 'Account only'))
+    return pathname === '/website/business-name' || pathname.startsWith('/website/business-name/')
+  if (stage === 'Payment due' || stage === 'Account only') return false
+  if (key === 'SBU') return true
+  if (stage === 'Document verification' || stage === 'Waiting for review') return false
+  return true
+}
+
+/** Account pages stay available. The website builder follows the onboarding stage. */
 function isOpenPortalPath(pathname: string) {
-  return pathname === '/change-password' || pathname === '/website' || pathname.startsWith('/website/')
+  return pathname === '/change-password'
 }
 
 function pathFeature(pathname: string): PortalFeature | 'referral-area' | null {
@@ -104,12 +144,18 @@ function pathFeature(pathname: string): PortalFeature | 'referral-area' | null {
 }
 
 /** True when this user type may open the path. Unknown portal paths are closed. */
-export function canAccessPortalPath(prefix: string | null | undefined, pathname: string) {
+export function canAccessPortalPath(
+  prefix: string | null | undefined,
+  pathname: string,
+  gate?: OnboardingGate | null,
+) {
   if (isOpenPortalPath(pathname)) return true
+  if (pathname === '/website' || pathname.startsWith('/website/')) return websiteAllowed(prefix, pathname, gate)
   const feature = pathFeature(pathname)
   if (!feature) return false
-  if (feature === 'referral-area') return hasPortalFeature(prefix, 'referral') || hasPortalFeature(prefix, 'sales')
-  return hasPortalFeature(prefix, feature)
+  if (feature === 'referral-area')
+    return hasPortalFeature(prefix, 'referral', gate) || hasPortalFeature(prefix, 'sales', gate)
+  return hasPortalFeature(prefix, feature, gate)
 }
 
 /** Sidebar item for website builder (mirrors menu_config.json website_menu_items + PHP extras). */

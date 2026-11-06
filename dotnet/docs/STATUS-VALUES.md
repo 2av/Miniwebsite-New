@@ -49,6 +49,26 @@ Only Active terms are used for the referrer's sign-up earning.
 
 Current is the file in use. Replaced is an older verification file still stored after a newer upload. A replaced profile photo is deleted from storage, so it is removed from this list.
 
+## Onboarding stage
+
+- Account only
+- Payment due
+- Features
+- Document verification
+- Waiting for review
+- Approved
+- Ready to sell
+
+Existing accounts are set to Ready to sell. New SB Users and membership partners start at Payment due.
+
+## Payout invoice
+
+- Awaiting acceptance
+- Accepted
+- Processed
+
+The user accepts the invoice on the dashboard. Payment is recorded only after that acceptance.
+
 ## Document verification
 
 - Not Submitted

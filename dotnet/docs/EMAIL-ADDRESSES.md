@@ -2,7 +2,7 @@
 
 Use these addresses when sending or receiving ShareBizz mail. Do not send customer, partner, billing, or recruitment mail from a personal inbox.
 
-Current code still sends from `support@miniwebsite.in`. New and updated mail must follow this document.
+Outgoing mail is sent from the ShareBizz mailboxes below. OTP and other system mail use `noreply@sharebizz.com`.
 
 ## Addresses
 

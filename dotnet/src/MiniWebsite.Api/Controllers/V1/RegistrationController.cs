@@ -18,19 +18,22 @@ public class RegistrationController : ControllerBase
     private readonly IValidator<FranchiseeRegisterRequest> _franchiseeValidator;
     private readonly IValidator<VerifyOtpRequest> _otpValidator;
     private readonly IValidator<ResendOtpRequest> _resendValidator;
+    private readonly IAccountInviteService _invites;
 
     public RegistrationController(
         IRegistrationService registration,
         IValidator<CustomerRegisterRequest> customerValidator,
         IValidator<FranchiseeRegisterRequest> franchiseeValidator,
         IValidator<VerifyOtpRequest> otpValidator,
-        IValidator<ResendOtpRequest> resendValidator)
+        IValidator<ResendOtpRequest> resendValidator,
+        IAccountInviteService invites)
     {
         _registration = registration;
         _customerValidator = customerValidator;
         _franchiseeValidator = franchiseeValidator;
         _otpValidator = otpValidator;
         _resendValidator = resendValidator;
+        _invites = invites;
     }
 
     [HttpPost("customer")]
@@ -102,6 +105,22 @@ public class RegistrationController : ControllerBase
             return BadRequest(ApiResult<RegistrationStartedResponse>.Fail("Validation failed.", ToErrors(validation)));
 
         var result = await _registration.ResendFranchiseeOtpAsync(request, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpGet("partner")]
+    public async Task<ActionResult<ApiResult<PartnerInvitePreview>>> PreviewPartner(
+        [FromQuery] string token, CancellationToken ct)
+    {
+        var result = await _invites.PreviewAsync(token, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("partner")]
+    public async Task<ActionResult<ApiResult>> CompletePartner(
+        [FromBody] CompletePartnerInviteRequest request, CancellationToken ct)
+    {
+        var result = await _invites.CompleteAsync(request, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 

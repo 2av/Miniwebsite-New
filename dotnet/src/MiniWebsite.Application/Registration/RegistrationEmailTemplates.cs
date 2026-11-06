@@ -4,7 +4,7 @@ namespace MiniWebsite.Application.Registration;
 
 public static class RegistrationEmailTemplates
 {
-    /// <summary>Value for the {{password}} placeholder in welcome templates; the actual password is never stored or emailed.</summary>
+    /// <summary>Fallback when a pending registration has no issued password to email.</summary>
     public const string PasswordHint = "The password you set during registration";
 
     public static (string Subject, string Html) OtpEmail(string name, string otp, string host) =>
@@ -17,7 +17,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     );
 
     public static (string Subject, string Html) CustomerWelcome(
-        string name, string email, AppOptions app)
+        string name, string email, string password, AppOptions app)
     {
         var host = app.PublicHost;
         var dashboard = app.CustomerDashboardUrl;
@@ -30,7 +30,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     <div style=""background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;"">
         <h3 style=""color: #333; font-size: 18px; margin-top: 0; margin-bottom: 15px;"">🔐 Your Login Details:</h3>
         <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Email ID:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
-        <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {PasswordHint}</p>
+        <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(password)}</p>
         <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;"">👉 <a href=""{System.Net.WebUtility.HtmlEncode(dashboard)}"" style=""color: #007bff; text-decoration: none;"">Click here to access your dashboard</a></p>
     </div>
     <p style=""color: #333; font-size: 16px; line-height: 1.6;"">You can now start creating your ShareBizz from your dashboard.</p>
@@ -41,11 +41,11 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
     }
 
     public static (string Subject, string Html) FranchiseeWelcome(
-        string name, string email, AppOptions app, bool includePaymentStep = true)
+        string name, string email, string password, AppOptions app, bool includePaymentStep = true)
     {
         var host = app.PublicHost;
         var loginUrl = app.FranchiseeLoginUrl;
-        var payUrl = $"{app.FranchiseAgreementUrl}?email={Uri.EscapeDataString(email)}";
+        var payUrl = $"{app.MembershipPaymentUrl}?email={Uri.EscapeDataString(email)}";
         var displayName = string.IsNullOrWhiteSpace(name) || name.Contains('@', StringComparison.Ordinal)
             ? "there"
             : name;
@@ -56,8 +56,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
 
         var steps = includePaymentStep
             ? $@"
-            <p style=""color: #333; font-size: 16px; line-height: 1.6;""><strong>1. Pay the One-Time Franchise Fee (Non-Refundable)</strong><br>
-            Amount: ₹30,000 + 18% GST = ₹35,400<br>
+            <p style=""color: #333; font-size: 16px; line-height: 1.6;""><strong>1. Pay the DM Membership fees</strong><br>
             <a href=""{System.Net.WebUtility.HtmlEncode(payUrl)}"" style=""color: #007bff; text-decoration: none;"">(Click to Pay)</a></p>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;""><strong>2. After payment, complete your document Verification from your Dashboard.</strong></p>
             <p style=""color: #333; font-size: 16px; line-height: 1.6;""><strong>3. After the documents get verified, you can access your Marketing Kit and Onboarding Material from your dashboard only.</strong></p>"
@@ -73,7 +72,7 @@ Thanks,<br>{System.Net.WebUtility.HtmlEncode(host)} Team"
             <div style=""background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 20px 0;"">
                 <h3 style=""color: #333; font-size: 18px; margin-top: 0; margin-bottom: 15px;"">🔐 Your Login Details:</h3>
                 <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Email ID:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
-                <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {PasswordHint}</p>
+                <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;""><strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(password)}</p>
                 <p style=""color: #333; font-size: 16px; line-height: 1.6; margin: 10px 0;"">👉 <a href=""{System.Net.WebUtility.HtmlEncode(loginUrl)}"" style=""color: #007bff; text-decoration: none;"">Click here to login</a></p>
             </div>
             <br>

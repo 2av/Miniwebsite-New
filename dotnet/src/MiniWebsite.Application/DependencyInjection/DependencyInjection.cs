@@ -29,6 +29,7 @@ using MiniWebsite.Application.Website;
 using MiniWebsite.Application.PublicSite;
 using MiniWebsite.Application.Payments;
 using MiniWebsite.Application.Portal;
+using MiniWebsite.Application.Admin.Onboarding;
 using MiniWebsite.Application.Uploads;
 using MiniWebsite.Application.Admin.Files;
 using System.Reflection;
@@ -73,6 +74,11 @@ public static class DependencyInjection
         services.AddScoped<IUploadedFileTracker, UploadedFileTracker>();
         services.AddScoped<IAdminFilesService, AdminFilesService>();
         services.AddScoped<IDbProfileCheckoutService, DbProfileCheckoutService>();
+        services.AddScoped<IMembershipCheckoutService, MembershipCheckoutService>();
+        services.AddScoped<IAccountInviteService, AccountInviteService>();
+        services.AddScoped<IPayoutAcceptanceService, PayoutAcceptanceService>();
+        services.AddScoped<IDocumentReviewService, DocumentReviewService>();
+        services.AddScoped<IFieldSalesAdminService, FieldSalesAdminService>();
         return services;
     }
 }

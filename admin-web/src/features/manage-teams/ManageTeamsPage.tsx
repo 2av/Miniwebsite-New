@@ -195,9 +195,6 @@ export function ManageTeamsPage() {
     if (!form.firstName.trim()) return toast.push('First Name is required', 'error')
     if (!form.email.trim() || !form.email.includes('@'))
       return toast.push('A valid email is required', 'error')
-    if (!editing && form.password.trim().length < 6)
-      return toast.push('Password must be at least 6 characters', 'error')
-
     setFormBusy(true)
     try {
       if (editing) {

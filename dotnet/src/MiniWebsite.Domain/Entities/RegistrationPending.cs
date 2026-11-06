@@ -12,6 +12,8 @@ public class RegistrationPending : BaseEntity
     public string LastName { get; set; } = "";
     public string? State { get; set; }
     public required string PasswordHash { get; set; }
+    /// <summary>Plain password emailed after OTP. Cleared when the pending row is consumed.</summary>
+    public string? IssuedPassword { get; set; }
     public string? ReferrerEmail { get; set; }
     public int? ReferrerUserId { get; set; }
     public required string Otp { get; set; }

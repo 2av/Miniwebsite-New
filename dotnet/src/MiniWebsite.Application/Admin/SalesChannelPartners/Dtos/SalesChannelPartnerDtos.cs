@@ -67,6 +67,8 @@ public record SalesChannelPartnerRowDto(
     decimal TotalSalesAmount,
     string TotalSalesAmountDisplay);
 
+public record InviteSalesChannelPartnerRequest(string Email);
+
 public record CreateSalesChannelPartnerRequest(
     string FirstName,
     string? LastName,

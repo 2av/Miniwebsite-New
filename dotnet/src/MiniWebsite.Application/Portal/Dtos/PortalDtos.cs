@@ -16,7 +16,11 @@ public record PortalMeDto(
     bool FranchiseInvoiceAvailable = false,
     int? FranchiseInvoiceId = null,
     string? RoleName = null,
-    string? RolePrefix = null);
+    string? RolePrefix = null,
+    string? OnboardingStage = null,
+    DateTime? ReferralEligibleAt = null,
+    bool ReadyToInitiateSales = false,
+    string? MembershipFeeLabel = null);
 
 public record ProfileImageUploadDto(string ImagePath, string ProfileImageUrl);
 
@@ -146,7 +150,8 @@ public record SubmitVerificationRequest(
     string? IfscCode = null,
     string? UpiId = null,
     string? UpiName = null,
-    bool ElectronicAcceptance = false);
+    bool ElectronicAcceptance = false,
+    bool HasGst = false);
 
 public record IdCardProfileDto(
     string Name,

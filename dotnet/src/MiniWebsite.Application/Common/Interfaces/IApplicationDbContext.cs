@@ -9,6 +9,8 @@ public interface IApplicationDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<RegistrationPending> RegistrationPendings { get; }
+    DbSet<AccountInvite> AccountInvites { get; }
+    DbSet<FieldSalesDeal> FieldSalesDeals { get; }
     DbSet<ReferralEarning> ReferralEarnings { get; }
     DbSet<ReferralPayment> ReferralPayments { get; }
     DbSet<Coupon> Coupons { get; }

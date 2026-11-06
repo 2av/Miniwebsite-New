@@ -1,7 +1,8 @@
-# Three upload folders:
-#   publish\API       .NET API
-#   publish\Admin     admin-web
-#   publish\frontend  user-web
+# Three upload folders, one for each domain:
+#   publish\API       API site (https://api.sharebizz.com)
+#   publish\Admin     admin domain, at the site root
+#   publish\frontend  user domain, at the site root
+# Admin and the user site are built to call https://api.sharebizz.com.
 $ErrorActionPreference = 'Stop'
 $repo = $PSScriptRoot
 $publish = Join-Path $repo 'publish'
@@ -9,14 +10,14 @@ $apiOut = Join-Path $publish 'API'
 $adminOut = Join-Path $publish 'Admin'
 $frontOut = Join-Path $publish 'frontend'
 
-foreach ($dir in @($apiOut, $adminOut, $frontOut, (Join-Path $publish 'site'))) {
+foreach ($dir in @($apiOut, $adminOut, $frontOut)) {
   if (Test-Path $dir) {
     Write-Host "Cleaning $dir"
     Remove-Item $dir -Recurse -Force
   }
 }
 
-Write-Host "Building user site (frontend)"
+Write-Host "Building user site"
 Push-Location (Join-Path $repo 'user-web')
 npm run build
 if ($LASTEXITCODE -ne 0) { Pop-Location; exit $LASTEXITCODE }
@@ -39,6 +40,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "Ready under $publish"
-Write-Host "  API       -> upload as the API site (https://api.sharebizz.com)"
-Write-Host "  Admin     -> upload as the admin site"
-Write-Host "  frontend  -> upload as the user site"
+Write-Host "  API       -> the API domain (https://api.sharebizz.com)"
+Write-Host "  Admin     -> the admin domain, site root"
+Write-Host "  frontend  -> the user domain, site root"
+Write-Host "Do not replace the server appsettings.json. Keep the keys already on the server."

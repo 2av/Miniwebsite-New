@@ -8,7 +8,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.ToTable("users");
+        builder.ToTable("users", t => t.HasCheckConstraint(
+            "CK_users_OnboardingStage",
+            "`OnboardingStage` IN ('Account only', 'Payment due', 'Features', 'Document verification', 'Waiting for review', 'Approved', 'Ready to sell')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Email).HasMaxLength(255).IsRequired();
         builder.Property(x => x.Phone).HasMaxLength(25);
@@ -17,6 +19,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Password).HasMaxLength(255).IsRequired();
         builder.Property(x => x.Ip).HasMaxLength(100);
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.OnboardingStage).HasMaxLength(40).IsRequired();
+        builder.Property(x => x.OnboardingStageAt).IsRequired();
         builder.Property(x => x.UserToken).HasMaxLength(200);
         builder.Property(x => x.RefundStatus).HasMaxLength(20);
         builder.Property(x => x.SelectService).HasMaxLength(200);

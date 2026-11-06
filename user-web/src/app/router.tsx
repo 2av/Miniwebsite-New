@@ -39,6 +39,8 @@ import {
 import { VideosPage, PaymentDetailsPage, SocialLinksPage } from '@/features/website/SimpleStepPages'
 import { PaymentBridgePage } from '@/features/payment/PaymentBridgePage'
 import { DbProfilePaymentPage } from '@/features/payment/DbProfilePaymentPage'
+import { MembershipPaymentPage } from '@/features/payment/MembershipPaymentPage'
+import { PartnerInvitePage } from '@/features/registration/PartnerInvitePage'
 import { PaymentSuccessPage } from '@/features/payment/PaymentSuccessPage'
 import { PublicCardPage } from '@/features/public-card/PublicCardPage'
 import { clearAuthSession, LOGIN_PATH } from '@/shared/auth/session'
@@ -67,6 +69,7 @@ export function AppRouter() {
       <Route path="payment/pay" element={<PaymentBridgePage kind="pay" />} />
       <Route path="payment/miniwebsite" element={<DbProfilePaymentPage />} />
       <Route path="payment/db-profile" element={<DbProfilePaymentPage />} />
+      <Route path="payment/membership" element={<MembershipPaymentPage />} />
       <Route path="payment/joining-deal" element={<PaymentBridgePage kind="joining-deal" />} />
       <Route path="payment/joining-deal/success" element={<PaymentSuccessPage kind="joining-deal" />} />
       <Route path="payment/distributor/success" element={<PaymentSuccessPage kind="distributor" />} />
@@ -91,6 +94,7 @@ export function AppRouter() {
       <Route path="registration/customer" element={<RegisterPage kind="customer" />} />
       <Route path="registration/customer/success" element={<RegistrationSuccessPage />} />
       <Route path="registration/franchisee" element={<RegisterPage kind="franchisee" />} />
+      <Route path="registration/partner" element={<PartnerInvitePage />} />
       <Route path="registration/franchisee/success" element={<RegistrationSuccessPage />} />
 
       <Route path="privacy-policy" element={<CmsContentPage contentType="privacy_policy" />} />

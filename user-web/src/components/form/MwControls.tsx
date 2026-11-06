@@ -53,6 +53,7 @@ export function MwStepActions({
   next,
   nextLabel = 'Next',
   saveLabel,
+  busyLabel = 'Saving...',
   busy,
   disabled,
   submit = true,
@@ -62,6 +63,7 @@ export function MwStepActions({
   next?: string
   nextLabel?: string
   saveLabel?: string
+  busyLabel?: string
   busy?: boolean
   disabled?: boolean
   submit?: boolean
@@ -86,7 +88,7 @@ export function MwStepActions({
           disabled={busy || disabled}
           onClick={submit ? undefined : onSave}
         >
-          <span>{busy ? 'Saving...' : saveLabel}</span>
+          <span>{busy ? busyLabel : saveLabel}</span>
         </button>
       ) : (
         <span aria-hidden />

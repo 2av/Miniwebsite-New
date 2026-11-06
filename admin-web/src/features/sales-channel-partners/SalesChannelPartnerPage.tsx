@@ -5,6 +5,7 @@ import { Navigate, useParams } from 'react-router-dom'
 import { fetchDashboardDetails, fetchReferralDetails } from '@/features/manage-users/api'
 import {
   createSalesChannelPartner,
+  inviteSalesChannelPartner,
   fetchSalesChannelPartners,
   resetSalesChannelPartnerPassword,
   toggleSalesChannelPartnerStatus,
@@ -17,7 +18,7 @@ import {
   type SalesChannelPartnerType,
 } from '@/features/sales-channel-partners/partners'
 import type { SalesChannelPartnerRow } from '@/shared/types/api'
-import { ApiError } from '@/shared/api/client'
+import { ApiError, apiSend } from '@/shared/api/client'
 import { badgeVariantFromTone } from '@/shared/lib/badgeTone'
 import { openInvoiceById } from '@/shared/lib/invoiceDownload'
 import { FiltersButton, FiltersDrawer } from '@/shared/ui/FiltersDrawer'
@@ -324,9 +325,11 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   }
 
   const submitForm = async () => {
-    if (!form.firstName.trim()) return toast.push('First Name is required', 'error')
+    const inviteOnly = ['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner'].includes(slug)
+    const autoPassword = slug === 'field-sales-team'
+    if (!inviteOnly && !form.firstName.trim()) return toast.push('First Name is required', 'error')
     if (!form.email.trim() || !form.email.includes('@')) return toast.push('A valid email is required', 'error')
-    if (!editing && form.password.trim().length < 6)
+    if (!editing && !inviteOnly && !autoPassword && form.password.trim().length < 6)
       return toast.push('Password must be at least 6 characters', 'error')
 
     const payload = {
@@ -342,7 +345,9 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
     try {
       const res = editing
         ? await updateSalesChannelPartner(slug, editing.id, payload)
-        : await createSalesChannelPartner(slug, { ...payload, password: form.password })
+        : inviteOnly
+          ? await inviteSalesChannelPartner(slug, payload.email)
+          : await createSalesChannelPartner(slug, { ...payload, password: autoPassword ? 'generated' : form.password })
       toast.push(res.message || (editing ? `${roleName} updated` : `${roleName} added`), 'success')
       setFormOpen(false)
       await invalidate()
@@ -657,7 +662,7 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
                 <Input value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
               </Field>
             </div>
-            {!editing && (
+            {!editing && !['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner', 'field-sales-team'].includes(slug) && (
               <Field label="Password *">
                 <Input
                   type="password"
@@ -670,8 +675,21 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
           </div>
           <DrawerFooter>
             <Button onClick={() => void submitForm()} disabled={formBusy}>
-              {formBusy ? 'Saving…' : editing ? 'Update' : 'Create'}
+              {formBusy ? 'Saving…' : editing ? 'Update' : ['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner'].includes(slug) ? 'Send registration link' : 'Create'}
             </Button>
+            {!editing && slug === 'print-shop-partner' ? (
+              <Button
+                variant="outline"
+                disabled={formBusy || !form.email.includes('@')}
+                onClick={() => {
+                  void inviteSalesChannelPartner(slug, form.email.trim())
+                    .then((res) => toast.push(res.message || 'Account link sent', 'success'))
+                    .catch((e) => toast.push(e instanceof ApiError ? e.message : 'Could not send the link', 'error'))
+                }}
+              >
+                Email account link
+              </Button>
+            ) : null}
             <DrawerClose asChild>
               <Button variant="outline" disabled={formBusy}>
                 Cancel
@@ -797,6 +815,28 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
             <DocumentLink label="PAN" href={documents?.panDocumentUrl} />
             <DocumentLink label="ID front" href={documents?.frontDocumentUrl} />
             <DocumentLink label="ID back" href={documents?.backDocumentUrl} />
+            <div className="flex flex-wrap gap-2 pt-2">
+              {['Approved', 'Resubmission Required', 'Rejected'].map((decision) => (
+                <Button
+                  key={decision}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!documents) return
+                    void apiSend('post', `/api/v1/admin/onboarding/${documents.id}/review`, { decision, remarks: '' })
+                      .then((res) => {
+                        toast.push(res.message || decision, 'success')
+                        setDocuments(null)
+                        void invalidate()
+                      })
+                      .catch((e) => toast.push(e instanceof ApiError ? e.message : 'Review failed', 'error'))
+                  }}
+                >
+                  {decision}
+                </Button>
+              ))}
+            </div>
+            {slug === 'field-sales-team' && documents ? <FieldSalesFiles userId={documents.id} /> : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -1095,6 +1135,70 @@ function PartnerActions({
       </Button>
       <Button size="icon-sm" variant="ghost" className={ACTION_BTN} title="Reset password" aria-label="Reset password" onClick={onReset}>
         <KeyRound size={14} />
+      </Button>
+    </div>
+  )
+}
+
+function FieldSalesFiles({ userId }: { userId: number }) {
+  const toast = useToast()
+  const [details, setDetails] = useState('')
+  const [amount, setAmount] = useState('')
+  const [kind, setKind] = useState('appointmentLetterBase64')
+
+  async function readFile(file: File) {
+    const data = await file.arrayBuffer()
+    const bytes = new Uint8Array(data)
+    let binary = ''
+    bytes.forEach((b) => {
+      binary += String.fromCharCode(b)
+    })
+    return btoa(binary)
+  }
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <p className="font-medium">KYC, appointment letter, and deals</p>
+      <select className="h-9 w-full rounded-md border px-2" value={kind} onChange={(e) => setKind(e.target.value)}>
+        <option value="panBase64">PAN</option>
+        <option value="aadhaarFrontBase64">Aadhaar front</option>
+        <option value="aadhaarBackBase64">Aadhaar back</option>
+        <option value="gstBase64">GST</option>
+        <option value="appointmentLetterBase64">Appointment letter</option>
+      </select>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          void readFile(file)
+            .then((encoded) =>
+              apiSend('post', `/api/v1/admin/onboarding/field-sales/${userId}/documents`, { [kind]: encoded }),
+            )
+            .then((res) => toast.push(res.message || 'Document saved', 'success'))
+            .catch((err) => toast.push(err instanceof ApiError ? err.message : 'Upload failed', 'error'))
+        }}
+      />
+      <Input placeholder="Deal details" value={details} onChange={(e) => setDetails(e.target.value)} />
+      <Input placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          void apiSend('post', `/api/v1/admin/onboarding/field-sales/${userId}/deals`, {
+            details,
+            amount: Number(amount || 0),
+          })
+            .then((res) => {
+              toast.push(res.message || 'Deal saved', 'success')
+              setDetails('')
+              setAmount('')
+            })
+            .catch((err) => toast.push(err instanceof ApiError ? err.message : 'Could not save the deal', 'error'))
+        }}
+      >
+        Save deal
       </Button>
     </div>
   )

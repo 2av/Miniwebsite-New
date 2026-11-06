@@ -761,6 +761,8 @@ Entity `ReferralEarning`. Primary key `Id`. Indexes: UNIQUE(CommissionCode) | IN
 | InvoiceId | int | Yes |
 | IsCollaboration | varchar(10) | No |
 | PaymentDate | datetime(6) | Yes |
+| PayoutAcceptance | varchar(40) | Yes |
+| PayoutInvoiceId | int | Yes |
 | ReferralDate | datetime(6) | No |
 | ReferredEmail | varchar(255) | No |
 | ReferredUserId | int | Yes |
@@ -808,6 +810,7 @@ Entity `RegistrationPending`. Primary key `Id`. Indexes: INDEX(ReferrerUserId) |
 | FirstName | varchar(100) | No |
 | IsConsumed | tinyint(1) | No |
 | IsDeleted | tinyint(1) | No |
+| IssuedPassword | varchar(255) | Yes |
 | LastName | varchar(100) | No |
 | Otp | varchar(10) | No |
 | PasswordHash | varchar(255) | No |
@@ -817,6 +820,34 @@ Entity `RegistrationPending`. Primary key `Id`. Indexes: INDEX(ReferrerUserId) |
 | Role | varchar(20) | No |
 | State | varchar(100) | Yes |
 | UpdatedAt | datetime(6) | Yes |
+
+### account_invites
+Entity `AccountInvite`. Primary key `Id`. Indexes: UNIQUE(TokenHash).
+
+| Column | Type | Null |
+|---|---|---|
+| Id | int identity | No |
+| CreatedAt | datetime(6) | No |
+| Email | varchar(255) | No |
+| ExpiresAt | datetime(6) | No |
+| InvitedByUserId | int | Yes |
+| IsConsumed | tinyint(1) | No |
+| IsDeleted | tinyint(1) | No |
+| RolePrefix | varchar(20) | No |
+| TokenHash | varchar(128) | No |
+| UpdatedAt | datetime(6) | Yes |
+
+### field_sales_deals
+Entity `FieldSalesDeal`. Primary key `Id`. Indexes: INDEX(UserId, DealDate).
+
+| Column | Type | Null |
+|---|---|---|
+| Id | int identity | No |
+| Amount | decimal(12,2) | No |
+| CreatedAt | datetime(6) | No |
+| DealDate | datetime(6) | No |
+| Details | varchar(2000) | No |
+| UserId | int | No |
 
 ### roles
 Entity `Role`. Primary key `RoleId`. Indexes: UNIQUE(RoleName) | INDEX(SalesType).
@@ -859,7 +890,11 @@ Entity `User`. Primary key `Id`. Indexes: UNIQUE(Email) | INDEX(RoleId) | UNIQUE
 | Ip | varchar(100) | Yes |
 | IsDeleted | tinyint(1) | No |
 | LastName | varchar(100) | No |
+| OnboardingStage | varchar(40) | No |
+| OnboardingStageAt | datetime(6) | No |
+| PaidAt | datetime(6) | Yes |
 | Password | varchar(255) | No |
+| ReferralEligibleAt | datetime(6) | Yes |
 | Phone | varchar(25) | Yes |
 | ProfileImage | varchar(500) | Yes |
 | RefundStatus | varchar(20) | Yes |

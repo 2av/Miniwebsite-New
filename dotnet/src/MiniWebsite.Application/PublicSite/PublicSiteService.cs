@@ -175,7 +175,7 @@ public class PublicSiteService : IPublicSiteService
 
         try
         {
-            var supportTo = (_configuration["Smtp:FromEmail"] ?? "support@miniwebsite.in").Trim();
+            var supportTo = (_configuration["Smtp:Mailboxes:Support:Username"] ?? "support@sharebizz.com").Trim();
             var rendered = await _templates.TryRenderAsync("franchise_enquiry_admin", vars, ct);
             var subject = rendered?.Subject ?? $"Franchise Enquiry from {name}";
             var body = rendered?.Html ?? fallbackBody;
@@ -184,7 +184,7 @@ public class PublicSiteService : IPublicSiteService
         }
         catch (Exception ex)
         {
-            return ApiResult.Fail("Please try again or contact us directly at support@miniwebsite.in. " + ex.Message);
+            return ApiResult.Fail("Please try again or contact us directly at support@sharebizz.com. " + ex.Message);
         }
     }
 

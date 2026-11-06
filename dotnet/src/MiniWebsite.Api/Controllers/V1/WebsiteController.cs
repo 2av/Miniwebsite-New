@@ -19,8 +19,12 @@ public class WebsiteController : ControllerBase
 
     // ---- business-name ----
     [HttpGet("check-name")]
-    public async Task<ActionResult<ApiResult<CheckNameResponse>>> CheckName([FromQuery] string compName, [FromQuery] int? excludeId, CancellationToken ct)
-        => Ok(await _website.CheckNameAsync(compName, excludeId, ct));
+    public async Task<ActionResult<ApiResult<CheckNameResponse>>> CheckName(
+        [FromQuery] string compName,
+        [FromQuery] int? excludeId,
+        [FromQuery] string? ownerEmail,
+        CancellationToken ct)
+        => Ok(await _website.CheckNameAsync(compName, excludeId, ct, ownerEmail));
 
     [HttpPost]
     public async Task<ActionResult<ApiResult<BusinessNameDto>>> Create([FromBody] UpsertBusinessNameRequest request, CancellationToken ct)

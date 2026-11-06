@@ -46,7 +46,7 @@ export function RegisterPage({ kind }: Props) {
   const [step, setStep] = useState<'form' | 'otp'>('form')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(params.get('email') ?? '')
   const [phone, setPhone] = useState('')
   const [state, setState] = useState('')
   const [password, setPassword] = useState('')

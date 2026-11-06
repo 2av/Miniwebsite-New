@@ -1,9 +1,13 @@
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Payments.Dtos;
+using MiniWebsite.Application.Portal;
+using MiniWebsite.Application.Website;
+using MiniWebsite.Application.Website.Dtos;
 using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 
@@ -22,17 +26,34 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         @"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private const string PendingPrefix = "db-profile-pending\n";
+
     private readonly IApplicationDbContext _db;
     private readonly IPaymentGateway _gateway;
+    private readonly IWebsiteService _website;
 
-    public DbProfileCheckoutService(IApplicationDbContext db, IPaymentGateway gateway)
+    public DbProfileCheckoutService(IApplicationDbContext db, IPaymentGateway gateway, IWebsiteService website)
     {
         _db = db;
         _gateway = gateway;
+        _website = website;
     }
 
     public async Task<ApiResult<DbProfileCheckoutPageDto>> GetPageAsync(string email, int cardId, CancellationToken ct = default)
     {
+        if (cardId <= 0)
+        {
+            var payer = await FindUserAsync(email, ct);
+            if (payer == null) return ApiResult<DbProfileCheckoutPageDto>.Fail("User not found.");
+            return ApiResult<DbProfileCheckoutPageDto>.Ok(new DbProfileCheckoutPageDto(
+                0,
+                null,
+                false,
+                SellerState,
+                BillingFromUser(payer),
+                await LoadPlansAsync(ct)));
+        }
+
         var loaded = await LoadOwnedCardAsync(email, cardId, ct);
         if (!loaded.Success) return ApiResult<DbProfileCheckoutPageDto>.Fail(loaded.Message ?? "DB Profile not found.");
 
@@ -68,24 +89,61 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
 
         var priced = await PriceAsync(
             request.Email, request.CardId, request.PlanId, request.PromoCode, request.State, ct);
-        if (!priced.Success || priced.Data is null || priced.Data.Quote is null || priced.Data.Plan is null || priced.Data.User is null || priced.Data.Card is null)
+        if (!priced.Success || priced.Data is null || priced.Data.Quote is null || priced.Data.Plan is null || priced.Data.User is null)
             return ApiResult<DbProfileCheckoutResultDto>.Fail(priced.Message ?? "Unable to start payment.");
+
+        var isNewProfile = request.CardId <= 0;
+        if (!isNewProfile && priced.Data.Card is null)
+            return ApiResult<DbProfileCheckoutResultDto>.Fail("DB Profile not found.");
+
+        Card? reserved = priced.Data.Card;
+        string? pendingComment = null;
+        if (isNewProfile)
+        {
+            if (string.IsNullOrWhiteSpace(request.CompName) || string.IsNullOrWhiteSpace(request.DisplayName))
+                return ApiResult<DbProfileCheckoutResultDto>.Fail("Enter the business name and business URL.");
+
+            var held = await HoldNameAsync(priced.Data.User, request.CompName, ct);
+            if (!held.Success)
+                return ApiResult<DbProfileCheckoutResultDto>.Fail(held.Message ?? "Business URL is not available.");
+            reserved = held.Data;
+            if (reserved == null)
+                pendingComment = EncodePending(request.CompName, request.DisplayName);
+        }
 
         if (priced.Data.Quote.FinalTotal <= 0)
             return ApiResult<DbProfileCheckoutResultDto>.Fail("This plan does not have a payable amount.");
 
         var gatewayReady = _gateway.IsConfigured;
-        var order = await _gateway.CreateOrderAsync(priced.Data.Quote.FinalTotal, $"dbp-{request.CardId}", ct);
+        CreatePaymentOrderResult order;
+        try
+        {
+            order = await _gateway.CreateOrderAsync(priced.Data.Quote.FinalTotal, $"dbp-{reserved?.Id ?? 0}", ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<DbProfileCheckoutResultDto>.Fail(ex.Message);
+        }
 
         var quote = priced.Data.Quote;
         var plan = priced.Data.Plan;
         var user = priced.Data.User;
         var now = AppClock.Now;
+        if (!gatewayReady && reserved == null)
+        {
+            var created = await CreateProfileAsync(user, request.CompName!, request.DisplayName, ct);
+            if (!created.Success || created.Data is null)
+                return ApiResult<DbProfileCheckoutResultDto>.Fail(created.Message ?? "Unable to save the DB Profile.");
+            reserved = created.Data;
+            pendingComment = null;
+        }
+
         var invoice = new Invoice
         {
             InvoiceNumber = await NextInvoiceNumberAsync(ct),
             InvoiceDate = now,
-            CardId = priced.Data.Card.Id,
+            CardId = reserved?.Id,
+            AdminComment = pendingComment,
             UserId = user.Id,
             UserEmail = user.Email,
             UserName = user.FullName,
@@ -131,7 +189,7 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
 
         _db.Invoices.Add(invoice);
         if (!gatewayReady)
-            await ApplyPaidEffectsAsync(invoice, priced.Data.Card, now, ct);
+            await ApplyPaidEffectsAsync(invoice, reserved!, now, ct);
 
         await _db.SaveChangesAsync(ct);
 
@@ -142,42 +200,70 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             order.Currency,
             gatewayReady ? order.KeyId : "",
             plan.PlanName,
-            !gatewayReady));
+            !gatewayReady,
+            reserved?.Id));
     }
 
-    public async Task<ApiResult> VerifyAsync(DbProfileVerifyRequest request, CancellationToken ct = default)
+    public async Task<ApiResult<DbProfilePaidDto>> VerifyAsync(DbProfileVerifyRequest request, CancellationToken ct = default)
     {
         if (request.InvoiceId <= 0 || string.IsNullOrWhiteSpace(request.RazorpayOrderId)
             || string.IsNullOrWhiteSpace(request.RazorpayPaymentId)
             || string.IsNullOrWhiteSpace(request.RazorpaySignature))
-            return ApiResult.Fail("Payment confirmation is incomplete.");
+            return ApiResult<DbProfilePaidDto>.Fail("Payment confirmation is incomplete.");
 
-        var loaded = await LoadOwnedCardAsync(request.Email, request.CardId, ct);
-        if (!loaded.Success) return ApiResult.Fail(loaded.Message ?? "DB Profile not found.");
+        var user = await FindUserAsync(request.Email, ct);
+        if (user == null) return ApiResult<DbProfilePaidDto>.Fail("User not found.");
 
         var invoice = await _db.Invoices.FirstOrDefaultAsync(i =>
             i.Id == request.InvoiceId
-            && i.CardId == request.CardId
-            && i.UserId == loaded.Data.User.Id
+            && i.UserId == user.Id
             && i.RazorpayOrderId == request.RazorpayOrderId.Trim(), ct);
 
-        if (invoice == null) return ApiResult.Fail("Payment record was not found.");
-        if (IsInvoicePaid(invoice.PaymentStatus)) return ApiResult.Ok("Payment already recorded.");
+        if (invoice == null) return ApiResult<DbProfilePaidDto>.Fail("Payment record was not found.");
+        if (request.CardId > 0 && invoice.CardId is int linked && linked != request.CardId)
+            return ApiResult<DbProfilePaidDto>.Fail("Payment record was not found.");
+
+        if (IsInvoicePaid(invoice.PaymentStatus))
+        {
+            if (invoice.CardId is not int paidCardId)
+                return ApiResult<DbProfilePaidDto>.Fail("Payment record was not found.");
+            return ApiResult<DbProfilePaidDto>.Ok(new DbProfilePaidDto(paidCardId), "Payment already recorded.");
+        }
 
         var verified = await _gateway.VerifyPaymentAsync(
             request.RazorpayOrderId.Trim(),
             request.RazorpayPaymentId.Trim(),
             request.RazorpaySignature.Trim(),
             ct);
-        if (!verified) return ApiResult.Fail("Payment could not be verified.");
+        if (!verified) return ApiResult<DbProfilePaidDto>.Fail("Payment could not be verified.");
+
+        Card? card = null;
+        if (invoice.CardId is int cardId && cardId > 0)
+        {
+            var loaded = await LoadOwnedCardAsync(request.Email, cardId, ct);
+            if (!loaded.Success) return ApiResult<DbProfilePaidDto>.Fail(loaded.Message ?? "DB Profile not found.");
+            card = loaded.Data.Card;
+        }
+        else
+        {
+            var pending = DecodePending(invoice.AdminComment);
+            if (pending == null)
+                return ApiResult<DbProfilePaidDto>.Fail("Business name was not found for this payment.");
+            var created = await CreateProfileAsync(user, pending.Value.CompName, pending.Value.DisplayName, ct);
+            if (!created.Success || created.Data is null)
+                return ApiResult<DbProfilePaidDto>.Fail(created.Message ?? "Unable to save the DB Profile.");
+            card = created.Data;
+            invoice.CardId = card.Id;
+            invoice.AdminComment = null;
+        }
 
         var now = AppClock.Now;
         invoice.RazorpayPaymentId = request.RazorpayPaymentId.Trim();
         invoice.RazorpaySignature = request.RazorpaySignature.Trim();
-        await ApplyPaidEffectsAsync(invoice, loaded.Data.Card, now, ct);
+        await ApplyPaidEffectsAsync(invoice, card, now, ct);
 
         await _db.SaveChangesAsync(ct);
-        return ApiResult.Ok("Payment received.");
+        return ApiResult<DbProfilePaidDto>.Ok(new DbProfilePaidDto(card.Id), "Payment received.");
     }
 
     /// <summary>
@@ -203,11 +289,35 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             var coupon = await _db.Coupons.FirstOrDefaultAsync(c => c.CouponCode == invoice.PromoCode, ct);
             if (coupon != null) coupon.CurrentUsage += 1;
         }
+
+        if (invoice.UserId is int payerId)
+        {
+            var payer = await _db.Users.FirstOrDefaultAsync(u => u.Id == payerId, ct);
+            if (payer != null) OnboardingAccess.MarkDbProfilePaid(payer, now);
+        }
     }
 
     private async Task<ApiResult<Priced>> PriceAsync(
         string email, int cardId, int planId, string? promoCode, string? state, CancellationToken ct)
     {
+        if (cardId <= 0)
+        {
+            var payer = await FindUserAsync(email, ct);
+            if (payer == null) return ApiResult<Priced>.Fail("User not found.");
+
+            var openPlan = await _db.PricingPlans.AsNoTracking().FirstOrDefaultAsync(p =>
+                p.Id == planId
+                && p.PlanCategory == PlanCommissionValues.CategoryDbProfile
+                && p.Status == PlanCommissionValues.StatusActive, ct);
+            if (openPlan == null) return ApiResult<Priced>.Fail("Select a DB Profile plan.");
+
+            var openPromo = await PromoDiscountAsync(payer, openPlan.OfferedPrice, promoCode, ct);
+            if (!openPromo.Success) return ApiResult<Priced>.Fail(openPromo.Message ?? "Unable to apply this promo code.");
+
+            return ApiResult<Priced>.Ok(new Priced(
+                payer, null, openPlan, BuildQuote(openPlan.OriginalPrice, openPlan.OfferedPrice, openPromo.Data, state), openPromo.Data));
+        }
+
         var loaded = await LoadOwnedCardAsync(email, cardId, ct);
         if (!loaded.Success) return ApiResult<Priced>.Fail(loaded.Message ?? "DB Profile not found.");
         if (await IsCardPaidAsync(loaded.Data.Card.Id, ct))
@@ -375,6 +485,87 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         if (gst.Length > 0 && !GstinPattern.IsMatch(gst)) return "Enter a valid GST number or leave it blank.";
         return null;
     }
+
+    private async Task<User?> FindUserAsync(string email, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        var key = email.Trim().ToLowerInvariant();
+        return await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == key, ct);
+    }
+
+    /// <summary>
+    /// A free name is held until payment. A name already saved on this user's unpaid profile is reused.
+    /// </summary>
+    private async Task<ApiResult<Card?>> HoldNameAsync(User user, string compName, CancellationToken ct)
+    {
+        var check = await _website.CheckNameAsync(compName, null, ct);
+        if (check.Data is { Available: true })
+            return ApiResult<Card?>.Ok(null);
+
+        var slug = check.Data?.Slug;
+        if (!string.IsNullOrWhiteSpace(slug))
+        {
+            var card = await _db.Cards.FirstOrDefaultAsync(c => c.UserId == user.Id && c.Slug == slug, ct);
+            if (card != null && !await IsCardPaidAsync(card.Id, ct))
+                return ApiResult<Card?>.Ok(card);
+        }
+
+        return ApiResult<Card?>.Fail(check.Data?.Message ?? "Business URL is not available.");
+    }
+
+    private async Task<ApiResult<Card>> CreateProfileAsync(User user, string compName, string? displayName, CancellationToken ct)
+    {
+        var held = await HoldNameAsync(user, compName, ct);
+        if (!held.Success)
+            return ApiResult<Card>.Fail(held.Message ?? "Business URL is not available.");
+        if (held.Data != null)
+            return ApiResult<Card>.Ok(held.Data);
+
+        var created = await _website.CreateBusinessNameAsync(
+            new UpsertBusinessNameRequest(compName, displayName, user.Email), ct);
+        if (!created.Success || created.Data is null)
+            return ApiResult<Card>.Fail(created.Message ?? "Unable to save the DB Profile.");
+
+        var card = await _db.Cards.FirstOrDefaultAsync(c => c.Id == created.Data.Id, ct);
+        return card == null
+            ? ApiResult<Card>.Fail("Unable to save the DB Profile.")
+            : ApiResult<Card>.Ok(card);
+    }
+
+    private static string EncodePending(string compName, string displayName)
+    {
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(compName.Trim() + "\n" + displayName.Trim()));
+        return PendingPrefix + payload;
+    }
+
+    private static (string CompName, string DisplayName)? DecodePending(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment) || !comment.StartsWith(PendingPrefix, StringComparison.Ordinal))
+            return null;
+        try
+        {
+            var text = Encoding.UTF8.GetString(Convert.FromBase64String(comment[PendingPrefix.Length..]));
+            var split = text.Split('\n', 2);
+            if (split.Length < 2 || string.IsNullOrWhiteSpace(split[0]) || string.IsNullOrWhiteSpace(split[1]))
+                return null;
+            return (split[0], split[1]);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static DbProfileBillingDto BillingFromUser(User user) =>
+        new(
+            user.FullName,
+            user.Email,
+            user.Phone ?? "",
+            user.Address.AddressLine ?? "",
+            user.Address.State ?? "",
+            user.Address.City ?? "",
+            user.Address.Pincode ?? "",
+            user.Address.Gst ?? "");
 
     private static DbProfileBillingDto BillingFrom(User user, Card card)
     {

@@ -299,16 +299,13 @@ export function FranchiseesPage() {
               value={createPhone}
               onChange={(e) => setCreatePhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
-            <Input
-              type="password"
-              placeholder="Password *"
-              value={createPassword}
-              onChange={(e) => setCreatePassword(e.target.value)}
-            />
+            <p className="text-sm text-muted-foreground">
+              A registration link is emailed. The franchisee sets the password and confirms it with the email OTP.
+            </p>
             <Button
               onClick={async () => {
-                if (!createFirstName.trim() || !createEmail.trim() || createPhone.length !== 10 || !createPassword) {
-                  toast.push('Please fill all required fields correctly', 'error')
+                if (!createFirstName.trim() || !createEmail.trim() || (createPhone.length > 0 && createPhone.length !== 10)) {
+                  toast.push('Please fill the name and a valid email', 'error')
                   return
                 }
                 const ok = await run(
@@ -332,7 +329,7 @@ export function FranchiseesPage() {
                 }
               }}
             >
-              Create ID & Password
+              Send registration link
             </Button>
           </div>
         </DialogContent>

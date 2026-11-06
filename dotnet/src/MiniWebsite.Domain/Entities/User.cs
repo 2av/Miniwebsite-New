@@ -18,6 +18,12 @@ public class User : BaseEntity
     public required string Password { get; set; }
     public string? Ip { get; set; }
     public string Status { get; set; } = "ACTIVE";
+    /// <summary>One of <see cref="OnboardingStage"/>.</summary>
+    public string OnboardingStage { get; set; } = MiniWebsite.Domain.Common.OnboardingStage.ReadyToSell;
+    public DateTime OnboardingStageAt { get; set; } = AppClock.Now;
+    public DateTime? PaidAt { get; set; }
+    /// <summary>SB User referral features open at this time. Null until DB Profile payment.</summary>
+    public DateTime? ReferralEligibleAt { get; set; }
     public string? UserToken { get; set; }
     public string? RefundStatus { get; set; }
     public DateTime? RefundStatusDate { get; set; }

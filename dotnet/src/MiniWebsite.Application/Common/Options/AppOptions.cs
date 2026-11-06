@@ -3,7 +3,7 @@ namespace MiniWebsite.Application.Common.Options;
 public class AppOptions
 {
     public const string SectionName = "App";
-    public string PublicHost { get; set; } = "miniwebsite.in";
+    public string PublicHost { get; set; } = "sharebizz.com";
 
     /// <summary>
     /// Public user-web site origin (no trailing slash). Serves the portal pages and the uploaded files under
@@ -14,6 +14,7 @@ public class AppOptions
     public string CustomerDashboardUrl => SitePage("dashboard");
     public string FranchiseeLoginUrl => SitePage("login");
     public string FranchiseAgreementUrl => SitePage("franchise-agreement");
+    public string MembershipPaymentUrl => SitePage("payment/membership");
 
     /// <summary>When true, Swagger UI is available even outside Development (useful for first server test).</summary>
     public bool EnableSwagger { get; set; }

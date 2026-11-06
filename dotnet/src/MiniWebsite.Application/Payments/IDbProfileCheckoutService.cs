@@ -11,5 +11,5 @@ public interface IDbProfileCheckoutService
 
     Task<ApiResult<DbProfileCheckoutResultDto>> CheckoutAsync(DbProfileCheckoutRequest request, CancellationToken ct = default);
 
-    Task<ApiResult> VerifyAsync(DbProfileVerifyRequest request, CancellationToken ct = default);
+    Task<ApiResult<DbProfilePaidDto>> VerifyAsync(DbProfileVerifyRequest request, CancellationToken ct = default);
 }

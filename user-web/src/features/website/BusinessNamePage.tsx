@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
-import { setCardInProcess, stepPath } from '@/features/website/cardContext'
+import { clearCardInProcess, savePendingProfile, stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { siteUrl } from '@/lib/utils'
@@ -38,7 +38,7 @@ export function BusinessNamePage() {
 
   useEffect(() => {
     if (!activeId) {
-      // New MW: default from session name is handled lightly
+      if (isNew) clearCardInProcess()
       return
     }
     ;(async () => {
@@ -55,7 +55,7 @@ export function BusinessNamePage() {
         setErr(e instanceof Error ? e.message : 'Failed to load')
       }
     })()
-  }, [activeId, email])
+  }, [activeId, email, isNew])
 
   const remaining = Math.max(0, 2 - nameChangeCount)
   const businessUrl = useMemo(() => {
@@ -79,20 +79,20 @@ export function BusinessNamePage() {
         setMsg(res.message || 'Saved')
         navigate(stepPath('/website/select-theme', activeId))
       } else {
-        const res = await websiteApi.createBusiness({
-          compName,
-          displayName,
-          ownerEmail: email,
-        })
-        const data = (res.data ?? {}) as Record<string, unknown>
-        const id = Number(pickVal(data, 'id', 'Id') ?? 0)
-        if (id > 0) {
-          setCardInProcess(id)
-          setMsg(res.message || 'Created')
-          navigate(stepPath('/website/select-theme', id))
-        } else {
-          setErr('Created but no card id returned')
+        const name = displayName.trim()
+        const urlName = compName.trim()
+        if (!name || !urlName) {
+          setErr('Enter the business name and business URL.')
+          return
         }
+        const check = await websiteApi.checkName(urlName, null, email)
+        const available = Boolean(pickVal(check as unknown as Record<string, unknown>, 'available', 'Available'))
+        if (!available) {
+          setErr(String(pickVal(check as unknown as Record<string, unknown>, 'message', 'Message') || 'This business URL is not available.'))
+          return
+        }
+        savePendingProfile({ compName: urlName, displayName: name })
+        navigate('/payment/db-profile?new=1')
       }
     } catch (ex) {
       setErr(ex instanceof ApiError ? ex.message : 'Save failed')
@@ -189,7 +189,13 @@ export function BusinessNamePage() {
               </div>
             ) : null}
 
-            <MwStepActions back="/dashboard" next={activeId ? nextHref : undefined} saveLabel="Save" busy={busy} />
+            <MwStepActions
+              back="/dashboard"
+              next={activeId ? nextHref : undefined}
+              saveLabel={activeId ? 'Save' : 'Payment'}
+              busyLabel={activeId ? 'Saving...' : 'Please wait...'}
+              busy={busy}
+            />
           </form>
         </div>
       </div>

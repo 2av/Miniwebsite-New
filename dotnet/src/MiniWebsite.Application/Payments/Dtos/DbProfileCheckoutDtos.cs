@@ -65,7 +65,9 @@ public record DbProfileCheckoutRequest(
     string State,
     string City,
     string Pincode,
-    bool Agreed);
+    bool Agreed,
+    string? CompName = null,
+    string? DisplayName = null);
 
 public record DbProfileCheckoutResultDto(
     int InvoiceId,
@@ -74,7 +76,10 @@ public record DbProfileCheckoutResultDto(
     string Currency,
     string KeyId,
     string PlanName,
-    bool PaymentCompleted);
+    bool PaymentCompleted,
+    int? CardId = null);
+
+public record DbProfilePaidDto(int CardId);
 
 public record DbProfileVerifyRequest(
     string Email,

@@ -27,10 +27,22 @@ public class SmtpEmailSender : IEmailSender
             return;
         }
 
+        var from = Mailbox("Noreply");
+        var support = Mailbox("Support");
+        var fromEmail = First(from.Username, _options.FromEmail, _options.Username);
+        var username = First(from.Username, _options.Username, fromEmail);
+        var password = First(from.Password, _options.Password);
+        var replyTo = First(support.Username, "support@sharebizz.com");
+
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(
-            string.IsNullOrWhiteSpace(_options.FromName) ? "ShareBizz Support" : _options.FromName,
-            string.IsNullOrWhiteSpace(_options.FromEmail) ? _options.Username : _options.FromEmail));
+            string.IsNullOrWhiteSpace(_options.FromName) ? "ShareBizz" : _options.FromName,
+            fromEmail));
+        if (!string.IsNullOrWhiteSpace(replyTo)
+            && !string.Equals(replyTo, fromEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            message.ReplyTo.Add(MailboxAddress.Parse(replyTo));
+        }
         message.To.Add(MailboxAddress.Parse(toEmail));
         message.Subject = subject;
         message.Body = new TextPart("html") { Text = htmlBody };
@@ -42,12 +54,28 @@ public class SmtpEmailSender : IEmailSender
             : (_options.UseSsl ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto);
 
         await client.ConnectAsync(_options.Host, _options.Port, secure, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(_options.Username))
+        if (!string.IsNullOrWhiteSpace(username))
         {
-            await client.AuthenticateAsync(_options.Username, _options.Password, cancellationToken);
+            await client.AuthenticateAsync(username, password, cancellationToken);
         }
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(true, cancellationToken);
-        _logger.LogInformation("Email sent to {To} subject={Subject}", toEmail, subject);
+        _logger.LogInformation("Email sent to {To} from {From} subject={Subject}", toEmail, fromEmail, subject);
+    }
+
+    private SmtpMailbox Mailbox(string name)
+    {
+        if (_options.Mailboxes.TryGetValue(name, out var box) && box != null)
+            return box;
+        return new SmtpMailbox();
+    }
+
+    private static string First(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+        }
+        return "";
     }
 }

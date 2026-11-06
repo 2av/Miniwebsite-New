@@ -42,7 +42,7 @@ public record CreateFranchiseeRequest(
     string? LastName,
     string Email,
     string Phone,
-    string Password);
+    string Password = "");
 
 public record ActivateFranchiseeRequest(int Id);
 

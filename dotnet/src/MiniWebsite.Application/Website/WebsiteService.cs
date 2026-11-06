@@ -35,7 +35,7 @@ public partial class WebsiteService : IWebsiteService
         return ApiResult<BusinessNameDto>.Ok(new BusinessNameDto(card.Id, card.DCompName, card.DDisplayName, card.CardId, card.DNameChangeCount, meta?.PreviousSlug));
     }
 
-    public async Task<ApiResult<CheckNameResponse>> CheckNameAsync(string compName, int? excludeId, CancellationToken ct = default)
+    public async Task<ApiResult<CheckNameResponse>> CheckNameAsync(string compName, int? excludeId, CancellationToken ct = default, string? ownerEmail = null)
     {
         var cleaned = CleanCompName(compName);
         if (string.IsNullOrWhiteSpace(cleaned))
@@ -44,17 +44,39 @@ public partial class WebsiteService : IWebsiteService
         var slug = ToSlug(cleaned);
         var nameTaken = await _db.Cards.AnyAsync(c => c.CompanyName == cleaned && (!excludeId.HasValue || c.Id != excludeId), ct);
         if (nameTaken)
-            return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, "Business name already exists."));
+            return await OwnUnpaidOrTakenAsync(slug, ownerEmail, "Business name already exists.", ct);
 
         var slugTaken = await _db.Cards.AnyAsync(c => c.Slug == slug && (!excludeId.HasValue || c.Id != excludeId), ct);
         if (slugTaken)
-            return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, "URL slug already taken."));
+            return await OwnUnpaidOrTakenAsync(slug, ownerEmail, "URL slug already taken.", ct);
 
         var prevTaken = await _db.CardSlugHistories.AnyAsync(p => p.PreviousSlug == slug && (!excludeId.HasValue || p.CardId != excludeId.Value), ct);
         if (prevTaken)
             return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, "URL slug is reserved (previous)."));
 
         return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(true, slug, null));
+    }
+
+    /// <summary>The same user can continue payment for a profile that was saved but not paid.</summary>
+    private async Task<ApiResult<CheckNameResponse>> OwnUnpaidOrTakenAsync(string slug, string? ownerEmail, string takenMessage, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(ownerEmail))
+        {
+            var email = ownerEmail.Trim().ToLowerInvariant();
+            var own = await _db.Cards.AsNoTracking()
+                .Where(c => c.Slug == slug && c.UserEmail != null && c.UserEmail.ToLower() == email)
+                .Select(c => (int?)c.Id)
+                .FirstOrDefaultAsync(ct);
+            if (own is int cardId)
+            {
+                var paid = await _db.Invoices.AnyAsync(i =>
+                    i.CardId == cardId && (i.PaymentStatus == "Success" || i.PaymentStatus == "Paid"), ct);
+                if (!paid)
+                    return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(true, slug, null));
+            }
+        }
+
+        return ApiResult<CheckNameResponse>.Ok(new CheckNameResponse(false, slug, takenMessage));
     }
 
     public async Task<ApiResult<BusinessNameDto>> CreateBusinessNameAsync(UpsertBusinessNameRequest request, CancellationToken ct = default)

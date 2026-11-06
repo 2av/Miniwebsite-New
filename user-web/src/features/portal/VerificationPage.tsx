@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiGet, apiSend, apiUploadForm, ApiError } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
-import { siteUrl } from '@/lib/utils'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 
 type VerificationData = {
@@ -122,6 +122,7 @@ export function VerificationPage() {
   const [pendingB64, setPendingB64] = useState<DocPreview>({})
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [gstNumber, setGstNumber] = useState('')
+  const [hasGst, setHasGst] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [bank, setBank] = useState<BankForm>({
     bankName: '',
@@ -153,6 +154,7 @@ export function VerificationPage() {
         agreement: page.agreementUrl || undefined,
       })
       setGstNumber(page.gstNumber || '')
+      setHasGst(Boolean(page.gstNumber))
       setAccepted(page.electronicAcceptance)
       setBank({
         bankName: page.bankName || '',
@@ -254,11 +256,15 @@ export function VerificationPage() {
     const backOk = pendingB64.back || data.aadhaarBackUrl
     const gstOk = pendingB64.gst || data.gstCertificateUrl
     const agreementOk = pendingB64.agreement || data.agreementUrl
-    if (!panOk || !frontOk || !backOk || !gstOk || !agreementOk) {
-      setError('PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory.')
+    if (!panOk || !frontOk || !backOk || !agreementOk || (hasGst && !gstOk)) {
+      setError(
+        hasGst
+          ? 'PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory.'
+          : 'PAN, Aadhaar (front and back), and agreement are mandatory.',
+      )
       return
     }
-    if (!/^[0-9A-Za-z]{15}$/.test(gstNumber.trim())) {
+    if (hasGst && !/^[0-9A-Za-z]{15}$/.test(gstNumber.trim())) {
       setError('Enter a valid 15-character GSTIN.')
       return
     }
@@ -293,7 +299,8 @@ export function VerificationPage() {
         aadhaarBackBase64: pendingB64.back || null,
         gstCertificateBase64: pendingB64.gst || null,
         agreementBase64: pendingB64.agreement || null,
-        gstNumber: gstNumber.trim().toUpperCase(),
+        gstNumber: hasGst ? gstNumber.trim().toUpperCase() : '',
+        hasGst,
         bankName: bank.bankName.trim(),
         accountHolder: bank.accountHolder.trim(),
         accountNumber: bank.accountNumber.trim(),
@@ -429,8 +436,8 @@ export function VerificationPage() {
           <div className="mw-card-body">
             {!data.agreementPaid ? (
               <div className="alert alert-warning">
-                Complete franchise agreement payment first.{' '}
-                <a href={siteUrl('franchise_agreement.php')}>Continue to payment</a>
+                Document verification opens after payment.{' '}
+                <Link to="/payment/membership">Pay membership</Link>
               </div>
             ) : null}
 
@@ -444,12 +451,17 @@ export function VerificationPage() {
                 <DocCard slot="pan" label="PAN CARD" title="PAN" inputRef={panRef} />
                 <DocCard slot="front" label="AADHAAR FRONT" title="Aadhaar front" inputRef={frontRef} />
                 <DocCard slot="back" label="AADHAAR BACK" title="Aadhaar back" inputRef={backRef} />
-                <DocCard slot="gst" label="GST CERTIFICATE" title="GST certificate" inputRef={gstRef} />
+                {hasGst ? <DocCard slot="gst" label="GST CERTIFICATE" title="GST certificate" inputRef={gstRef} /> : null}
                 <DocCard slot="agreement" label="AGREEMENT" title="Agreement" inputRef={agreementRef} />
               </div>
 
               <section className="mw-bank-details-section mb-4 pt-2">
                 <h2 className="heading mw-section-title">GST details</h2>
+                <label className="flex items-center gap-2 mb-3 text-sm">
+                  <input type="checkbox" checked={hasGst} disabled={locked} onChange={(e) => setHasGst(e.target.checked)} />
+                  I have GST
+                </label>
+                {hasGst ? (
                 <div className="mw-form-grid-2">
                   <div className="mw-form-group">
                     <label className="mw-label" htmlFor="gstNumber">
@@ -466,6 +478,7 @@ export function VerificationPage() {
                     />
                   </div>
                 </div>
+                ) : null}
               </section>
 
               <section className="mw-bank-details-section mb-4 pt-2 border-t border-border">

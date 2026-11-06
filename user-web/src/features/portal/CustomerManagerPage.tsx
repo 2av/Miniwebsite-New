@@ -5,6 +5,7 @@ import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { siteUrl } from '@/lib/utils'
 import { TablePagination, useClientPagination } from '@/components/table'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
+import { startRegistration } from '@/features/registration/api'
 
 type CustomerRow = {
   id: number
@@ -228,6 +229,10 @@ function dash(v?: string | null) {
 
 export function CustomerManagerPage() {
   const session = useAuthSession()
+  const isFranchise = (session?.rolePrefix || '').toUpperCase() === 'FRP' || session?.role === 'FRANCHISEE'
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [accountForm, setAccountForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' })
+  const [accountMsg, setAccountMsg] = useState<string | null>(null)
   const [page, setPage] = useState<PageData | null>(null)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
@@ -570,6 +575,11 @@ export function CustomerManagerPage() {
             <button type="button" className="mw-btn mw-btn-accent" onClick={openAdd}>
               <i className="fa fa-plus" aria-hidden /> Add Customer
             </button>
+            {isFranchise ? (
+              <button type="button" className="mw-btn" onClick={() => setAccountOpen((open) => !open)}>
+                Create Account
+              </button>
+            ) : null}
             <form
               id="customerTrackerSearchForm"
               className="d-flex flex-wrap align-items-center gap-2 flex-grow-1"
@@ -606,6 +616,37 @@ export function CustomerManagerPage() {
               </button>
             </form>
           </div>
+          {accountOpen && isFranchise ? (
+            <form
+              className="d-flex flex-wrap gap-2 mb-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!session?.email) return
+                void (async () => {
+                  try {
+                    const me = await apiGet<Record<string, unknown>>('/api/v1/portal/me', { email: session.email })
+                    const code = String(me.referralCode ?? me.ReferralCode ?? '')
+                    const res = await startRegistration('franchisee', {
+                      ...accountForm,
+                      referralCode: code || null,
+                    })
+                    setAccountMsg(res.message || 'OTP sent. They can verify it to finish Create Account.')
+                    setAccountOpen(false)
+                  } catch (err) {
+                    setAccountMsg(err instanceof ApiError ? err.message : 'Could not start Create Account.')
+                  }
+                })()
+              }}
+            >
+              <input className="form-control" placeholder="First name" value={accountForm.firstName} onChange={(e) => setAccountForm((f) => ({ ...f, firstName: e.target.value }))} required />
+              <input className="form-control" placeholder="Last name" value={accountForm.lastName} onChange={(e) => setAccountForm((f) => ({ ...f, lastName: e.target.value }))} />
+              <input className="form-control" placeholder="Email" type="email" value={accountForm.email} onChange={(e) => setAccountForm((f) => ({ ...f, email: e.target.value }))} required />
+              <input className="form-control" placeholder="Phone" value={accountForm.phone} onChange={(e) => setAccountForm((f) => ({ ...f, phone: e.target.value }))} required />
+              <input className="form-control" placeholder="Password" type="password" value={accountForm.password} onChange={(e) => setAccountForm((f) => ({ ...f, password: e.target.value }))} required />
+              <button type="submit" className="mw-btn mw-btn-accent">Send OTP</button>
+            </form>
+          ) : null}
+          {accountMsg ? <p className="mb-3">{accountMsg}</p> : null}
 
           <div className="ManageUsers">
             <h4 className="heading">Customers: </h4>

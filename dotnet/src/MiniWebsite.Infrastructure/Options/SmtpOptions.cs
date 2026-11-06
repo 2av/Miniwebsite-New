@@ -10,4 +10,11 @@ public class SmtpOptions
     public string Password { get; set; } = string.Empty;
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = "ShareBizz";
+    public Dictionary<string, SmtpMailbox> Mailboxes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public class SmtpMailbox
+{
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }

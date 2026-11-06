@@ -15,6 +15,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<RegistrationPending> RegistrationPendings => Set<RegistrationPending>();
+    public DbSet<AccountInvite> AccountInvites => Set<AccountInvite>();
+    public DbSet<FieldSalesDeal> FieldSalesDeals => Set<FieldSalesDeal>();
     public DbSet<ReferralEarning> ReferralEarnings => Set<ReferralEarning>();
     public DbSet<ReferralPayment> ReferralPayments => Set<ReferralPayment>();
     public DbSet<Coupon> Coupons => Set<Coupon>();

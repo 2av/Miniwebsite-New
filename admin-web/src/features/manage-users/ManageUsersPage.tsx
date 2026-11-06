@@ -11,7 +11,7 @@ import {
 } from '@/features/manage-users/api'
 import type { ManageUserRow, ManageUsersQuery } from '@/shared/types/api'
 import { useToast } from '@/shared/ui/Toast'
-import { ApiError } from '@/shared/api/client'
+import { ApiError, apiSend } from '@/shared/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -270,6 +270,15 @@ export function ManageUsersPage() {
                   onCommission={() => setReferralEmail(u.email)}
                   toggling={togglingId === u.id}
                   onToggleStatus={() => void setStatus(u)}
+                  onReview={async (decision) => {
+                    try {
+                      const res = await apiSend('post', `/api/v1/admin/onboarding/${u.id}/review`, { decision, remarks: '' })
+                      toast.push(res.message || decision, 'success')
+                      await qc.invalidateQueries({ queryKey: ['manage-users'] })
+                    } catch (e) {
+                      toast.push(e instanceof ApiError ? e.message : 'Review failed', 'error')
+                    }
+                  }}
                 />
               ))}
               </TableBody>
@@ -381,12 +390,14 @@ function UserRow({
   onCommission,
   toggling,
   onToggleStatus,
+  onReview,
 }: {
   user: ManageUserRow
   onDashboard: () => void
   onCommission: () => void
   toggling: boolean
   onToggleStatus: () => void
+  onReview: (decision: string) => void
 }) {
   const active = u.status === 'Active'
   return (
@@ -405,6 +416,13 @@ function UserRow({
       <TableCell className="px-3 text-center font-semibold">{u.websiteCount}</TableCell>
       <TableCell className="px-3 whitespace-nowrap">
         <Badge variant={badgeVariantFromTone(u.documentStatusTone)}>{u.documentStatus || 'Not Submitted'}</Badge>
+        <span className="mt-1 flex flex-wrap gap-1">
+          {['Approved', 'Resubmission Required', 'Rejected'].map((decision) => (
+            <Button key={decision} variant="link" size="sm" className="h-auto px-1" onClick={() => onReview(decision)}>
+              {decision}
+            </Button>
+          ))}
+        </span>
       </TableCell>
       <TableCell className="px-3">
         <Button variant="outline" size="sm" onClick={onDashboard}>

@@ -1,4 +1,5 @@
 using MiniWebsite.Domain.Common;
+using MiniWebsite.Domain.Entities;
 
 namespace MiniWebsite.Application.Portal;
 
@@ -47,9 +48,21 @@ public static class PortalMenu
         return ByPrefix.TryGetValue(prefix.Trim(), out var items) && items.Contains(feature);
     }
 
+    /// <summary>Prefix menu plus the user's onboarding stage.</summary>
+    public static bool Allows(User user, string feature) =>
+        OnboardingAccess.Allows(
+            user.AssignedRole?.Prefix,
+            user.OnboardingStage,
+            user.ReferralEligibleAt,
+            feature,
+            AppClock.Now);
+
     /// <summary>Referral Details and Sales Details share the referral APIs.</summary>
     public static bool AllowsReferralArea(string? prefix) =>
         Allows(prefix, Referral) || Allows(prefix, Sales);
+
+    public static bool AllowsReferralArea(User user) =>
+        Allows(user, Referral) || Allows(user, Sales);
 
     /// <summary>Field Sales Team sees Sales Details. Other types see Referral Details.</summary>
     public static bool IsSalesDetails(string? prefix) =>

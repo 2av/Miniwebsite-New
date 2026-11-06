@@ -3,8 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using MiniWebsite.Application.Admin.Invoices;
 using MiniWebsite.Application.Admin.KitManagement.Dtos;
 using MiniWebsite.Application.Common.Models;
+using MiniWebsite.Application.Admin.Onboarding;
 using MiniWebsite.Application.Portal;
 using MiniWebsite.Application.Portal.Dtos;
+using MiniWebsite.Application.Registration;
 using MiniWebsite.Shared.Constants;
 
 namespace MiniWebsite.Api.Controllers.V1;
@@ -16,10 +18,20 @@ namespace MiniWebsite.Api.Controllers.V1;
 public class PortalController : ControllerBase
 {
     private readonly IPortalService _portal;
+    private readonly IPayoutAcceptanceService _payouts;
+    private readonly IAccountInviteService _invites;
+    private readonly IFieldSalesAdminService _fieldSales;
 
-    public PortalController(IPortalService portal)
+    public PortalController(
+        IPortalService portal,
+        IPayoutAcceptanceService payouts,
+        IAccountInviteService invites,
+        IFieldSalesAdminService fieldSales)
     {
         _portal = portal;
+        _payouts = payouts;
+        _invites = invites;
+        _fieldSales = fieldSales;
     }
 
     [HttpGet("me")]
@@ -227,6 +239,46 @@ public class PortalController : ControllerBase
         int id, [FromQuery] string email, CancellationToken ct)
     {
         var result = await _portal.RecordLastSharedAsync(email, id, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpGet("notifications")]
+    public async Task<ActionResult<ApiResult<IReadOnlyList<NotificationDto>>>> Notifications(
+        [FromQuery] string email, CancellationToken ct)
+    {
+        var result = await _payouts.NotificationsAsync(email, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpGet("payouts")]
+    public async Task<ActionResult<ApiResult<IReadOnlyList<PayoutInvoiceDto>>>> Payouts(
+        [FromQuery] string email, CancellationToken ct)
+    {
+        var result = await _payouts.ListAsync(email, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("payouts/{earningId:int}/accept")]
+    public async Task<ActionResult<ApiResult>> AcceptPayout(
+        int earningId, [FromQuery] string email, CancellationToken ct)
+    {
+        var result = await _payouts.AcceptAsync(email, earningId, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("print-shop-partners")]
+    public async Task<ActionResult<ApiResult>> RegisterPrintShop(
+        [FromBody] RegisterPrintShopRequest request, CancellationToken ct)
+    {
+        var result = await _invites.RegisterPrintShopAsync(request, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpGet("field-sales/summary")]
+    public async Task<ActionResult<ApiResult<FieldSalesSummaryDto>>> FieldSalesSummary(
+        [FromQuery] string email, CancellationToken ct)
+    {
+        var result = await _fieldSales.SummaryForEmailAsync(email, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 }

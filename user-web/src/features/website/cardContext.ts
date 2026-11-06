@@ -43,3 +43,30 @@ export function stepPath(path: string, cardId: number | null) {
   if (!cardId) return path
   return `${path}?card_number=${cardId}`
 }
+
+const PENDING_PROFILE_KEY = 'mw_pending_db_profile'
+
+export type PendingDbProfile = { compName: string; displayName: string }
+
+/** Business name and URL typed before payment. The card row is created only after payment succeeds. */
+export function savePendingProfile(profile: PendingDbProfile) {
+  sessionStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify(profile))
+}
+
+export function readPendingProfile(): PendingDbProfile | null {
+  const raw = sessionStorage.getItem(PENDING_PROFILE_KEY)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<PendingDbProfile>
+    const compName = String(parsed.compName ?? '').trim()
+    const displayName = String(parsed.displayName ?? '').trim()
+    if (!compName || !displayName) return null
+    return { compName, displayName }
+  } catch {
+    return null
+  }
+}
+
+export function clearPendingProfile() {
+  sessionStorage.removeItem(PENDING_PROFILE_KEY)
+}

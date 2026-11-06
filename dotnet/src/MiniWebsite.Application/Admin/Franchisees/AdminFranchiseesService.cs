@@ -12,6 +12,7 @@ using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Application.Registration;
 using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.Franchisees;
@@ -23,6 +24,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
     private readonly IConfiguration _configuration;
+    private readonly IAccountInviteService _invites;
     private readonly AppOptions _app;
 
     public AdminFranchiseesService(
@@ -30,6 +32,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         IPasswordHasher passwordHasher,
         IEmailSender email,
         IEmailTemplateRenderer templates,
+        IAccountInviteService invites,
         IConfiguration configuration,
         IOptions<AppOptions> app)
     {
@@ -37,6 +40,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
+        _invites = invites;
         _configuration = configuration;
         _app = app.Value;
     }
@@ -90,7 +94,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         var invoices = await GetFranchiseInvoicesAsync(userIds, ct);
         var docs = await GetDocumentStatusesAsync(userIds, ct);
         var siteBase = (_configuration["App:SiteBaseUrl"] ?? "https://sharebizz.com").TrimEnd('/');
-        var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
+        var publicHost = (_configuration["App:PublicHost"] ?? "sharebizz.com").Trim();
 
         var rows = new List<FranchiseeRowDto>();
         foreach (var u in users)
@@ -167,60 +171,14 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         var name = $"{firstName} {lastName}".Trim();
         var email = Normalize(request.Email);
         var phone = (request.Phone ?? "").Trim();
-        var password = request.Password ?? "";
 
         if (firstName.Length == 0) return ApiResult.Fail("First Name is required");
         if (email.Length == 0) return ApiResult.Fail("Email is required");
         if (!email.Contains('@')) return ApiResult.Fail("Please enter a valid email address");
-        if (!Regex.IsMatch(phone, @"^\d{10}$")) return ApiResult.Fail("Contact number must be exactly 10 digits");
-        if (password.Length < 1) return ApiResult.Fail("Password is required");
+        if (phone.Length > 0 && !Regex.IsMatch(phone, @"^\d{10}$"))
+            return ApiResult.Fail("Contact number must be exactly 10 digits");
 
-        var exists = await _db.Users.AsNoTracking().WhereRole(UserRole.Franchisee).AnyAsync(
-            u => u.Email.ToLower() == email, ct);
-        if (exists)
-            return ApiResult.Fail("A franchisee with this email already exists. Please use a different email ID.");
-
-        var hash = _passwordHasher.Hash(password);
-        _db.Users.Add(new User
-        {
-            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.FranchisePartner, ct),
-            Email = email,
-            Phone = phone,
-            FirstName = firstName,
-            LastName = lastName,
-            Password = hash,
-            Status = "ACTIVE",
-            CreatedAt = AppClock.Now,
-            UpdatedAt = AppClock.Now
-        });
-        await _db.SaveChangesAsync(ct);
-
-        try
-        {
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["name"] = name,
-                ["email"] = email,
-                ["password"] = password,
-                ["login_url"] = _app.FranchiseeLoginUrl,
-                ["host"] = _app.PublicHost,
-            };
-            var rendered = await _templates.TryRenderAsync("franchisee_admin_created", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to ShareBizz Franchisee";
-            var html = rendered?.Html ?? $"""
-                <p>Hello {System.Net.WebUtility.HtmlEncode(name)},</p>
-                <p>Your franchisee account has been created.</p>
-                <p><strong>Login Email:</strong> {System.Net.WebUtility.HtmlEncode(email)}<br/>
-                <strong>Password:</strong> {System.Net.WebUtility.HtmlEncode(password)}</p>
-                <p>Please complete your franchisee registration payment if required.</p>
-                """;
-            await _email.SendAsync(email, subject, html, ct);
-            return ApiResult.Ok("Account Created! Welcome email sent successfully.");
-        }
-        catch
-        {
-            return ApiResult.Ok("Account Created! (Email sending failed)");
-        }
+        return await _invites.SendFranchiseRegistrationLinkAsync(email, name, ct);
     }
 
     public async Task<ApiResult<FranchiseeDashboardDto>> GetDashboardAsync(string email, CancellationToken ct = default)
@@ -229,7 +187,7 @@ public class AdminFranchiseesService : IAdminFranchiseesService
         if (key.Length == 0)
             return ApiResult<FranchiseeDashboardDto>.Fail("Invalid email.");
 
-        var publicHost = (_configuration["App:PublicHost"] ?? "miniwebsite.in").Trim();
+        var publicHost = (_configuration["App:PublicHost"] ?? "sharebizz.com").Trim();
         var franchiseeId = await _db.FindUserIdAsync(key, ct);
         var cards = franchiseeId == null
             ? []

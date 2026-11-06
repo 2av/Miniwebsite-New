@@ -49,7 +49,7 @@ public class DbProfileCheckoutController : ControllerBase
     }
 
     [HttpPost("verify")]
-    public async Task<ActionResult<ApiResult>> Verify(
+    public async Task<ActionResult<ApiResult<DbProfilePaidDto>>> Verify(
         [FromBody] DbProfileVerifyRequest request,
         CancellationToken ct)
     {

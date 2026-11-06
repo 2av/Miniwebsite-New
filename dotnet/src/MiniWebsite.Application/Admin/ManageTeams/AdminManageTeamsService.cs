@@ -13,6 +13,7 @@ using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Application.Registration;
 using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Admin.ManageTeams;
@@ -23,6 +24,7 @@ public class AdminManageTeamsService : IAdminManageTeamsService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
+    private readonly IAccountInviteService _invites;
     private readonly AppOptions _app;
 
     public AdminManageTeamsService(
@@ -30,12 +32,14 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         IPasswordHasher passwordHasher,
         IEmailSender email,
         IEmailTemplateRenderer templates,
+        IAccountInviteService invites,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
+        _invites = invites;
         _app = app.Value;
     }
 
@@ -94,83 +98,11 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         var firstName = (request.FirstName ?? "").Trim();
         var lastName = (request.LastName ?? "").Trim();
         var email = NormalizeEmail(request.Email);
-        var phone = (request.Phone ?? "").Trim();
-        var district = (request.District ?? "").Trim();
-        var state = (request.State ?? "").Trim();
-        var password = request.Password ?? "";
-
         if (firstName.Length == 0) return ApiResult<ManageTeamRowDto>.Fail("Member first name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<ManageTeamRowDto>.Fail("A valid member email address is required.");
-        if (password.Length < 6) return ApiResult<ManageTeamRowDto>.Fail("Password must be at least 6 characters long.");
-
-        var emailConflict = await _db.Users.AsNoTracking()
-            .Where(u => u.Email.ToLower() == email)
-            .Select(u => u.AssignedRole!.RoleName)
-            .FirstOrDefaultAsync(ct);
-        if (emailConflict != null)
-            return ApiResult<ManageTeamRowDto>.Fail(
-                $"This email address is already registered as a {emailConflict}. Please use a different email.");
-
-        if (phone.Length > 0)
-        {
-            var phoneConflict = await _db.Users.AsNoTracking()
-                .Where(u => u.Phone == phone)
-                .Select(u => u.AssignedRole!.RoleName)
-                .FirstOrDefaultAsync(ct);
-            if (phoneConflict != null)
-                return ApiResult<ManageTeamRowDto>.Fail(
-                    $"This mobile number is already registered as a {phoneConflict}. Please use a different mobile number.");
-        }
-
-        var hash = _passwordHasher.Hash(password);
-        var user = new User
-        {
-            AssignedRole = await _db.GetRoleByPrefixAsync(RolePrefixes.DigitalMarketingPartner, ct),
-            Email = email,
-            Phone = phone,
-            FirstName = firstName,
-            LastName = lastName,
-            Address = new UserAddress { District = district, State = state },
-            Password = hash,
-            Status = "ACTIVE",
-            CreatedAt = AppClock.Now,
-            UpdatedAt = AppClock.Now,
-        };
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync(ct);
-
-        var message = "Team member added successfully.";
-        var name = user.FullName;
-        try
-        {
-            var loginUrl = string.IsNullOrWhiteSpace(_app.SiteBaseUrl)
-                ? $"https://{_app.PublicHost}"
-                : _app.SiteBaseUrl.TrimEnd('/');
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["name"] = name,
-                ["email"] = email,
-                ["password"] = password,
-                ["login_url"] = loginUrl,
-                ["host"] = _app.PublicHost,
-            };
-            var rendered = await _templates.TryRenderAsync("team_member_welcome", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to ShareBizz Team";
-            var html = rendered?.Html ?? $"""
-                <p>Hello {WebUtility.HtmlEncode(name)},</p>
-                <p>Your team member account has been created on ShareBizz.</p>
-                <p><strong>Login Email:</strong> {WebUtility.HtmlEncode(email)}<br/>
-                <strong>Password:</strong> {WebUtility.HtmlEncode(password)}</p>
-                <p>Please keep these credentials secure.</p>
-                """;
-            await _email.SendAsync(email, subject, html, ct);
-        }
-        catch
-        {
-            message = "Team member created, but welcome email could not be sent.";
-        }
-
-        return ApiResult<ManageTeamRowDto>.Ok(await MapRowAsync(user, ct), message);
+        var sent = await _invites.SendPartnerInviteAsync(email, RolePrefixes.DigitalMarketingPartner, null, ct);
+        if (!sent.Success) return ApiResult<ManageTeamRowDto>.Fail(sent.Message ?? "Registration link could not be sent.");
+        return ApiResult<ManageTeamRowDto>.Ok(null!, sent.Message ?? "Registration link sent.");
     }
 
     public async Task<ApiResult<ManageTeamRowDto>> UpdateAsync(int id, UpdateTeamMemberRequest request, CancellationToken ct = default)

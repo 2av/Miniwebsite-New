@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { apiGet } from '@/shared/api/client'
+import { apiGet, apiSend } from '@/shared/api/client'
 import { useAuthSession } from '@/shared/auth/useAuthSession'
 import { dashboardTitleForRole } from '@/shared/auth/session'
+import { hasPortalFeature } from '@/shared/portal/menu'
 import { assetUrl, siteUrl } from '@/lib/utils'
 import { DashboardProfileTable, type DashboardProfileRow } from '@/components/table'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
@@ -177,6 +178,15 @@ export function DashboardPage() {
   const [customer, setCustomer] = useState<CustomerDashboard | null>(null)
   const [franchisee, setFranchisee] = useState<FranchiseeDashboard | null>(null)
   const [mappedRoleName, setMappedRoleName] = useState(session?.roleName ?? '')
+  const [stage, setStage] = useState('')
+  const [referralEligibleAt, setReferralEligibleAt] = useState<string | null>(null)
+  const [feeLabel, setFeeLabel] = useState('DM Membership fees')
+  const [readyToSell, setReadyToSell] = useState(false)
+  const [payouts, setPayouts] = useState<{ earningId: number; invoiceNumber: string; amount: number; referredEmail?: string | null }[]>([])
+  const [payoutMsg, setPayoutMsg] = useState<string | null>(null)
+  const [shopForm, setShopForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
+  const [shopMsg, setShopMsg] = useState<string | null>(null)
+  const [monthlyTarget, setMonthlyTarget] = useState<number | null>(null)
 
   useEffect(() => {
     if (!session?.email) return
@@ -196,8 +206,42 @@ export function DashboardPage() {
           const me = await apiGet<Record<string, unknown>>('/api/v1/portal/me', { email: session.email })
           const roleName = String(me.roleName ?? me.RoleName ?? '').trim()
           if (!cancelled && roleName) setMappedRoleName(roleName)
+          if (!cancelled) {
+            setStage(String(me.onboardingStage ?? me.OnboardingStage ?? ''))
+            setReferralEligibleAt((me.referralEligibleAt ?? me.ReferralEligibleAt ?? null) as string | null)
+            setFeeLabel(String(me.membershipFeeLabel ?? me.MembershipFeeLabel ?? 'DM Membership fees'))
+            setReadyToSell(Boolean(me.readyToInitiateSales ?? me.ReadyToInitiateSales))
+          }
         } catch {
           // title falls back to the login role
+        }
+        try {
+          const raw = await apiGet<unknown[]>('/api/v1/portal/payouts', { email: session.email })
+          if (!cancelled && Array.isArray(raw)) {
+            setPayouts(
+              raw.map((item) => {
+                const row = (item ?? {}) as Record<string, unknown>
+                return {
+                  earningId: Number(row.earningId ?? row.EarningId ?? 0),
+                  invoiceNumber: String(row.invoiceNumber ?? row.InvoiceNumber ?? ''),
+                  amount: Number(row.amount ?? row.Amount ?? 0),
+                  referredEmail: (row.referredEmail ?? row.ReferredEmail) as string | null,
+                }
+              }),
+            )
+          }
+        } catch {
+          // payouts appear after an invoice is generated
+        }
+        if (prefix === 'FST') {
+          try {
+            const summary = await apiGet<Record<string, unknown>>('/api/v1/portal/field-sales/summary', {
+              email: session.email,
+            })
+            if (!cancelled) setMonthlyTarget(Number(summary.monthlyTarget ?? summary.MonthlyTarget ?? 0))
+          } catch {
+            if (!cancelled) setMonthlyTarget(0)
+          }
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load dashboard')
@@ -208,11 +252,36 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [session?.email, isFranchisee])
+  }, [session?.email, isFranchisee, prefix])
 
   const managedUsers = franchisee?.managedUsers ?? []
   const cards = customer?.cards ?? []
   const pageTitle = dashboardTitleForRole(mappedRoleName || session?.roleName, session?.role)
+  const paymentDue = stage === 'Payment due' || stage === 'Account only'
+  const isSbUser = prefix === 'SBU' || (!prefix && session?.role === 'CUSTOMER')
+  const docsOnly = (stage === 'Document verification' || stage === 'Waiting for review') && !isSbUser
+  const isFieldSalesTeam = prefix === 'FST'
+  const gate = { stage, referralEligibleAt }
+  const showReferralBox = hasPortalFeature(prefix || (isSbUser ? 'SBU' : ''), 'referral', gate)
+
+  async function acceptPayout(earningId: number) {
+    if (!session?.email) return
+    const res = await apiSend('post', `/api/v1/portal/payouts/${earningId}/accept?email=${encodeURIComponent(session.email)}`)
+    setPayoutMsg(res.message || 'Invoice accepted. Payment processed.')
+    setPayouts((rows) => rows.filter((row) => row.earningId !== earningId))
+  }
+
+  async function registerPrintShop(e: React.FormEvent) {
+    e.preventDefault()
+    if (!session?.email) return
+    setShopMsg(null)
+    const res = await apiSend('post', '/api/v1/portal/print-shop-partners', {
+      ownerEmail: session.email,
+      ...shopForm,
+    })
+    setShopMsg(res.message || 'Print Shop Partner account created.')
+    setShopForm({ firstName: '', lastName: '', email: '', phone: '' })
+  }
   const franchiseeRows = toFranchiseeProfileRows(managedUsers)
   const customerRows = customer ? toCustomerProfileRows(cards, customer, session?.name) : []
 
@@ -230,7 +299,73 @@ export function DashboardPage() {
         {loading && <p>Loading dashboard...</p>}
         {error && <div className="alert alert-danger">{error}</div>}
 
-        {!loading && !error && isFranchisee && franchisee && (
+        {!loading && !error && readyToSell && (
+          <div className="alert alert-success">Ready to Initiate Sales</div>
+        )}
+
+        {!loading && !error && paymentDue && (
+          <div className="card mb-4 sb-dash-panel">
+            <div className="card-body">
+              {isSbUser ? (
+                <Link to="/website/business-name?new=1" className="sb-btn-primary">
+                  Create DB Profile
+                </Link>
+              ) : (
+                <Link to="/payment/membership" className="sb-btn-primary">
+                  Pay {feeLabel}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && payouts.length > 0 && (
+          <div className="card mb-4 sb-dash-panel">
+            <div className="card-body">
+              <h2 className="h5">Payout invoices</h2>
+              {payoutMsg && <p>{payoutMsg}</p>}
+              {payouts.map((row) => (
+                <div key={row.earningId} className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                  <span>
+                    {row.invoiceNumber} · ₹ {row.amount.toLocaleString('en-IN')}
+                    {row.referredEmail ? ` · ${row.referredEmail}` : ''}
+                  </span>
+                  <button type="button" className="sb-btn-primary" onClick={() => void acceptPayout(row.earningId)}>
+                    Accept
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && isFieldSalesTeam && (
+          <div className="card mb-4 sb-dash-panel">
+            <div className="card-body">
+              <p>Monthly target from deals: ₹ {(monthlyTarget ?? 0).toLocaleString('en-IN')}</p>
+              <h2 className="h5">Register Print Shop Partner</h2>
+              {shopMsg && <p>{shopMsg}</p>}
+              <form className="d-flex flex-wrap gap-2" onSubmit={(e) => void registerPrintShop(e)}>
+                <input className="form-control" placeholder="First name" value={shopForm.firstName} onChange={(e) => setShopForm((f) => ({ ...f, firstName: e.target.value }))} required />
+                <input className="form-control" placeholder="Last name" value={shopForm.lastName} onChange={(e) => setShopForm((f) => ({ ...f, lastName: e.target.value }))} />
+                <input className="form-control" placeholder="Email" type="email" value={shopForm.email} onChange={(e) => setShopForm((f) => ({ ...f, email: e.target.value }))} required />
+                <input className="form-control" placeholder="Phone" value={shopForm.phone} onChange={(e) => setShopForm((f) => ({ ...f, phone: e.target.value }))} />
+                <button type="submit" className="sb-btn-primary">Create account</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && docsOnly && (
+          <div className="card mb-4 sb-dash-panel">
+            <div className="card-body">
+              <p>Submit KYC documents. Dashboard features unlock after the SB team marks them Approved.</p>
+              <Link to="/verification" className="sb-btn-primary">Document verification</Link>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && isFranchisee && franchisee && !paymentDue && !docsOnly && (
           <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
               <div className="FranchiseeDashboard-head">
@@ -275,7 +410,7 @@ export function DashboardPage() {
           </div>
         )}
 
-        {!loading && !error && !isFranchisee && customer && (
+        {!loading && !error && !isFranchisee && customer && !paymentDue && !docsOnly && (
           <div className="card mb-4 sb-dash-panel">
             <div className="card-body">
               <div className="CustomerDashboard-head">
@@ -308,13 +443,13 @@ export function DashboardPage() {
               <br />
               <br />
               {/* Same gate as PHP: show unless collaboration is on without mw_referral_id */}
-              {(session?.collaborationEnabled !== true || customer.mwReferralId === 1) && customer.referralCode ? (
+              {showReferralBox && (session?.collaborationEnabled !== true || customer.mwReferralId === 1) && customer.referralCode ? (
                 <>
                   <div className="referral-id">ShareBizz Referral ID</div>
                   <div className="referral-container">
                     <div className="referral-box col-md-6">
                       <p id="regular_link_value">
-                        {siteUrl(`registration/customer-registration.php?ref=${encodeURIComponent(customer.referralCode)}`)}
+                        {siteUrl(`registration/customer?ref=${encodeURIComponent(customer.referralCode)}`)}
                       </p>
                       <button
                         type="button"
@@ -345,7 +480,7 @@ export function DashboardPage() {
                     <ul>
                       {(() => {
                         const refUrl = siteUrl(
-                          `registration/customer-registration.php?ref=${encodeURIComponent(customer.referralCode)}`,
+                          `registration/customer?ref=${encodeURIComponent(customer.referralCode)}`,
                         )
                         const msg = `🚀 Grow Your Business with ShareBizz\n\n👇 Create Your ShareBizz Today\n\n${refUrl}\n\n🌐 www.sharebizz.com`
                         return (

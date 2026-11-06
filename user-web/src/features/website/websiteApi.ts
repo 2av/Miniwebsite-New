@@ -5,10 +5,11 @@ function ownerQS(email: string) {
 }
 
 export const websiteApi = {
-  checkName: (compName: string, excludeId?: number | null) =>
+  checkName: (compName: string, excludeId?: number | null, ownerEmail?: string) =>
     apiGet<{ available: boolean; slug: string; message?: string }>('/api/v1/digi-cards/check-name', {
       compName,
       excludeId: excludeId || undefined,
+      ownerEmail: ownerEmail || undefined,
     }),
 
   createBusiness: (body: Record<string, unknown>) =>

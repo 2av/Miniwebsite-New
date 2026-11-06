@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
 using MiniWebsite.Application.Common.Extensions;
+using MiniWebsite.Application.Portal;
 using MiniWebsite.Domain.Common;
 
 namespace MiniWebsite.Application.Registration;
@@ -88,6 +89,8 @@ public class RegistrationService : IRegistrationService
             Password = hash,
             Ip = clientIp,
             Status = "ACTIVE",
+            OnboardingStage = OnboardingStage.PaymentDue,
+            OnboardingStageAt = AppClock.Now,
             Referral = new UserReferralSettings
             {
                 ReferralCode = referralCode,
@@ -103,6 +106,10 @@ public class RegistrationService : IRegistrationService
         };
 
         _db.Users.Add(user);
+        var issuedPassword = string.IsNullOrWhiteSpace(pending.IssuedPassword)
+            ? RegistrationEmailTemplates.PasswordHint
+            : pending.IssuedPassword;
+        pending.IssuedPassword = null;
         pending.IsConsumed = true;
         pending.IsDeleted = true;
         await _db.SaveChangesAsync(ct);
@@ -131,13 +138,13 @@ public class RegistrationService : IRegistrationService
             {
                 ["name"] = user.FullName,
                 ["email"] = pending.Email,
-                ["password"] = RegistrationEmailTemplates.PasswordHint,
+                ["password"] = issuedPassword,
                 ["host"] = _app.PublicHost,
                 ["dashboard_url"] = _app.CustomerDashboardUrl,
             };
             var rendered = await _templates.TryRenderAsync("customer_welcome", vars, ct);
             var (subject, html) = rendered ?? RegistrationEmailTemplates.CustomerWelcome(
-                user.FullName, pending.Email, _app);
+                user.FullName, pending.Email, issuedPassword, _app);
             await _email.SendAsync(pending.Email, subject, html, ct);
         }
         catch
@@ -170,6 +177,8 @@ public class RegistrationService : IRegistrationService
             LastName = pending.LastName,
             Password = hash,
             Status = "ACTIVE",
+            OnboardingStage = OnboardingStage.PaymentDue,
+            OnboardingStageAt = AppClock.Now,
             Referral = new UserReferralSettings
             {
                 ReferralCode = referralCode,
@@ -185,6 +194,10 @@ public class RegistrationService : IRegistrationService
         };
 
         _db.Users.Add(user);
+        var issuedPassword = string.IsNullOrWhiteSpace(pending.IssuedPassword)
+            ? RegistrationEmailTemplates.PasswordHint
+            : pending.IssuedPassword;
+        pending.IssuedPassword = null;
         pending.IsConsumed = true;
         pending.IsDeleted = true;
         await _db.SaveChangesAsync(ct);
@@ -209,12 +222,12 @@ public class RegistrationService : IRegistrationService
 
         try
         {
-            var payUrl = $"{_app.FranchiseAgreementUrl}?email={Uri.EscapeDataString(pending.Email)}";
+            var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(pending.Email)}";
             var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["name"] = user.FullName,
                 ["email"] = pending.Email,
-                ["password"] = RegistrationEmailTemplates.PasswordHint,
+                ["password"] = issuedPassword,
                 ["login_url"] = _app.FranchiseeLoginUrl,
                 ["payment_url"] = payUrl,
                 ["host"] = _app.PublicHost,
@@ -223,7 +236,7 @@ public class RegistrationService : IRegistrationService
             if (rendered == null)
                 rendered = await _templates.TryRenderAsync("franchisee_welcome_no_payment", vars, ct);
             var (subject, html) = rendered ?? RegistrationEmailTemplates.FranchiseeWelcome(
-                user.FullName, pending.Email, _app, includePaymentStep: true);
+                user.FullName, pending.Email, issuedPassword, _app, includePaymentStep: true);
             await _email.SendAsync(pending.Email, subject, html, ct);
         }
         catch
@@ -271,6 +284,7 @@ public class RegistrationService : IRegistrationService
             LastName = lastName,
             State = state,
             PasswordHash = hash,
+            IssuedPassword = password,
             ReferrerEmail = referrerEmail,
             ReferrerUserId = referrerId,
             Otp = otp,

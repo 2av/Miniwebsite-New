@@ -29,6 +29,7 @@ public class PortalService : IPortalService
     private readonly IAdminInvoiceAccessService _invoices;
     private readonly IObjectStorage _storage;
     private readonly IUploadedFileTracker _files;
+    private readonly IPayoutAcceptanceService _payouts;
     private readonly AppOptions _app;
 
     public PortalService(
@@ -37,6 +38,7 @@ public class PortalService : IPortalService
         IAdminInvoiceAccessService invoices,
         IObjectStorage storage,
         IUploadedFileTracker files,
+        IPayoutAcceptanceService payouts,
         IOptions<AppOptions> app)
     {
         _db = db;
@@ -44,6 +46,7 @@ public class PortalService : IPortalService
         _invoices = invoices;
         _storage = storage;
         _files = files;
+        _payouts = payouts;
         _app = app.Value;
     }
 
@@ -91,15 +94,23 @@ public class PortalService : IPortalService
             franchiseInvoiceId.HasValue,
             franchiseInvoiceId,
             user.AssignedRole?.RoleName,
-            user.AssignedRole?.Prefix));
+            user.AssignedRole?.Prefix,
+            user.OnboardingStage,
+            user.ReferralEligibleAt,
+            user.OnboardingStage == OnboardingStage.ReadyToSell
+                && OnboardingAccess.PaysMembership(user.AssignedRole?.Prefix),
+            OnboardingAccess.PaysMembership(user.AssignedRole?.Prefix)
+                ? OnboardingAccess.MembershipFeeLabel(user.AssignedRole?.Prefix)
+                : null));
     }
 
     public async Task<ApiResult<ReferralPageDto>> GetReferralAsync(string email, CancellationToken ct = default)
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<ReferralPageDto>.Fail("User not found.");
-        if (!PortalMenu.AllowsReferralArea(user.AssignedRole?.Prefix))
+        if (!PortalMenu.AllowsReferralArea(user))
             return ApiResult<ReferralPageDto>.Fail("You do not have access to this page.");
+        await _payouts.EnsureDueAsync(user.Id, ct);
 
         var isTeam = PortalMenu.IsSalesDetails(user.AssignedRole?.Prefix);
 
@@ -220,9 +231,11 @@ public class PortalService : IPortalService
                 || string.Equals(re?.Status, "Paid", StringComparison.OrdinalIgnoreCase)
                 || pay.Paid > 0;
             var isRejected = string.Equals(re?.Status, "Rejected", StringComparison.OrdinalIgnoreCase);
+            var referralLocked = !OnboardingAccess.ReferralUnlocked(
+                user.AssignedRole?.Prefix, user.ReferralEligibleAt, AppClock.Now);
             var commission = isRejected
                 ? "Rejected"
-                : amount <= 0 || !customerPaid
+                : amount <= 0 || !customerPaid || referralLocked
                     ? "Not Eligible"
                     : "Eligible";
             var pending = Math.Max(0, amount - pay.Paid);
@@ -493,7 +506,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<KitExplorerDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Marketing))
+        if (!PortalMenu.Allows(user, PortalMenu.Marketing))
             return ApiResult<KitExplorerDto>.Fail("You do not have access to this page.");
         return await _kits.GetExplorerAsync(category, folderId, ct);
     }
@@ -502,13 +515,12 @@ public class PortalService : IPortalService
     {
         var me = await GetMeAsync(email, ct);
         if (!me.Success || me.Data == null) return ApiResult<VerificationStatusDto>.Fail(me.Message ?? "User not found.");
-        if (!PortalMenu.Allows(me.Data.RolePrefix, PortalMenu.Verification))
+        if (!OnboardingAccess.Allows(
+                me.Data.RolePrefix, me.Data.OnboardingStage, me.Data.ReferralEligibleAt, PortalMenu.Verification, AppClock.Now))
             return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
 
-        var agreementPaid = me.Data.FranchiseAgreementPaid;
-        // Non-franchisee: page may still be opened; treat agreement as N/A (true) unless franchisee
-        if (!string.Equals(me.Data.Role, "FRANCHISEE", StringComparison.OrdinalIgnoreCase))
-            agreementPaid = true;
+        var agreementPaid = OnboardingAccess.DocumentsOpen(
+            me.Data.RolePrefix, me.Data.OnboardingStage, me.Data.ReferralEligibleAt, AppClock.Now);
 
         var status = "pending";
         string? message = null;
@@ -546,7 +558,8 @@ public class PortalService : IPortalService
                 reviewedAt = FormatDateTime(row.ReviewedAt);
                 reviewedBy = row.ReviewedBy;
                 isLocked = string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase)
-                           || string.Equals(status, "verified", StringComparison.OrdinalIgnoreCase);
+                           || string.Equals(status, "verified", StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(status, "submitted", StringComparison.OrdinalIgnoreCase);
             }
         }
         catch
@@ -602,7 +615,7 @@ public class PortalService : IPortalService
         if (!current.Success || current.Data == null)
             return ApiResult<VerificationStatusDto>.Fail(current.Message ?? "Unable to load verification.");
         if (!current.Data.AgreementPaid)
-            return ApiResult<VerificationStatusDto>.Fail("Complete franchise agreement payment first.");
+            return ApiResult<VerificationStatusDto>.Fail("Document verification is not open yet.");
         if (current.Data.IsLocked)
             return ApiResult<VerificationStatusDto>.Fail("Documents are locked and cannot be changed.");
 
@@ -610,8 +623,10 @@ public class PortalService : IPortalService
             return ApiResult<VerificationStatusDto>.Fail("Cloudflare storage is not configured.");
 
         var gstNumber = (request.GstNumber ?? "").Trim().ToUpperInvariant();
-        if (gstNumber.Length != 15 || gstNumber.Any(c => !char.IsLetterOrDigit(c)))
+        var hasGst = request.HasGst || gstNumber.Length > 0;
+        if (hasGst && (gstNumber.Length != 15 || gstNumber.Any(c => !char.IsLetterOrDigit(c))))
             return ApiResult<VerificationStatusDto>.Fail("Enter a valid 15-character GSTIN.");
+        if (!hasGst) gstNumber = "";
         if (string.IsNullOrWhiteSpace(request.BankName) || string.IsNullOrWhiteSpace(request.AccountHolder)
             || string.IsNullOrWhiteSpace(request.AccountNumber) || string.IsNullOrWhiteSpace(request.IfscCode)
             || string.IsNullOrWhiteSpace(request.UpiId) || string.IsNullOrWhiteSpace(request.UpiName))
@@ -635,7 +650,9 @@ public class PortalService : IPortalService
             panFile = await SaveVerificationImageAsync(user.UserCode, request.PanCardBase64, "pan", UploadedFileDocument.Pan, ct);
             frontFile = await SaveVerificationImageAsync(user.UserCode, request.AadhaarFrontBase64, "aadhaar_front", UploadedFileDocument.AadhaarFront, ct);
             backFile = await SaveVerificationImageAsync(user.UserCode, request.AadhaarBackBase64, "aadhaar_back", UploadedFileDocument.AadhaarBack, ct);
-            gstFile = await SaveVerificationImageAsync(user.UserCode, request.GstCertificateBase64, "gst", UploadedFileDocument.GstCertificate, ct);
+            gstFile = hasGst
+                ? await SaveVerificationImageAsync(user.UserCode, request.GstCertificateBase64, "gst", UploadedFileDocument.GstCertificate, ct)
+                : null;
             agreementFile = await SaveVerificationImageAsync(user.UserCode, request.AgreementBase64, "agreement", UploadedFileDocument.Agreement, ct);
         }
         catch (Exception ex)
@@ -652,8 +669,12 @@ public class PortalService : IPortalService
         var finalAgreement = agreementFile?.Stored ?? storedDocs.Agreement;
 
         if (string.IsNullOrWhiteSpace(finalPan) || string.IsNullOrWhiteSpace(finalFront) || string.IsNullOrWhiteSpace(finalBack)
-            || string.IsNullOrWhiteSpace(finalGst) || string.IsNullOrWhiteSpace(finalAgreement))
-            return ApiResult<VerificationStatusDto>.Fail("PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory.");
+            || string.IsNullOrWhiteSpace(finalAgreement)
+            || (hasGst && string.IsNullOrWhiteSpace(finalGst)))
+            return ApiResult<VerificationStatusDto>.Fail(
+                hasGst
+                    ? "PAN, Aadhaar (front and back), GST certificate, and agreement are mandatory."
+                    : "PAN, Aadhaar (front and back), and agreement are mandatory.");
 
         try
         {
@@ -664,7 +685,8 @@ public class PortalService : IPortalService
             var entity = await _db.FranchiseVerifications
                 .FirstOrDefaultAsync(v => v.UserId == user.Id, ct);
             var now = AppClock.Now;
-            var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!, finalGst!, finalAgreement!, true);
+            var docPath = EncodeVerificationDocs(finalPan!, finalFront!, finalBack!, finalGst ?? "", finalAgreement!, true);
+            OnboardingAccess.MarkDocumentsSubmitted(user, now);
             foreach (var uploaded in new[] { panFile, frontFile, backFile, gstFile, agreementFile })
             {
                 if (uploaded?.Tracked is { } tracked)
@@ -808,7 +830,7 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null)
             return ApiResult<VerificationStatusDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Verification))
+        if (!PortalMenu.Allows(user, PortalMenu.Verification))
             return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
 
         var current = await GetVerificationAsync(email, ct);
@@ -905,7 +927,7 @@ public class PortalService : IPortalService
         var user = await FindUserAsync(email, ct);
         if (user == null)
             return ApiResult<VerificationStatusDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Verification))
+        if (!PortalMenu.Allows(user, PortalMenu.Verification))
             return ApiResult<VerificationStatusDto>.Fail("You do not have access to this page.");
 
         var current = await GetVerificationAsync(email, ct);
@@ -999,7 +1021,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<IdCardProfileDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.IdCard))
+        if (!PortalMenu.Allows(user, PortalMenu.IdCard))
             return ApiResult<IdCardProfileDto>.Fail("You do not have access to this page.");
 
         var isFranchisee = user.LoginRole == UserRole.Franchisee;
@@ -1195,7 +1217,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<CustomerTrackerPageDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult<CustomerTrackerPageDto>.Fail("You do not have access to this page.");
 
         var role = RoleApi(user.LoginRole);
@@ -1285,7 +1307,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(request.OwnerEmail, ct);
         if (user == null) return ApiResult<CustomerManagerRowDto>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult<CustomerManagerRowDto>.Fail("You do not have access to this page.");
 
         var name = (request.CustomerName ?? "").Trim();
@@ -1390,7 +1412,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
@@ -1418,7 +1440,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult<IReadOnlyList<CustomerFollowupRowDto>>.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult<IReadOnlyList<CustomerFollowupRowDto>>.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
@@ -1455,7 +1477,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(request.OwnerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult.Fail("You do not have access to this page.");
 
         var methods = new[] { "Call", "Visited", "WhatsApp", "Email" };
@@ -1507,7 +1529,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(ownerEmail, ct);
         if (user == null) return ApiResult.Fail("User not found.");
-        if (!PortalMenu.Allows(user.AssignedRole?.Prefix, PortalMenu.Customers))
+        if (!PortalMenu.Allows(user, PortalMenu.Customers))
             return ApiResult.Fail("You do not have access to this page.");
         var role = RoleApi(user.LoginRole);
         try
@@ -1635,7 +1657,10 @@ public class PortalService : IPortalService
                     && (i.PaymentStatus.ToLower() == "success" || i.PaymentStatus.ToLower() == "paid")
                     && (i.ServiceName == "Franchisee Registration Fees"
                         || i.ServiceName == "Franchisee Registration"
+                        || i.ServiceName == "DM Membership fees"
+                        || i.ServiceName == "Membership fees"
                         || i.PaymentType.ToLower() == "franchisee"
+                        || i.PaymentType == PlanCommissionValues.CategoryMembership
                         || i.ReferenceNumber.StartsWith("FRAN")), ct);
         }
         catch
@@ -1654,7 +1679,10 @@ public class PortalService : IPortalService
                 .Where(i =>
                     (i.UserId == userId || i.BillingEmail.ToLower() == emailKey)
                     && (i.ServiceName == "Franchisee Registration Fees"
+                        || i.ServiceName == "DM Membership fees"
+                        || i.ServiceName == "Membership fees"
                         || i.PaymentType.ToLower() == "franchisee"
+                        || i.PaymentType == PlanCommissionValues.CategoryMembership
                         || i.ReferenceNumber.StartsWith("FRAN")))
                 .OrderByDescending(i => i.Id)
                 .Select(i => (int?)i.Id)

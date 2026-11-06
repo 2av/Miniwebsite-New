@@ -50,6 +50,7 @@ public static class UploadedFileDocument
     public const string AadhaarBack = "Aadhaar back";
     public const string GstCertificate = "GST certificate";
     public const string Agreement = "Agreement";
+    public const string AppointmentLetter = "Appointment letter";
 
     public static string WebsiteLogo(int cardId) => "Logo " + cardId.ToString(System.Globalization.CultureInfo.InvariantCulture);
     public static string WebsiteHero(int cardId) => "Hero " + cardId.ToString(System.Globalization.CultureInfo.InvariantCulture);

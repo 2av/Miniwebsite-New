@@ -45,6 +45,14 @@ public class AdminSalesChannelPartnersController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("{slug}/invite")]
+    public async Task<ActionResult<ApiResult>> Invite(
+        string slug, [FromBody] InviteSalesChannelPartnerRequest request, CancellationToken ct = default)
+    {
+        var result = await _service.InviteAsync(slug, request.Email, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("{slug}")]
     public async Task<ActionResult<ApiResult<SalesChannelPartnerRowDto>>> Create(
         string slug,

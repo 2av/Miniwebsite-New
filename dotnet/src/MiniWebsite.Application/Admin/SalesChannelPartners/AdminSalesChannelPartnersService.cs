@@ -9,6 +9,8 @@ using MiniWebsite.Application.Common.Extensions;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Common.Options;
+using MiniWebsite.Application.Portal;
+using MiniWebsite.Application.Registration;
 using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
@@ -32,6 +34,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
+    private readonly IAccountInviteService _invites;
     private readonly AppOptions _app;
 
     public AdminSalesChannelPartnersService(
@@ -39,12 +42,14 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         IPasswordHasher passwordHasher,
         IEmailSender email,
         IEmailTemplateRenderer templates,
+        IAccountInviteService invites,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
+        _invites = invites;
         _app = app.Value;
     }
 
@@ -124,10 +129,17 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var email = NormalizeEmail(request.Email);
         var phone = (request.Phone ?? "").Trim();
         var password = request.Password ?? "";
+        var prefix = partner.Prefix;
+
+        if (prefix is RolePrefixes.DigitalMarketingPartner or RolePrefixes.FieldSalesPartner or RolePrefixes.FranchisePartner)
+            return ApiResult<SalesChannelPartnerRowDto>.Fail("Send a registration link for this role. Do not set a password here.");
 
         if (firstName.Length == 0) return ApiResult<SalesChannelPartnerRowDto>.Fail("First name is required.");
         if (email.Length == 0 || !email.Contains('@')) return ApiResult<SalesChannelPartnerRowDto>.Fail("A valid email address is required.");
-        if (password.Length < 6) return ApiResult<SalesChannelPartnerRowDto>.Fail("Password must be at least 6 characters long.");
+
+        var autoPassword = string.Equals(prefix, RolePrefixes.FieldSalesTeam, StringComparison.OrdinalIgnoreCase);
+        if (autoPassword) password = AccountInviteService.GeneratedPassword();
+        else if (password.Length < 6) return ApiResult<SalesChannelPartnerRowDto>.Fail("Password must be at least 6 characters long.");
 
         var conflict = await FindConflictAsync(null, email, phone, ct);
         if (conflict != null) return ApiResult<SalesChannelPartnerRowDto>.Fail(conflict);
@@ -147,6 +159,10 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
             },
             Password = hash,
             Status = "ACTIVE",
+            OnboardingStage = string.Equals(prefix, RolePrefixes.PrintShopPartner, StringComparison.OrdinalIgnoreCase)
+                ? OnboardingStage.PaymentDue
+                : OnboardingStage.ReadyToSell,
+            OnboardingStageAt = AppClock.Now,
             CreatedAt = AppClock.Now,
             UpdatedAt = AppClock.Now,
         };
@@ -156,7 +172,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         var message = $"{role.RoleName} added successfully.";
         try
         {
-            await SendWelcomeAsync(RolePrefixes.ToUserRole(partner.Prefix), role, user.FullName, email, password, ct);
+            await SendWelcomeAsync(RolePrefixes.ToUserRole(partner.Prefix), role, user.FullName, email, password, prefix, ct);
         }
         catch
         {
@@ -164,6 +180,20 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         }
 
         return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, null), message);
+    }
+
+    public Task<ApiResult> InviteAsync(string slug, string email, CancellationToken ct = default)
+    {
+        return InviteCoreAsync(slug, email, ct);
+    }
+
+    private async Task<ApiResult> InviteCoreAsync(string slug, string email, CancellationToken ct)
+    {
+        var (partner, _, error) = await ResolveAsync(slug, ct);
+        if (error != null) return ApiResult.Fail(error);
+        if (string.Equals(partner.Prefix, RolePrefixes.FranchisePartner, StringComparison.OrdinalIgnoreCase))
+            return await _invites.SendFranchiseRegistrationLinkAsync(email, "", ct);
+        return await _invites.SendPartnerInviteAsync(email, partner.Prefix, null, ct);
     }
 
     public async Task<ApiResult<SalesChannelPartnerRowDto>> UpdateAsync(
@@ -275,29 +305,37 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     }
 
     private async Task SendWelcomeAsync(
-        UserRole loginRole, Role role, string name, string email, string password, CancellationToken ct)
+        UserRole loginRole, Role role, string name, string email, string password, string prefix, CancellationToken ct)
     {
         var loginUrl = string.IsNullOrWhiteSpace(_app.SiteBaseUrl)
             ? $"https://{_app.PublicHost}"
             : _app.SiteBaseUrl.TrimEnd('/');
+        var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(email)}";
         var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["name"] = name,
             ["email"] = email,
             ["password"] = password,
             ["login_url"] = loginUrl,
+            ["payment_url"] = payUrl,
             ["host"] = _app.PublicHost,
         };
         var templateKey = loginRole == UserRole.Franchisee ? "franchisee_admin_created" : "team_member_welcome";
         var rendered = await _templates.TryRenderAsync(templateKey, vars, ct);
         var subject = rendered?.Subject ?? $"Welcome to {_app.PublicHost} — {role.RoleName}";
+        var payLine = string.Equals(prefix, RolePrefixes.PrintShopPartner, StringComparison.OrdinalIgnoreCase)
+            ? $"<p>Pay your membership fees to open document verification: <a href=\"{WebUtility.HtmlEncode(payUrl)}\">{WebUtility.HtmlEncode(payUrl)}</a></p>"
+            : "";
         var html = rendered?.Html ?? $"""
             <p>Hello {WebUtility.HtmlEncode(name)},</p>
             <p>Your {WebUtility.HtmlEncode(role.RoleName)} account has been created.</p>
             <p><strong>Login Email:</strong> {WebUtility.HtmlEncode(email)}<br/>
             <strong>Password:</strong> {WebUtility.HtmlEncode(password)}</p>
+            {payLine}
             <p>Please keep these credentials secure.</p>
             """;
+        if (rendered is { } mail && payLine.Length > 0 && !mail.Html.Contains(payUrl, StringComparison.Ordinal))
+            html = mail.Html + payLine;
         await _email.SendAsync(email, subject, html, ct);
     }
 

@@ -8,7 +8,7 @@ public interface IWebsiteService
     Task<ApiResult<BusinessNameDto>> GetBusinessNameAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<BusinessNameDto>> CreateBusinessNameAsync(UpsertBusinessNameRequest request, CancellationToken ct = default);
     Task<ApiResult<BusinessNameDto>> UpdateBusinessNameAsync(int cardId, UpsertBusinessNameRequest request, CancellationToken ct = default);
-    Task<ApiResult<CheckNameResponse>> CheckNameAsync(string compName, int? excludeId, CancellationToken ct = default);
+    Task<ApiResult<CheckNameResponse>> CheckNameAsync(string compName, int? excludeId, CancellationToken ct = default, string? ownerEmail = null);
 
     Task<ApiResult<ThemeDto>> GetThemeAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<ThemeDto>> UpdateThemeAsync(int cardId, string ownerEmail, UpdateThemeRequest request, CancellationToken ct = default);
