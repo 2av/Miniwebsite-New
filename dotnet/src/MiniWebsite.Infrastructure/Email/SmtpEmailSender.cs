@@ -19,7 +19,11 @@ public class SmtpEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
+    public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
+        SendAsync(toEmail, subject, htmlBody, "Support", cancellationToken);
+
+    public async Task SendAsync(
+        string toEmail, string subject, string htmlBody, string replyToMailbox, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_options.Host))
         {
@@ -28,11 +32,15 @@ public class SmtpEmailSender : IEmailSender
         }
 
         var from = Mailbox("Noreply");
-        var support = Mailbox("Support");
+        var mailboxName = string.IsNullOrWhiteSpace(replyToMailbox) ? "Support" : replyToMailbox.Trim();
+        var replyBox = Mailbox(mailboxName);
         var fromEmail = First(from.Username, _options.FromEmail, _options.Username);
         var username = First(from.Username, _options.Username, fromEmail);
         var password = First(from.Password, _options.Password);
-        var replyTo = First(support.Username, "support@sharebizz.com");
+        var replyFallback = mailboxName.Equals("Billing", StringComparison.OrdinalIgnoreCase)
+            ? "billing@sharebizz.com"
+            : "support@sharebizz.com";
+        var replyTo = First(replyBox.Username, replyFallback);
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.ManageReferrals.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
@@ -16,10 +17,12 @@ public class AdminManageReferralsService : IAdminManageReferralsService
     private const int MaxCommentLength = 1000;
 
     private readonly IApplicationDbContext _db;
+    private readonly ILibraryEmailSender _mail;
 
-    public AdminManageReferralsService(IApplicationDbContext db)
+    public AdminManageReferralsService(IApplicationDbContext db, ILibraryEmailSender mail)
     {
         _db = db;
+        _mail = mail;
     }
 
     public async Task<ApiResult<ManageReferralsPageDto>> ListAsync(ManageReferralsQuery query, CancellationToken ct = default)
@@ -417,7 +420,37 @@ public class AdminManageReferralsService : IAdminManageReferralsService
         }
 
         await _db.SaveChangesAsync(ct);
+        if (earning.Status == "Paid")
+            await NotifyPayoutProcessedAsync(earning, request, totalPaid, now, ct);
         return ApiResult.Ok($"Payment of ₹{request.Amount:N0} processed successfully");
+    }
+
+    private async Task NotifyPayoutProcessedAsync(
+        ReferralEarning earning,
+        ProcessReferralPaymentRequest request,
+        decimal totalPaid,
+        DateTime paidAt,
+        CancellationToken ct)
+    {
+        if (earning.ReferrerUserId is not int referrerId) return;
+        var referrer = await _db.Users.FirstOrDefaultAsync(u => u.Id == referrerId, ct);
+        if (referrer == null) return;
+        var bank = await _db.UserBankDetails.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.UserId == referrerId, ct);
+        await _mail.TrySendAsync(
+            EmailLibraryCatalog.ReferralPayout,
+            referrer.Email,
+            new Dictionary<string, string?>
+            {
+                ["first_name"] = string.IsNullOrWhiteSpace(referrer.FirstName) ? "there" : referrer.FirstName,
+                ["earnings_period"] = earning.ReferralDate.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("en-IN")),
+                ["net_payout"] = EmailLibraryMessages.Inr(totalPaid),
+                ["payment_date"] = EmailLibraryMessages.Date(paidAt),
+                ["utr"] = request.TransactionNumber.Trim(),
+                ["destination"] = EmailLibraryMessages.MaskDestination(bank?.AccountNumber, bank?.UpiId),
+            },
+            EmailReplyMailbox.Billing,
+            ct);
     }
 
     public async Task<ApiResult<ManageReferralBankDetailsDto>> GetBankDetailsAsync(

@@ -19,8 +19,7 @@ public class AuthService : IAuthService
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwt;
-    private readonly IEmailSender _email;
-    private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
     private readonly IReferralEarningLookup _earnings;
     private readonly JwtOptions _jwtOptions;
     private readonly AppOptions _app;
@@ -29,8 +28,7 @@ public class AuthService : IAuthService
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwt,
-        IEmailSender email,
-        IEmailTemplateRenderer templates,
+        ILibraryEmailSender mail,
         IReferralEarningLookup earnings,
         IOptions<JwtOptions> jwtOptions,
         IOptions<AppOptions> app)
@@ -38,8 +36,7 @@ public class AuthService : IAuthService
         _db = db;
         _passwordHasher = passwordHasher;
         _jwt = jwt;
-        _email = email;
-        _templates = templates;
+        _mail = mail;
         _earnings = earnings;
         _jwtOptions = jwtOptions.Value;
         _app = app.Value;
@@ -117,26 +114,17 @@ public class AuthService : IAuthService
             await _db.SaveChangesAsync(ct);
         }
 
-        try
+        await _mail.TrySendAsync(EmailLibraryCatalog.RegistrationWelcome, user.Email, new Dictionary<string, string?>
         {
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["name"] = user.FullName,
-                ["email"] = user.Email,
-                ["password"] = request.Password,
-                ["host"] = _app.PublicHost,
-                ["dashboard_url"] = _app.CustomerDashboardUrl,
-            };
-            var rendered = await _templates.TryRenderAsync("customer_welcome", vars, ct);
-            var subject = rendered?.Subject ?? "Welcome to ShareBizz";
-            var html = rendered?.Html
-                ?? $"Hi {user.FullName},<br/><br/>Your account has been created successfully.<br/>Email: {user.Email}";
-            await _email.SendAsync(user.Email, subject, html, ct);
-        }
-        catch
-        {
-            // Email failure should not block registration
-        }
+            ["first_name"] = user.FirstName,
+            ["user_type"] = user.AssignedRole?.RoleName ?? "ShareBizz User",
+            ["next_steps_block"] = EmailLibraryMessages.Paragraph(
+                "Complete any pending onboarding steps shown in your Dashboard."),
+            ["login_id"] = user.Email,
+            ["password"] = request.Password,
+            ["login_link"] = _app.CustomerDashboardUrl,
+            ["payment_block"] = "",
+        }, ct: ct);
 
         return ApiResult<AuthResponse>.Ok(await IssueTokensAsync(user, ct), "Registered successfully.");
     }
@@ -214,17 +202,12 @@ public class AuthService : IAuthService
         _db.PasswordResetTokens.Add(token);
         await _db.SaveChangesAsync(ct);
 
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        await _mail.SendAsync(EmailLibraryCatalog.PasswordResetOtp, user.Email, new Dictionary<string, string?>
         {
-            ["name"] = user.FullName,
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
             ["otp"] = rawToken,
-            ["host"] = "ShareBizz",
-        };
-        var rendered = await _templates.TryRenderAsync("password_reset", vars, ct);
-        var subject = rendered?.Subject ?? "Password reset code";
-        var html = rendered?.Html
-            ?? $"Hi {user.FullName},<br/><br/>Your password reset code is: <b>{rawToken}</b><br/>Valid for 30 minutes.";
-        await _email.SendAsync(user.Email, subject, html, ct);
+            ["otp_validity"] = "30 minutes",
+        }, ct: ct);
 
         return ApiResult.Ok("If the email exists, a reset code has been sent.");
     }
@@ -257,6 +240,7 @@ public class AuthService : IAuthService
             r.RevokedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
+        await NotifyPasswordChangedAsync(user, ct);
         return ApiResult.Ok("Password reset successfully.");
     }
 
@@ -292,7 +276,20 @@ public class AuthService : IAuthService
         user.Password = hash;
         user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
+        await NotifyPasswordChangedAsync(user, ct);
         return ApiResult.Ok("Password changed successfully!");
+    }
+
+    private Task<bool> NotifyPasswordChangedAsync(User user, CancellationToken ct)
+    {
+        var when = AppClock.Now;
+        return _mail.TrySendAsync(EmailLibraryCatalog.PasswordChanged, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["change_date"] = EmailLibraryMessages.Date(when),
+            ["change_time"] = EmailLibraryMessages.Time(when),
+            ["device_block"] = "",
+        }, ct: ct);
     }
 
     private async Task<AuthResponse> IssueTokensAsync(User user, CancellationToken ct)

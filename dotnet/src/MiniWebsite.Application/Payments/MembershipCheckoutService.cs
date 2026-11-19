@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Payments.Dtos;
@@ -54,11 +55,13 @@ public class MembershipCheckoutService : IMembershipCheckoutService
 
     private readonly IApplicationDbContext _db;
     private readonly IPaymentGateway _gateway;
+    private readonly ILibraryEmailSender _mail;
 
-    public MembershipCheckoutService(IApplicationDbContext db, IPaymentGateway gateway)
+    public MembershipCheckoutService(IApplicationDbContext db, IPaymentGateway gateway, ILibraryEmailSender mail)
     {
         _db = db;
         _gateway = gateway;
+        _mail = mail;
     }
 
     public async Task<ApiResult<MembershipCheckoutPageDto>> GetPageAsync(string email, CancellationToken ct = default)
@@ -181,6 +184,8 @@ public class MembershipCheckoutService : IMembershipCheckoutService
         }
 
         await _db.SaveChangesAsync(ct);
+        if (!gatewayReady)
+            await NotifyPaymentSuccessAsync(user, invoice, ct);
         return ApiResult<DbProfileCheckoutResultDto>.Ok(new DbProfileCheckoutResultDto(
             invoice.Id, order.OrderId, order.AmountInRupees, order.Currency,
             gatewayReady ? order.KeyId : "", plan.PlanName, !gatewayReady));
@@ -197,7 +202,20 @@ public class MembershipCheckoutService : IMembershipCheckoutService
 
         var verified = await _gateway.VerifyPaymentAsync(
             request.RazorpayOrderId.Trim(), request.RazorpayPaymentId.Trim(), request.RazorpaySignature.Trim(), ct);
-        if (!verified) return ApiResult.Fail("Payment could not be verified.");
+        if (!verified)
+        {
+            await _mail.TrySendAsync(
+                EmailLibraryCatalog.PaymentFailed,
+                user.Email,
+                EmailLibraryMessages.PaymentFailed(
+                    user.FirstName,
+                    invoice,
+                    _mail.Page("payment/membership") + "?email=" + Uri.EscapeDataString(user.Email),
+                    AppClock.Now),
+                EmailReplyMailbox.Billing,
+                ct);
+            return ApiResult.Fail("Payment could not be verified.");
+        }
 
         var now = AppClock.Now;
         invoice.RazorpayPaymentId = request.RazorpayPaymentId.Trim();
@@ -207,8 +225,22 @@ public class MembershipCheckoutService : IMembershipCheckoutService
         invoice.UpdatedAt = now;
         OnboardingAccess.MarkMembershipPaid(user, now);
         await _db.SaveChangesAsync(ct);
+        await NotifyPaymentSuccessAsync(user, invoice, ct);
         return ApiResult.Ok("Payment received. Document verification is now open.");
     }
+
+    private Task<bool> NotifyPaymentSuccessAsync(User user, Invoice invoice, CancellationToken ct) =>
+        _mail.TrySendAsync(
+            EmailLibraryCatalog.PaymentSuccessful,
+            user.Email,
+            EmailLibraryMessages.PaymentSuccess(
+                user.FirstName,
+                invoice,
+                _mail.Page("dashboard/invoices/" + invoice.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                EmailLibraryMessages.Paragraph(
+                    "Your membership payment is confirmed. Document verification is now open in your Dashboard.")),
+            EmailReplyMailbox.Billing,
+            ct);
 
     private static DbProfilePlanDto ToPlan(PricingPlan plan)
     {

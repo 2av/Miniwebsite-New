@@ -24,6 +24,8 @@ public class User : BaseEntity
     public DateTime? PaidAt { get; set; }
     /// <summary>SB User referral features open at this time. Null until DB Profile payment.</summary>
     public DateTime? ReferralEligibleAt { get; set; }
+    /// <summary>When the one-time referral-feature email was sent. Null until that visit.</summary>
+    public DateTime? ReferralUnlockNotifiedAt { get; set; }
     public string? UserToken { get; set; }
     public string? RefundStatus { get; set; }
     public DateTime? RefundStatusDate { get; set; }

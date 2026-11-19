@@ -2372,6 +2372,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ReferralEligibleAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("ReferralUnlockNotifiedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("RefundStatus")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");

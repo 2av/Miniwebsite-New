@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.EmailTemplates;
@@ -32,23 +31,20 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
 
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IEmailSender _email;
-    private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
     private readonly IAccountInviteService _invites;
     private readonly AppOptions _app;
 
     public AdminSalesChannelPartnersService(
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
-        IEmailSender email,
-        IEmailTemplateRenderer templates,
+        ILibraryEmailSender mail,
         IAccountInviteService invites,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwordHasher = passwordHasher;
-        _email = email;
-        _templates = templates;
+        _mail = mail;
         _invites = invites;
         _app = app.Value;
     }
@@ -263,6 +259,7 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         user.Password = hash;
         user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
+        await NotifyPasswordChangedAsync(user, ct);
         return ApiResult.Ok("Password reset successfully.");
     }
 
@@ -305,36 +302,35 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
     private async Task SendWelcomeAsync(
         UserRole loginRole, Role role, string name, string email, string password, string prefix, CancellationToken ct)
     {
-        var loginUrl = string.IsNullOrWhiteSpace(_app.SiteBaseUrl)
-            ? $"https://{_app.PublicHost}"
-            : _app.SiteBaseUrl.TrimEnd('/');
-        var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(email)}";
-        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        _ = loginRole;
+        var payment = "";
+        if (OnboardingAccess.PaysMembership(prefix))
         {
-            ["name"] = name,
-            ["email"] = email,
+            var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(email)}";
+            payment = EmailLibraryMessages.PaymentBlock(payUrl, OnboardingAccess.MembershipFeeLabel(prefix));
+        }
+
+        await _mail.TrySendAsync(EmailLibraryCatalog.AccountCredentials, email, new Dictionary<string, string?>
+        {
+            ["first_name"] = EmailLibraryMessages.FirstWord(name),
+            ["user_type"] = role.RoleName,
+            ["login_id"] = email,
             ["password"] = password,
-            ["login_url"] = loginUrl,
-            ["payment_url"] = payUrl,
-            ["host"] = _app.PublicHost,
-        };
-        var templateKey = loginRole == UserRole.Franchisee ? "franchisee_admin_created" : "team_member_welcome";
-        var rendered = await _templates.TryRenderAsync(templateKey, vars, ct);
-        var subject = rendered?.Subject ?? $"Welcome to {_app.PublicHost} — {role.RoleName}";
-        var payLine = string.Equals(prefix, RolePrefixes.PrintShopPartner, StringComparison.OrdinalIgnoreCase)
-            ? $"<p>Pay your membership fees to open document verification: <a href=\"{WebUtility.HtmlEncode(payUrl)}\">{WebUtility.HtmlEncode(payUrl)}</a></p>"
-            : "";
-        var html = rendered?.Html ?? $"""
-            <p>Hello {WebUtility.HtmlEncode(name)},</p>
-            <p>Your {WebUtility.HtmlEncode(role.RoleName)} account has been created.</p>
-            <p><strong>Login Email:</strong> {WebUtility.HtmlEncode(email)}<br/>
-            <strong>Password:</strong> {WebUtility.HtmlEncode(password)}</p>
-            {payLine}
-            <p>Please keep these credentials secure.</p>
-            """;
-        if (rendered is { } mail && payLine.Length > 0 && !mail.Html.Contains(payUrl, StringComparison.Ordinal))
-            html = mail.Html + payLine;
-        await _email.SendAsync(email, subject, html, ct);
+            ["payment_block"] = payment,
+            ["login_link"] = _app.FranchiseeLoginUrl,
+        }, ct: ct);
+    }
+
+    private Task<bool> NotifyPasswordChangedAsync(User user, CancellationToken ct)
+    {
+        var when = AppClock.Now;
+        return _mail.TrySendAsync(EmailLibraryCatalog.PasswordChanged, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["change_date"] = EmailLibraryMessages.Date(when),
+            ["change_time"] = EmailLibraryMessages.Time(when),
+            ["device_block"] = "",
+        }, ct: ct);
     }
 
     private static SalesChannelPartnerRoleDto MapRole(string slug, Role role) => new(

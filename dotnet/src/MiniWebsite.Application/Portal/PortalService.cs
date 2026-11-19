@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.Invoices;
 using MiniWebsite.Application.Admin.KitManagement;
 using MiniWebsite.Application.Admin.KitManagement.Dtos;
@@ -30,6 +31,7 @@ public class PortalService : IPortalService
     private readonly IObjectStorage _storage;
     private readonly IUploadedFileTracker _files;
     private readonly IPayoutAcceptanceService _payouts;
+    private readonly ILibraryEmailSender _mail;
     private readonly AppOptions _app;
 
     public PortalService(
@@ -39,6 +41,7 @@ public class PortalService : IPortalService
         IObjectStorage storage,
         IUploadedFileTracker files,
         IPayoutAcceptanceService payouts,
+        ILibraryEmailSender mail,
         IOptions<AppOptions> app)
     {
         _db = db;
@@ -47,6 +50,7 @@ public class PortalService : IPortalService
         _storage = storage;
         _files = files;
         _payouts = payouts;
+        _mail = mail;
         _app = app.Value;
     }
 
@@ -54,6 +58,7 @@ public class PortalService : IPortalService
     {
         var user = await FindUserAsync(email, ct);
         if (user == null) return ApiResult<PortalMeDto>.Fail("User not found.");
+        await TryNotifyReferralUnlockAsync(user, ct);
 
         var mwPaid = await _db.Invoices.AsNoTracking()
             .AnyAsync(i =>
@@ -702,7 +707,7 @@ public class PortalService : IPortalService
             }
             else
             {
-                _db.FranchiseVerifications.Add(new Domain.Entities.FranchiseVerification
+                entity = new Domain.Entities.FranchiseVerification
                 {
                     UserId = user.Id,
                     DocumentPath = docPath,
@@ -710,10 +715,12 @@ public class PortalService : IPortalService
                     SubmittedAt = now,
                     CreatedAt = now,
                     UpdatedAt = now,
-                });
+                };
+                _db.FranchiseVerifications.Add(entity);
             }
 
             await _db.SaveChangesAsync(ct);
+            await NotifyDocumentsReceivedAsync(user, entity, now, hasGst, ct);
         }
         catch (Exception ex)
         {
@@ -1746,6 +1753,44 @@ public class PortalService : IPortalService
         entity.UpiId = request.UpiId!.Trim();
         entity.UpiName = request.UpiName!.Trim();
         entity.UpdatedAt = now;
+    }
+
+    private async Task TryNotifyReferralUnlockAsync(User user, CancellationToken ct)
+    {
+        var prefix = user.AssignedRole?.Prefix;
+        if (!string.Equals(prefix, RolePrefixes.ShareBizzUser, StringComparison.OrdinalIgnoreCase)) return;
+        if (user.ReferralUnlockNotifiedAt != null || user.ReferralEligibleAt == null) return;
+        if (!OnboardingAccess.ReferralUnlocked(prefix, user.ReferralEligibleAt, AppClock.Now)) return;
+
+        var sent = await _mail.TrySendAsync(EmailLibraryCatalog.ReferralActivation, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["dashboard_link"] = _mail.Page("dashboard"),
+            ["programme_link"] = _mail.Page("refer-and-earn"),
+        }, ct: ct);
+        if (!sent) return;
+
+        user.ReferralUnlockNotifiedAt = AppClock.Now;
+        user.UpdatedAt = AppClock.Now;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task NotifyDocumentsReceivedAsync(
+        User user, FranchiseVerification row, DateTime submittedAt, bool hasGst, CancellationToken ct)
+    {
+        var names = new List<string> { "PAN", "Aadhaar (front)", "Aadhaar (back)", "Agreement" };
+        if (hasGst) names.Add("GST certificate");
+        names.Add("Bank and UPI details");
+        var list = string.Join("<br>", names.Select(System.Net.WebUtility.HtmlEncode));
+        await _mail.TrySendAsync(EmailLibraryCatalog.DocumentsReceived, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["document_list"] = list,
+            ["submission_date"] = EmailLibraryMessages.Date(submittedAt),
+            ["reference_id"] = row.Id.ToString(CultureInfo.InvariantCulture),
+            ["verification_status"] = "Pending Review",
+            ["dashboard_link"] = _mail.Page("verification"),
+        }, ct: ct);
     }
 
     private async Task<Domain.Entities.User?> FindUserAsync(string email, CancellationToken ct) =>

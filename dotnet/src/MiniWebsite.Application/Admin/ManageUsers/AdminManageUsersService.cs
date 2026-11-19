@@ -22,17 +22,20 @@ public class AdminManageUsersService : IAdminManageUsersService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailSender _email;
     private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
 
     public AdminManageUsersService(
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
         IEmailSender email,
-        IEmailTemplateRenderer templates)
+        IEmailTemplateRenderer templates,
+        ILibraryEmailSender mail)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _email = email;
         _templates = templates;
+        _mail = mail;
     }
 
     public Task<ApiResult<ManageUsersPageDto>> ListAsync(ManageUsersQuery query, CancellationToken ct = default)
@@ -296,6 +299,14 @@ public class AdminManageUsersService : IAdminManageUsersService
         user.Password = hash;
         user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
+        var when = AppClock.Now;
+        await _mail.TrySendAsync(EmailLibraryCatalog.PasswordChanged, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["change_date"] = EmailLibraryMessages.Date(when),
+            ["change_time"] = EmailLibraryMessages.Time(when),
+            ["device_block"] = "",
+        }, ct: ct);
         return ApiResult.Ok("Password updated successfully for " + email);
     }
 

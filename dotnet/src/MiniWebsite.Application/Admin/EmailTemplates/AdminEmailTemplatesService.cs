@@ -17,6 +17,10 @@ public class AdminEmailTemplatesService : IAdminEmailTemplatesService
         new("welcome", "Welcome"),
         new("franchise", "Franchise"),
         new("team", "Team"),
+        new("documents", "Documents"),
+        new("billing", "Billing"),
+        new("referral", "Referral"),
+        new("hr", "HR"),
         new("admin", "Admin / System"),
         new("general", "General"),
     ];

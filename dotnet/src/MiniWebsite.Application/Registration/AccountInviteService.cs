@@ -1,4 +1,3 @@
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -45,23 +44,20 @@ public class AccountInviteService : IAccountInviteService
 {
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwords;
-    private readonly IEmailSender _email;
-    private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
     private readonly IReferralEarningLookup _earnings;
     private readonly AppOptions _app;
 
     public AccountInviteService(
         IApplicationDbContext db,
         IPasswordHasher passwords,
-        IEmailSender email,
-        IEmailTemplateRenderer templates,
+        ILibraryEmailSender mail,
         IReferralEarningLookup earnings,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwords = passwords;
-        _email = email;
-        _templates = templates;
+        _mail = mail;
         _earnings = earnings;
         _app = app.Value;
     }
@@ -114,15 +110,16 @@ public class AccountInviteService : IAccountInviteService
         await _db.SaveChangesAsync(ct);
 
         var link = _app.SiteBaseUrl.TrimEnd('/') + "/registration/customer?token=" + Uri.EscapeDataString(token);
-        var html = $"""
-            <p>Hello,</p>
-            <p>Finish your {WebUtility.HtmlEncode(role.RoleName)} account with the registration form:</p>
-            <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
-            <p>This link is valid for 48 hours. After you submit the form, login credentials and the next steps will be emailed to you.</p>
-            """;
         try
         {
-            await _email.SendAsync(email, "Complete your ShareBizz registration", html, ct);
+            await _mail.SendAsync(EmailLibraryCatalog.RegistrationInvitation, email, new Dictionary<string, string?>
+            {
+                ["first_name"] = "there",
+                ["user_type"] = role.RoleName,
+                ["registration_link"] = link,
+                ["invitation_context"] = EmailLibraryMessages.Paragraph(
+                    "This link is valid for 48 hours. After you submit the form, login details and the next steps will be emailed to you."),
+            }, ct: ct);
         }
         catch
         {
@@ -141,15 +138,17 @@ public class AccountInviteService : IAccountInviteService
             return ApiResult.Fail("This email address is already registered.");
 
         var link = _app.SiteBaseUrl.TrimEnd('/') + "/registration/franchisee?email=" + Uri.EscapeDataString(email);
-        var safeName = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(name) ? "there" : name.Trim());
-        var html = $"""
-            <p>Hello {safeName},</p>
-            <p>Create your Franchise Partner account, then verify the email OTP. Login credentials and the next steps will follow.</p>
-            <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
-            """;
+        var greeting = string.IsNullOrWhiteSpace(name) ? "there" : name.Trim();
         try
         {
-            await _email.SendAsync(email, "Create your Franchise Partner account", html, ct);
+            await _mail.SendAsync(EmailLibraryCatalog.RegistrationInvitation, email, new Dictionary<string, string?>
+            {
+                ["first_name"] = EmailLibraryMessages.FirstWord(greeting),
+                ["user_type"] = "Franchise Partner",
+                ["registration_link"] = link,
+                ["invitation_context"] = EmailLibraryMessages.Paragraph(
+                    "After you open the link, verify the email OTP. Login details and the next steps will follow."),
+            }, ct: ct);
         }
         catch
         {
@@ -316,32 +315,45 @@ public class AccountInviteService : IAccountInviteService
             IsCollaboration = "NO",
         });
         await _db.SaveChangesAsync(ct);
-        await SendCredentialsAsync(user, password, ct);
+        await SendProspectLoginAsync(user, password, owner, ct);
         return ApiResult.Ok("Print Shop Partner account created. Login credentials were emailed.");
+    }
+
+    private Task<bool> SendProspectLoginAsync(User user, string password, User owner, CancellationToken ct)
+    {
+        var pay = _app.MembershipPaymentUrl + "?email=" + Uri.EscapeDataString(user.Email);
+        return _mail.TrySendAsync(EmailLibraryCatalog.ProspectLoginPayment, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["registration_type"] = user.AssignedRole?.RoleName ?? "Print Shop Partner",
+            ["fst_name"] = string.IsNullOrWhiteSpace(owner.FullName) ? "a colleague" : owner.FullName,
+            ["login_id"] = user.Email,
+            ["password"] = password,
+            ["login_link"] = _app.FranchiseeLoginUrl,
+            ["payment_link"] = pay,
+            ["plan_name"] = OnboardingAccess.MembershipFeeLabel(user.AssignedRole?.Prefix),
+            ["amount_block"] = "",
+        }, ct: ct);
     }
 
     private async Task SendCredentialsAsync(User user, string password, CancellationToken ct)
     {
-        var pay = _app.MembershipPaymentUrl + "?email=" + Uri.EscapeDataString(user.Email);
-        var label = OnboardingAccess.MembershipFeeLabel(user.AssignedRole?.Prefix);
-        var html = $"""
-            <p>Hello {WebUtility.HtmlEncode(user.FullName)},</p>
-            <p>Your account is ready.</p>
-            <p><strong>Login email:</strong> {WebUtility.HtmlEncode(user.Email)}<br/>
-            <strong>Password:</strong> {WebUtility.HtmlEncode(password)}</p>
-            <p>Next step: pay {WebUtility.HtmlEncode(label)} from the dashboard or this link:</p>
-            <p><a href="{WebUtility.HtmlEncode(pay)}">{WebUtility.HtmlEncode(pay)}</a></p>
-            <p>After payment is confirmed, document verification opens. When the SB team marks your documents Approved, the rest of the dashboard unlocks and you are ready to initiate sales.</p>
-            <p><a href="{WebUtility.HtmlEncode(_app.CustomerDashboardUrl)}">Open dashboard</a></p>
-            """;
-        try
+        var payment = "";
+        if (OnboardingAccess.PaysMembership(user.AssignedRole?.Prefix))
         {
-            await _email.SendAsync(user.Email, "Your ShareBizz login credentials", html, ct);
+            var pay = _app.MembershipPaymentUrl + "?email=" + Uri.EscapeDataString(user.Email);
+            payment = EmailLibraryMessages.PaymentBlock(pay, OnboardingAccess.MembershipFeeLabel(user.AssignedRole?.Prefix));
         }
-        catch
+
+        await _mail.TrySendAsync(EmailLibraryCatalog.AccountCredentials, user.Email, new Dictionary<string, string?>
         {
-            // Account exists even when mail fails.
-        }
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["user_type"] = user.AssignedRole?.RoleName ?? "partner",
+            ["login_id"] = user.Email,
+            ["password"] = password,
+            ["payment_block"] = payment,
+            ["login_link"] = _app.FranchiseeLoginUrl,
+        }, ct: ct);
     }
 
     private async Task<string?> EnsureReferrerCodeAsync(int? userId, CancellationToken ct)

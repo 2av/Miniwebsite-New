@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Application.Payments.Dtos;
@@ -31,12 +32,15 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
     private readonly IApplicationDbContext _db;
     private readonly IPaymentGateway _gateway;
     private readonly IWebsiteService _website;
+    private readonly ILibraryEmailSender _mail;
 
-    public DbProfileCheckoutService(IApplicationDbContext db, IPaymentGateway gateway, IWebsiteService website)
+    public DbProfileCheckoutService(
+        IApplicationDbContext db, IPaymentGateway gateway, IWebsiteService website, ILibraryEmailSender mail)
     {
         _db = db;
         _gateway = gateway;
         _website = website;
+        _mail = mail;
     }
 
     public async Task<ApiResult<DbProfileCheckoutPageDto>> GetPageAsync(string email, int cardId, CancellationToken ct = default)
@@ -192,6 +196,8 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             await ApplyPaidEffectsAsync(invoice, reserved!, now, ct);
 
         await _db.SaveChangesAsync(ct);
+        if (!gatewayReady && invoice.UserId != null)
+            await NotifyPaymentSuccessAsync(user, invoice, ct);
 
         return ApiResult<DbProfileCheckoutResultDto>.Ok(new DbProfileCheckoutResultDto(
             invoice.Id,
@@ -235,7 +241,20 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
             request.RazorpayPaymentId.Trim(),
             request.RazorpaySignature.Trim(),
             ct);
-        if (!verified) return ApiResult<DbProfilePaidDto>.Fail("Payment could not be verified.");
+        if (!verified)
+        {
+            await _mail.TrySendAsync(
+                EmailLibraryCatalog.PaymentFailed,
+                user.Email,
+                EmailLibraryMessages.PaymentFailed(
+                    user.FirstName,
+                    invoice,
+                    _mail.Page("payment/db-profile") + "?email=" + Uri.EscapeDataString(user.Email),
+                    AppClock.Now),
+                EmailReplyMailbox.Billing,
+                ct);
+            return ApiResult<DbProfilePaidDto>.Fail("Payment could not be verified.");
+        }
 
         Card? card = null;
         if (invoice.CardId is int cardId && cardId > 0)
@@ -263,8 +282,22 @@ public class DbProfileCheckoutService : IDbProfileCheckoutService
         await ApplyPaidEffectsAsync(invoice, card, now, ct);
 
         await _db.SaveChangesAsync(ct);
+        await NotifyPaymentSuccessAsync(user, invoice, ct);
         return ApiResult<DbProfilePaidDto>.Ok(new DbProfilePaidDto(card.Id), "Payment received.");
     }
+
+    private Task<bool> NotifyPaymentSuccessAsync(User user, Invoice invoice, CancellationToken ct) =>
+        _mail.TrySendAsync(
+            EmailLibraryCatalog.PaymentSuccessful,
+            user.Email,
+            EmailLibraryMessages.PaymentSuccess(
+                user.FirstName,
+                invoice,
+                _mail.Page("dashboard/invoices/" + invoice.Id.ToString(CultureInfo.InvariantCulture)),
+                EmailLibraryMessages.Paragraph(
+                    "Your Digital Business Profile payment is confirmed and the profile is active.")),
+            EmailReplyMailbox.Billing,
+            ct);
 
     /// <summary>
     /// Records a successful DB Profile payment: invoice, card status, validity, and promo usage.

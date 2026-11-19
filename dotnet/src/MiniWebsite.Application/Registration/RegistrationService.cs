@@ -33,23 +33,20 @@ public class RegistrationService : IRegistrationService
 
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IEmailSender _email;
-    private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
     private readonly IReferralEarningLookup _earnings;
     private readonly AppOptions _app;
 
     public RegistrationService(
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
-        IEmailSender email,
-        IEmailTemplateRenderer templates,
+        ILibraryEmailSender mail,
         IReferralEarningLookup earnings,
         IOptions<AppOptions> app)
     {
         _db = db;
         _passwordHasher = passwordHasher;
-        _email = email;
-        _templates = templates;
+        _mail = mail;
         _earnings = earnings;
         _app = app.Value;
     }
@@ -132,25 +129,17 @@ public class RegistrationService : IRegistrationService
             await _db.SaveChangesAsync(ct);
         }
 
-        try
+        await _mail.TrySendAsync(EmailLibraryCatalog.RegistrationWelcome, pending.Email, new Dictionary<string, string?>
         {
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["name"] = user.FullName,
-                ["email"] = pending.Email,
-                ["password"] = issuedPassword,
-                ["host"] = _app.PublicHost,
-                ["dashboard_url"] = _app.CustomerDashboardUrl,
-            };
-            var rendered = await _templates.TryRenderAsync("customer_welcome", vars, ct);
-            var (subject, html) = rendered ?? RegistrationEmailTemplates.CustomerWelcome(
-                user.FullName, pending.Email, issuedPassword, _app);
-            await _email.SendAsync(pending.Email, subject, html, ct);
-        }
-        catch
-        {
-            // Match PHP: registration succeeds even if welcome email fails
-        }
+            ["first_name"] = user.FirstName,
+            ["user_type"] = user.AssignedRole?.RoleName ?? "ShareBizz User",
+            ["next_steps_block"] = EmailLibraryMessages.Paragraph(
+                "Complete any pending onboarding steps shown in your Dashboard."),
+            ["login_id"] = pending.Email,
+            ["password"] = issuedPassword,
+            ["login_link"] = _app.CustomerDashboardUrl,
+            ["payment_block"] = "",
+        }, ct: ct);
 
         return ApiResult<RegistrationCompletedResponse>.Ok(new RegistrationCompletedResponse(
             user.Id, user.Email, user.FullName, RoleCustomer, referralCode), "Registration completed.");
@@ -220,29 +209,18 @@ public class RegistrationService : IRegistrationService
             await _db.SaveChangesAsync(ct);
         }
 
-        try
+        var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(pending.Email)}";
+        await _mail.TrySendAsync(EmailLibraryCatalog.RegistrationWelcome, pending.Email, new Dictionary<string, string?>
         {
-            var payUrl = $"{_app.MembershipPaymentUrl}?email={Uri.EscapeDataString(pending.Email)}";
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["name"] = user.FullName,
-                ["email"] = pending.Email,
-                ["password"] = issuedPassword,
-                ["login_url"] = _app.FranchiseeLoginUrl,
-                ["payment_url"] = payUrl,
-                ["host"] = _app.PublicHost,
-            };
-            var rendered = await _templates.TryRenderAsync("franchisee_welcome", vars, ct);
-            if (rendered == null)
-                rendered = await _templates.TryRenderAsync("franchisee_welcome_no_payment", vars, ct);
-            var (subject, html) = rendered ?? RegistrationEmailTemplates.FranchiseeWelcome(
-                user.FullName, pending.Email, issuedPassword, _app, includePaymentStep: true);
-            await _email.SendAsync(pending.Email, subject, html, ct);
-        }
-        catch
-        {
-            // registration still succeeds
-        }
+            ["first_name"] = user.FirstName,
+            ["user_type"] = user.AssignedRole?.RoleName ?? "Franchise Partner",
+            ["next_steps_block"] = EmailLibraryMessages.Paragraph(
+                "Pay the applicable membership fee, then complete document verification from your Dashboard."),
+            ["login_id"] = pending.Email,
+            ["password"] = issuedPassword,
+            ["login_link"] = _app.CustomerDashboardUrl,
+            ["payment_block"] = EmailLibraryMessages.PaymentBlock(payUrl, OnboardingAccess.MembershipFeeLabel(RolePrefixes.FranchisePartner)),
+        }, ct: ct);
 
         return ApiResult<RegistrationCompletedResponse>.Ok(new RegistrationCompletedResponse(
             user.Id, user.Email, user.FullName, RoleFranchisee, referralCode), "Franchisee registration completed.");
@@ -298,15 +276,12 @@ public class RegistrationService : IRegistrationService
 
         try
         {
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            await _mail.SendAsync(EmailLibraryCatalog.EmailVerificationOtp, email, new Dictionary<string, string?>
             {
-                ["name"] = name,
+                ["first_name"] = string.IsNullOrWhiteSpace(firstName) ? EmailLibraryMessages.FirstWord(name) : firstName,
                 ["otp"] = otp,
-                ["host"] = _app.PublicHost,
-            };
-            var rendered = await _templates.TryRenderAsync("registration_otp", vars, ct);
-            var (subject, html) = rendered ?? RegistrationEmailTemplates.OtpEmail(name, otp, _app.PublicHost);
-            await _email.SendAsync(email, subject, html, ct);
+                ["otp_validity"] = "10 minutes",
+            }, ct: ct);
         }
         catch (Exception)
         {
@@ -338,16 +313,12 @@ public class RegistrationService : IRegistrationService
 
         try
         {
-            var name = $"{pending.FirstName} {pending.LastName}".Trim();
-            var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            await _mail.SendAsync(EmailLibraryCatalog.EmailVerificationOtp, email, new Dictionary<string, string?>
             {
-                ["name"] = name,
+                ["first_name"] = string.IsNullOrWhiteSpace(pending.FirstName) ? "there" : pending.FirstName,
                 ["otp"] = pending.Otp,
-                ["host"] = _app.PublicHost,
-            };
-            var rendered = await _templates.TryRenderAsync("registration_otp", vars, ct);
-            var (subject, html) = rendered ?? RegistrationEmailTemplates.OtpEmail(name, pending.Otp, _app.PublicHost);
-            await _email.SendAsync(email, subject, html, ct);
+                ["otp_validity"] = "10 minutes",
+            }, ct: ct);
         }
         catch
         {

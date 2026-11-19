@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Domain.Common;
 using MiniWebsite.Domain.Entities;
@@ -37,6 +38,7 @@ public sealed class DataSeeder : IDataSeeder
     {
         await SeedThemesAsync(ct);
         await SeedEmailTemplatesAsync(ct);
+        await EnsureEmailLibraryAsync(ct);
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Reference data seed completed.");
 
@@ -233,6 +235,60 @@ public sealed class DataSeeder : IDataSeeder
 <p><strong>Message:</strong><br>{{message}}</p>",
                 "name,email,phone,state,message", "Internal alert when franchise enquiry form is submitted.")
         );
+    }
+
+    private async Task EnsureEmailLibraryAsync(CancellationToken ct)
+    {
+        var existing = await _db.EmailTemplates.ToListAsync(ct);
+        var byKey = existing.ToDictionary(t => t.TemplateKey, StringComparer.OrdinalIgnoreCase);
+        var now = AppClock.Now;
+
+        foreach (var def in EmailLibraryCatalog.All)
+        {
+            if (!byKey.TryGetValue(def.Key, out var row))
+            {
+                _db.EmailTemplates.Add(new EmailTemplate
+                {
+                    TemplateKey = def.Key,
+                    Name = def.Name,
+                    Category = def.Category,
+                    Subject = def.Subject,
+                    BodyHtml = def.BodyHtml,
+                    AvailableVariables = def.Variables,
+                    Description = def.Description,
+                    IsActive = true,
+                    IsSystem = true,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    UpdatedBy = "system",
+                });
+                continue;
+            }
+
+            if (!EmailLibraryCatalog.ShouldReplaceLegacy(row.TemplateKey, row.Name, row.Subject))
+                continue;
+
+            row.Name = def.Name;
+            row.Category = def.Category;
+            row.Subject = def.Subject;
+            row.BodyHtml = def.BodyHtml;
+            row.AvailableVariables = def.Variables;
+            row.Description = def.Description;
+            row.IsActive = true;
+            row.IsSystem = true;
+            row.UpdatedAt = now;
+            row.UpdatedBy = "system";
+        }
+
+        foreach (var (key, description) in EmailLibraryCatalog.Superseded)
+        {
+            if (!byKey.TryGetValue(key, out var row)) continue;
+            if (!row.IsActive && row.Description == description) continue;
+            row.IsActive = false;
+            row.Description = description;
+            row.UpdatedAt = now;
+            row.UpdatedBy = "system";
+        }
     }
 
     private async Task SeedThemesAsync(CancellationToken ct)

@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
 using MiniWebsite.Domain.Common;
@@ -28,10 +29,12 @@ public record NotificationDto(int Id, string Title, string Message, bool IsRead,
 public class PayoutAcceptanceService : IPayoutAcceptanceService
 {
     private readonly IApplicationDbContext _db;
+    private readonly ILibraryEmailSender _mail;
 
-    public PayoutAcceptanceService(IApplicationDbContext db)
+    public PayoutAcceptanceService(IApplicationDbContext db, ILibraryEmailSender mail)
     {
         _db = db;
+        _mail = mail;
     }
 
     public async Task EnsureDueAsync(int referrerUserId, CancellationToken ct = default)
@@ -59,6 +62,7 @@ public class PayoutAcceptanceService : IPayoutAcceptanceService
 
         var now = AppClock.Now;
         var created = false;
+        var ready = new List<(ReferralEarning Earning, Invoice Invoice)>();
         foreach (var earning in earnings)
         {
             if (earning.ReferredUserId is not int referredId || !paidUserIds.Contains(referredId))
@@ -101,6 +105,7 @@ public class PayoutAcceptanceService : IPayoutAcceptanceService
 
             earning.PayoutInvoiceId = invoice.Id;
             earning.PayoutAcceptance = PayoutAcceptanceStatus.Awaiting;
+            ready.Add((earning, invoice));
             _db.Notifications.Add(new Notification
             {
                 Audience = "customer",
@@ -116,6 +121,33 @@ public class PayoutAcceptanceService : IPayoutAcceptanceService
         }
 
         if (created) await _db.SaveChangesAsync(ct);
+        foreach (var (earning, invoice) in ready)
+            await NotifyStatementAsync(referrer, earning, invoice, ct);
+    }
+
+    private Task<bool> NotifyStatementAsync(User referrer, ReferralEarning earning, Invoice invoice, CancellationToken ct)
+    {
+        var gst = decimal.Round(earning.Amount * 0.18m, 2, MidpointRounding.AwayFromZero);
+        var tds = decimal.Round(earning.Amount * 0.02m, 2, MidpointRounding.AwayFromZero);
+        var net = earning.Amount + gst - tds;
+        var summary = "Statement: " + invoice.InvoiceNumber
+            + "<br>Gross commission: " + EmailLibraryMessages.Inr(earning.Amount)
+            + "<br>GST: " + EmailLibraryMessages.Inr(gst)
+            + "<br>TDS: " + EmailLibraryMessages.Inr(tds);
+        return _mail.TrySendAsync(
+            EmailLibraryCatalog.ReferralStatement,
+            referrer.Email,
+            new Dictionary<string, string?>
+            {
+                ["first_name"] = string.IsNullOrWhiteSpace(referrer.FirstName) ? "there" : referrer.FirstName,
+                ["earnings_period"] = earning.ReferralDate.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("en-IN")),
+                ["summary_block"] = summary,
+                ["net_amount"] = EmailLibraryMessages.Inr(net),
+                ["review_note"] = "Please review the statement in your Dashboard and contact billing if you notice a discrepancy.",
+                ["statement_link"] = _mail.Page("referral"),
+            },
+            EmailReplyMailbox.Billing,
+            ct);
     }
 
     public async Task<ApiResult<IReadOnlyList<PayoutInvoiceDto>>> ListAsync(string email, CancellationToken ct = default)

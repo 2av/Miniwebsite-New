@@ -895,6 +895,7 @@ Entity `User`. Primary key `Id`. Indexes: UNIQUE(Email) | INDEX(RoleId) | UNIQUE
 | PaidAt | datetime(6) | Yes |
 | Password | varchar(255) | No |
 | ReferralEligibleAt | datetime(6) | Yes |
+| ReferralUnlockNotifiedAt | datetime(6) | Yes |
 | Phone | varchar(25) | Yes |
 | ProfileImage | varchar(500) | Yes |
 | RefundStatus | varchar(20) | Yes |

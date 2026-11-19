@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminPlanCommissionsService, AdminPlanCommissionsService>();
         services.AddScoped<IAdminEmailTemplatesService, AdminEmailTemplatesService>();
         services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
+        services.AddScoped<ILibraryEmailSender, LibraryEmailSender>();
         services.AddScoped<IAdminManageFaqsService, AdminManageFaqsService>();
         services.AddScoped<IAdminManageContentService, AdminManageContentService>();
         services.AddScoped<IAdminManageCategoriesService, AdminManageCategoriesService>();

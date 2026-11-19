@@ -1,14 +1,11 @@
 using System.Globalization;
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using MiniWebsite.Application.Admin.EmailTemplates;
 using MiniWebsite.Application.Admin.ManageTeams.Dtos;
 using MiniWebsite.Application.Common.Interfaces;
 using MiniWebsite.Application.Common.Models;
-using MiniWebsite.Application.Common.Options;
 using MiniWebsite.Domain.Entities;
 using MiniWebsite.Domain.Enums;
 using MiniWebsite.Application.Common;
@@ -22,25 +19,19 @@ public class AdminManageTeamsService : IAdminManageTeamsService
 {
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IEmailSender _email;
-    private readonly IEmailTemplateRenderer _templates;
+    private readonly ILibraryEmailSender _mail;
     private readonly IAccountInviteService _invites;
-    private readonly AppOptions _app;
 
     public AdminManageTeamsService(
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
-        IEmailSender email,
-        IEmailTemplateRenderer templates,
-        IAccountInviteService invites,
-        IOptions<AppOptions> app)
+        ILibraryEmailSender mail,
+        IAccountInviteService invites)
     {
         _db = db;
         _passwordHasher = passwordHasher;
-        _email = email;
-        _templates = templates;
+        _mail = mail;
         _invites = invites;
-        _app = app.Value;
     }
 
     public async Task<ApiResult<ManageTeamsPageDto>> ListAsync(ManageTeamsQuery query, CancellationToken ct = default)
@@ -183,6 +174,14 @@ public class AdminManageTeamsService : IAdminManageTeamsService
         user.Password = hash;
         user.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
+        var when = AppClock.Now;
+        await _mail.TrySendAsync(EmailLibraryCatalog.PasswordChanged, user.Email, new Dictionary<string, string?>
+        {
+            ["first_name"] = string.IsNullOrWhiteSpace(user.FirstName) ? "there" : user.FirstName,
+            ["change_date"] = EmailLibraryMessages.Date(when),
+            ["change_time"] = EmailLibraryMessages.Time(when),
+            ["device_block"] = "",
+        }, ct: ct);
         return ApiResult.Ok("Password reset successfully.");
     }
 
