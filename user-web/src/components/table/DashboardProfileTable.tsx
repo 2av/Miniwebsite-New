@@ -67,7 +67,7 @@ function profileStatus(paymentStatus?: string | null, cardStatus?: string | null
 function ProfileActions({ row }: { row: DashboardProfileRow }) {
   if (row.cardId == null) return <>-</>
   const viewUrl = `/n/${encodeURIComponent(row.cardSlug || String(row.cardId))}`
-  const editUrl = `/website/business-name?card_number=${row.cardId}`
+  const editUrl = `/website/edit?card_number=${row.cardId}`
   const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(`${window.location.origin}${viewUrl}`)}`
   return (
     <div className="mw-table-cell-inline">

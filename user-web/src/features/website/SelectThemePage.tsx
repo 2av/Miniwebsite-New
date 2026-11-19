@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
@@ -11,10 +11,13 @@ type ThemeItem = { number: number; name: string; cssValue: string; previewImageU
 
 export function SelectThemePage() {
   const { cardId, email } = useOutletContext<WebsiteOutletContext>()
+  const navigate = useNavigate()
   const [themes, setThemes] = useState<ThemeItem[]>([])
   const [selected, setSelected] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
     if (!cardId) return
@@ -46,11 +49,27 @@ export function SelectThemePage() {
   async function save() {
     if (!cardId || !selected) return
     setErr(null)
+    setBusy(true)
     try {
       const res = await websiteApi.putTheme(cardId, email, selected)
       setMsg(res.message || 'Theme saved')
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Save failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveAndOpenEditor() {
+    if (!cardId || !selected) return
+    setErr(null)
+    setLeaving(true)
+    try {
+      await websiteApi.putTheme(cardId, email, selected)
+      navigate(stepPath('/website/edit', cardId))
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Save failed')
+      setLeaving(false)
     }
   }
 
@@ -83,11 +102,13 @@ export function SelectThemePage() {
         </div>
         <MwStepActions
           back={stepPath('/website/business-name', cardId)}
-          next={stepPath('/website/company-details', cardId)}
+          next={stepPath('/website/edit', cardId)}
           saveLabel="Save Theme"
-          disabled={!selected}
+          busy={busy}
+          disabled={!selected || leaving}
           submit={false}
           onSave={() => void save()}
+          onNext={() => void saveAndOpenEditor()}
         />
       </div>
     </div>

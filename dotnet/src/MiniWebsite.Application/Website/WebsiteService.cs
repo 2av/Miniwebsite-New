@@ -293,21 +293,29 @@ public partial class WebsiteService : IWebsiteService
         var card = await LoadOwnedCardAsync(cardId, ownerEmail, ct);
         return card == null
             ? ApiResult<SocialLinksDto>.Fail("Card not found or access denied.")
-            : ApiResult<SocialLinksDto>.Ok(new SocialLinksDto(card.DFb, card.DTwitter, card.DInstagram, card.DLinkedin, card.DYoutube, card.DPinterest));
+            : ApiResult<SocialLinksDto>.Ok(new SocialLinksDto(card.DFb, card.DTwitter, card.DInstagram, card.DLinkedin, card.DYoutube, card.DPinterest, card.DWebsite2));
     }
 
     public async Task<ApiResult<SocialLinksDto>> UpdateSocialAsync(int cardId, string ownerEmail, UpdateSocialLinksRequest request, CancellationToken ct = default)
     {
         var card = await LoadOwnedCardTrackedAsync(cardId, ownerEmail, ct);
         if (card == null) return ApiResult<SocialLinksDto>.Fail("Card not found or access denied.");
-        card.DFb = request.Fb;
-        card.DTwitter = request.Twitter;
-        card.DInstagram = request.Instagram;
-        card.DLinkedin = request.Linkedin;
-        card.DYoutube = request.Youtube;
-        card.DPinterest = request.Pinterest;
+        if (NormalizeSocialLink(request.Fb, out var fb) is { } fbError) return ApiResult<SocialLinksDto>.Fail(fbError);
+        if (NormalizeSocialLink(request.Twitter, out var twitter) is { } twitterError) return ApiResult<SocialLinksDto>.Fail(twitterError);
+        if (NormalizeSocialLink(request.Instagram, out var instagram) is { } instagramError) return ApiResult<SocialLinksDto>.Fail(instagramError);
+        if (NormalizeSocialLink(request.Linkedin, out var linkedin) is { } linkedinError) return ApiResult<SocialLinksDto>.Fail(linkedinError);
+        if (NormalizeSocialLink(request.Youtube, out var youtube) is { } youtubeError) return ApiResult<SocialLinksDto>.Fail(youtubeError);
+        if (NormalizeSocialLink(request.Pinterest, out var pinterest) is { } pinterestError) return ApiResult<SocialLinksDto>.Fail(pinterestError);
+        if (NormalizeSocialLink(request.Google, out var google) is { } googleError) return ApiResult<SocialLinksDto>.Fail(googleError);
+        card.DFb = fb;
+        card.DTwitter = twitter;
+        card.DInstagram = instagram;
+        card.DLinkedin = linkedin;
+        card.DYoutube = youtube;
+        card.DPinterest = pinterest;
+        card.DWebsite2 = google;
         await _db.SaveChangesAsync(ct);
-        return ApiResult<SocialLinksDto>.Ok(new SocialLinksDto(card.DFb, card.DTwitter, card.DInstagram, card.DLinkedin, card.DYoutube, card.DPinterest), "Social links updated.");
+        return ApiResult<SocialLinksDto>.Ok(new SocialLinksDto(card.DFb, card.DTwitter, card.DInstagram, card.DLinkedin, card.DYoutube, card.DPinterest, card.DWebsite2), "Social links updated.");
     }
 
     public async Task<ApiResult<PaymentDetailsDto>> GetPaymentAsync(int cardId, string ownerEmail, CancellationToken ct = default)
@@ -330,6 +338,20 @@ public partial class WebsiteService : IWebsiteService
         owner.Payment.Paytm = BlankToNull(request.Paytm);
         owner.Payment.GooglePay = BlankToNull(request.GooglePay);
         owner.Payment.PhonePay = BlankToNull(request.PhonePay);
+        var upiError = UpiFormatError(request.Paytm) ?? UpiFormatError(request.GooglePay) ?? UpiFormatError(request.PhonePay);
+        if (upiError != null) return ApiResult<PaymentDetailsDto>.Fail(upiError);
+
+        var paytmQrError = ApplyQr(card.Id, request.PaytmQr, owner.Payment.PaytmQr, request.Paytm, out var paytmQr);
+        var phoneQrError = ApplyQr(card.Id, request.PhonePayQr, owner.Payment.PhonePayQr, request.PhonePay, out var phoneQr);
+        var googleQrError = ApplyQr(card.Id, request.GooglePayQr, owner.Payment.GooglePayQr, request.GooglePay, out var googleQr);
+        var qrError = paytmQrError ?? phoneQrError ?? googleQrError;
+        if (qrError != null) return ApiResult<PaymentDetailsDto>.Fail(qrError);
+        var previousPaytmQr = owner.Payment.PaytmQr;
+        var previousPhoneQr = owner.Payment.PhonePayQr;
+        var previousGoogleQr = owner.Payment.GooglePayQr;
+        owner.Payment.PaytmQr = paytmQr;
+        owner.Payment.PhonePayQr = phoneQr;
+        owner.Payment.GooglePayQr = googleQr;
 
         var now = AppClock.Now;
         var bank = await _db.UserBankDetails.FirstOrDefaultAsync(b => b.UserId == userId, ct);
@@ -346,6 +368,9 @@ public partial class WebsiteService : IWebsiteService
         bank.UpdatedAt = now;
 
         await _db.SaveChangesAsync(ct);
+        await DeleteReplacedQrAsync(userId, previousPaytmQr, owner.Payment.PaytmQr, ct);
+        await DeleteReplacedQrAsync(userId, previousPhoneQr, owner.Payment.PhonePayQr, ct);
+        await DeleteReplacedQrAsync(userId, previousGoogleQr, owner.Payment.GooglePayQr, ct);
         return ApiResult<PaymentDetailsDto>.Ok(MapPayment(owner.Payment, bank), "Payment details updated.");
     }
 
@@ -353,16 +378,18 @@ public partial class WebsiteService : IWebsiteService
     {
         var card = await LoadOwnedCardAsync(cardId, ownerEmail, ct);
         if (card == null) return ApiResult<VideosDto>.Fail("Card not found or access denied.");
-        return ApiResult<VideosDto>.Ok(new VideosDto(GetYoutubeList(card)));
+        return ApiResult<VideosDto>.Ok(new VideosDto(await ReadVideoSlotsAsync(card.Id, ct)));
     }
 
     public async Task<ApiResult<VideosDto>> UpdateVideosAsync(int cardId, string ownerEmail, UpdateVideosRequest request, CancellationToken ct = default)
     {
         var card = await LoadOwnedCardTrackedAsync(cardId, ownerEmail, ct);
         if (card == null) return ApiResult<VideosDto>.Fail("Card not found or access denied.");
-        SetYoutubeList(card, request.Urls);
-        await _db.SaveChangesAsync(ct);
-        return ApiResult<VideosDto>.Ok(new VideosDto(GetYoutubeList(card)), "Videos updated.");
+        var urls = request.Urls ?? [];
+        var textError = VideoLinksError(urls);
+        if (textError != null) return ApiResult<VideosDto>.Fail(textError);
+        await ReplaceVideoSlotsAsync(card.Id, urls, ct);
+        return ApiResult<VideosDto>.Ok(new VideosDto(await ReadVideoSlotsAsync(card.Id, ct)), "Videos updated.");
     }
 
     // ---------- products ----------
@@ -381,19 +408,24 @@ public partial class WebsiteService : IWebsiteService
     {
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<ProductDto>.Fail("Card not found or access denied.");
+        var textError = ProductTextError(request, creating: true);
+        if (textError != null) return ApiResult<ProductDto>.Fail(textError);
+        var count = await _db.CardProducts.CountAsync(p => p.CardId == ctx.Value.CardId, ct);
+        if (count >= 60) return ApiResult<ProductDto>.Fail("You can add up to 60 products or services.");
+        var onRequest = IsPriceOnRequest(request.PriceType);
         var row = new CardProduct
         {
             CardId = ctx.Value.CardId,
-            ProductName = request.ProductName,
+            ProductName = request.ProductName.Trim(),
             ProductCategory = request.ProductCategory,
-            CategorySource = request.CategorySource ?? "system",
-            ProductDescription = request.ProductDescription ?? "",
+            CategorySource = (request.CategorySource ?? "").Trim(),
+            ProductDescription = (request.ProductDescription ?? "").Trim(),
             ProductImage = request.ProductImage,
             Mrp = request.Mrp,
-            SellingPrice = request.SellingPrice,
-            PriceType = request.PriceType ?? "fixed_price",
-            PricingUnit = request.PricingUnit ?? "",
-            CtaText = request.CtaText ?? "",
+            SellingPrice = onRequest ? 0 : request.SellingPrice,
+            PriceType = NormalizePriceType(request.PriceType),
+            PricingUnit = (request.PricingUnit ?? "").Trim(),
+            CtaText = (request.CtaText ?? "").Trim(),
             DisplayOrder = request.DisplayOrder,
             CreatedAt = AppClock.Now,
             UpdatedAt = AppClock.Now
@@ -410,16 +442,19 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardProducts.FirstOrDefaultAsync(
             p => p.Id == productId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<ProductDto>.Fail("Product not found.");
-        row.ProductName = request.ProductName;
+        var textError = ProductTextError(request, creating: false);
+        if (textError != null) return ApiResult<ProductDto>.Fail(textError);
+        var onRequest = IsPriceOnRequest(request.PriceType);
+        row.ProductName = request.ProductName.Trim();
         row.ProductCategory = request.ProductCategory;
-        row.CategorySource = request.CategorySource ?? row.CategorySource;
-        row.ProductDescription = request.ProductDescription ?? "";
+        row.CategorySource = string.IsNullOrWhiteSpace(request.CategorySource) ? row.CategorySource : request.CategorySource.Trim();
+        row.ProductDescription = (request.ProductDescription ?? "").Trim();
         if (request.ProductImage != null) row.ProductImage = request.ProductImage;
         row.Mrp = request.Mrp;
-        row.SellingPrice = request.SellingPrice;
-        row.PriceType = request.PriceType ?? row.PriceType;
-        row.PricingUnit = request.PricingUnit ?? "";
-        row.CtaText = request.CtaText ?? "";
+        row.SellingPrice = onRequest ? 0 : request.SellingPrice;
+        row.PriceType = string.IsNullOrWhiteSpace(request.PriceType) ? row.PriceType : NormalizePriceType(request.PriceType);
+        row.PricingUnit = (request.PricingUnit ?? "").Trim();
+        row.CtaText = (request.CtaText ?? "").Trim();
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedAt = AppClock.Now;
         await _db.SaveChangesAsync(ct);
@@ -457,13 +492,17 @@ public partial class WebsiteService : IWebsiteService
     {
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<ServiceItemDto>.Fail("Card not found or access denied.");
+        var textError = ServiceTextError(request.ProductName, request.ProductDescription);
+        if (textError != null) return ApiResult<ServiceItemDto>.Fail(textError);
+        var count = await _db.CardServices.CountAsync(p => p.CardId == ctx.Value.CardId, ct);
+        if (count >= 10) return ApiResult<ServiceItemDto>.Fail("You can add up to 10 services.");
         var row = new CardService
         {
             CardId = ctx.Value.CardId,
-            ProductName = request.ProductName,
+            ProductName = (request.ProductName ?? "").Trim(),
             ProductCategory = request.ProductCategory,
             CategorySource = request.CategorySource ?? "system",
-            ProductDescription = request.ProductDescription ?? "",
+            ProductDescription = (request.ProductDescription ?? "").Trim(),
             ProductImage = request.ProductImage,
             DisplayOrder = request.DisplayOrder,
             CreatedAt = AppClock.Now,
@@ -481,10 +520,12 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardServices.FirstOrDefaultAsync(
             p => p.Id == serviceId && (p.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<ServiceItemDto>.Fail("Service not found.");
-        row.ProductName = request.ProductName;
+        var textError = ServiceTextError(request.ProductName, request.ProductDescription);
+        if (textError != null) return ApiResult<ServiceItemDto>.Fail(textError);
+        row.ProductName = (request.ProductName ?? "").Trim();
         row.ProductCategory = request.ProductCategory;
         row.CategorySource = request.CategorySource ?? row.CategorySource;
-        row.ProductDescription = request.ProductDescription ?? "";
+        row.ProductDescription = (request.ProductDescription ?? "").Trim();
         if (request.ProductImage != null) row.ProductImage = request.ProductImage;
         row.DisplayOrder = request.DisplayOrder;
         row.UpdatedAt = AppClock.Now;
@@ -523,6 +564,8 @@ public partial class WebsiteService : IWebsiteService
     {
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<GalleryItemDto>.Fail("Card not found or access denied.");
+        var count = await _db.CardGallery.CountAsync(g => g.CardId == ctx.Value.CardId, ct);
+        if (count >= 10) return ApiResult<GalleryItemDto>.Fail("You can add up to 10 gallery images.");
         var maxOrder = await _db.CardGallery
             .Where(g => g.CardId == ctx.Value.CardId)
             .MaxAsync(g => (int?)g.DisplayOrder, ct) ?? 0;
@@ -570,13 +613,17 @@ public partial class WebsiteService : IWebsiteService
     {
         var ctx = await ResolveChildContextAsync(cardId, ownerEmail, ct);
         if (ctx == null) return ApiResult<SpecialOfferDto>.Fail("Card not found or access denied.");
+        var textError = OfferTextError(request.OfferTitle, request.Badge, request.OfferDescription, request.StartDate, request.StartTime, request.EndDate, request.EndTime);
+        if (textError != null) return ApiResult<SpecialOfferDto>.Fail(textError);
+        var count = await _db.CardOffers.CountAsync(o => o.CardId == ctx.Value.CardId, ct);
+        if (count >= 5) return ApiResult<SpecialOfferDto>.Fail("You can add up to 5 special offers.");
         var row = new CardOffer
         {
             CardId = ctx.Value.CardId,
-            OfferTitle = request.OfferTitle,
-            OfferDescription = request.OfferDescription,
+            OfferTitle = (request.OfferTitle ?? "").Trim(),
+            OfferDescription = (request.OfferDescription ?? "").Trim(),
             OfferImage = request.OfferImage,
-            Badge = request.Badge,
+            Badge = string.IsNullOrWhiteSpace(request.Badge) ? null : request.Badge.Trim(),
             DiscountPercentage = request.DiscountPercentage,
             StartDate = request.StartDate,
             StartTime = request.StartTime,
@@ -599,10 +646,12 @@ public partial class WebsiteService : IWebsiteService
         var row = await _db.CardOffers.FirstOrDefaultAsync(
             o => o.Id == offerId && (o.CardId == ctx.Value.CardId), ct);
         if (row == null) return ApiResult<SpecialOfferDto>.Fail("Offer not found.");
-        row.OfferTitle = request.OfferTitle;
-        row.OfferDescription = request.OfferDescription;
+        var textError = OfferTextError(request.OfferTitle, request.Badge, request.OfferDescription, request.StartDate, request.StartTime, request.EndDate, request.EndTime);
+        if (textError != null) return ApiResult<SpecialOfferDto>.Fail(textError);
+        row.OfferTitle = (request.OfferTitle ?? "").Trim();
+        row.OfferDescription = (request.OfferDescription ?? "").Trim();
         if (request.OfferImage != null) row.OfferImage = request.OfferImage;
-        row.Badge = request.Badge;
+        row.Badge = string.IsNullOrWhiteSpace(request.Badge) ? null : request.Badge.Trim();
         row.DiscountPercentage = request.DiscountPercentage;
         row.StartDate = request.StartDate;
         row.StartTime = request.StartTime;
@@ -663,8 +712,70 @@ public partial class WebsiteService : IWebsiteService
         return (card.Id, slug, userId.Value);
     }
 
-    private static PaymentDetailsDto MapPayment(UserPaymentDetails? pay, UserBankDetails? bank) =>
-        new(pay?.Paytm, pay?.GooglePay, pay?.PhonePay, bank?.AccountNumber, bank?.IfscCode, bank?.AccountHolderName, bank?.BankName, bank?.AccountType);
+    private PaymentDetailsDto MapPayment(UserPaymentDetails? pay, UserBankDetails? bank) =>
+        new(pay?.Paytm, pay?.GooglePay, pay?.PhonePay, bank?.AccountNumber, bank?.IfscCode, bank?.AccountHolderName, bank?.BankName, bank?.AccountType,
+            pay?.PaytmQr, pay?.GooglePayQr, pay?.PhonePayQr,
+            QrUrl(pay?.PaytmQr), QrUrl(pay?.GooglePayQr), QrUrl(pay?.PhonePayQr));
+
+    private string QrUrl(string? key) =>
+        WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.PaymentDetailsFolder, key);
+
+    private string? ApplyQr(int cardId, string? requested, string? current, string? upi, out string? next)
+    {
+        next = requested == null ? current : BlankToNull(requested);
+        if (next != null && !string.Equals(next, current, StringComparison.Ordinal) && !IsOwnedCardImageKey(cardId, next))
+        {
+            next = current;
+            return "Unknown image.";
+        }
+        if (next != null && string.IsNullOrWhiteSpace(upi))
+            return "Enter UPI ID";
+        return null;
+    }
+
+    private async Task DeleteReplacedQrAsync(int userId, string? previous, string? current, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(previous) || string.Equals(previous, current, StringComparison.Ordinal)) return;
+        await RemoveTrackedWebsiteImageAsync(userId, previous, ct);
+        await _db.SaveChangesAsync(ct);
+        await DeleteWebsiteObjectAsync(previous, ct);
+    }
+
+    private static string? UpiFormatError(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return null;
+        if (text.Length > 200 || !UpiPattern().IsMatch(text)) return "Invalid UPI ID format";
+        return null;
+    }
+
+    private static string? NormalizeSocialLink(string? value, out string? stored)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0)
+        {
+            stored = null;
+            return null;
+        }
+        if (text.Any(char.IsWhiteSpace))
+        {
+            stored = null;
+            return "Invalid link format";
+        }
+        var candidate = text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? text
+            : "https://" + text;
+        if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || string.IsNullOrWhiteSpace(uri.Host)
+            || !uri.Host.Contains('.'))
+        {
+            stored = null;
+            return "Invalid link format";
+        }
+        stored = candidate;
+        return null;
+    }
 
     private static string? TrimGst(string? value)
     {
@@ -714,29 +825,153 @@ public partial class WebsiteService : IWebsiteService
             o.Badge, o.DiscountPercentage,
             o.StartDate, o.StartTime, o.EndDate, o.EndTime, o.Status, o.DisplayOrder);
 
+    private static bool IsPriceOnRequest(string? priceType) =>
+        NormalizePriceType(priceType) == "Price on Request";
+
+    private static string NormalizePriceType(string? priceType)
+    {
+        var text = (priceType ?? "").Trim().ToLowerInvariant().Replace(" ", "").Replace("_", "");
+        if (text.Contains("request")) return "Price on Request";
+        if (text.Contains("start")) return "Starting From";
+        if (text is "fixed" or "fixedprice") return "Fixed Price";
+        return (priceType ?? "").Trim();
+    }
+
+    private static string? ProductTextError(UpsertProductRequest request, bool creating)
+    {
+        var name = (request.ProductName ?? "").Trim();
+        if (name.Length == 0) return "Title is required.";
+        if (name.Length > 30) return "Title can be at most 30 characters.";
+        if ((request.ProductDescription ?? "").Trim().Length > 400) return "Description can be at most 400 characters.";
+        var category = (request.CategorySource ?? "").Trim();
+        if (category.Equals("system", StringComparison.OrdinalIgnoreCase)) category = "";
+        if (creating && category.Length == 0) return "Product/Service category is required.";
+        if (category.Length > 30) return "Category can be at most 30 characters.";
+        var type = NormalizePriceType(request.PriceType);
+        if (type.Length > 0 && type is not ("Fixed Price" or "Starting From" or "Price on Request")) return "Select a price type.";
+        if (creating && type.Length == 0) return "Select a price type.";
+        if (type != "Price on Request")
+        {
+            if (creating && (request.SellingPrice < 0 || request.SellingPrice != decimal.Truncate(request.SellingPrice) || request.SellingPrice > 9_999_999m))
+                return "Only numbers allowed";
+            if (!creating && request.SellingPrice > 9_999_999m) return "Only numbers allowed";
+        }
+        var unit = (request.PricingUnit ?? "").Trim();
+        if (creating && unit.Length == 0) return "Pricing unit is required.";
+        if (unit.Length > 20) return "Pricing unit can be at most 20 characters.";
+        var cta = (request.CtaText ?? "").Trim();
+        if (creating && cta.Length == 0) return "Select button text.";
+        if (cta.Length > 20) return "Button text can be at most 20 characters.";
+        if (cta.Length > 0 && !System.Text.RegularExpressions.Regex.IsMatch(cta, "^[A-Za-z0-9 &]+$"))
+            return "Button text can only use letters, numbers, spaces, and &.";
+        return null;
+    }
+
+    private static string? OfferTextError(
+        string? title, string? badge, string? description,
+        DateOnly? startDate, TimeOnly? startTime, DateOnly? endDate, TimeOnly? endTime)
+    {
+        var name = (title ?? "").Trim();
+        if (name.Length == 0) return "Offer title is required.";
+        if (name.Length > 255) return "Offer title is too long.";
+        if ((badge ?? "").Trim().Length > 20) return "Offer badge can be at most 20 characters.";
+        if ((description ?? "").Trim().Length > 500) return "Offer description can be at most 500 characters.";
+        if (startDate is DateOnly start && endDate is DateOnly end)
+        {
+            var startAt = start.ToDateTime(startTime ?? new TimeOnly(0, 0));
+            var endAt = end.ToDateTime(endTime ?? new TimeOnly(23, 59));
+            if (endAt < startAt) return "End date and time must be after the start.";
+        }
+        return null;
+    }
+
+    private static string? ServiceTextError(string? name, string? description)
+    {
+        var serviceName = (name ?? "").Trim();
+        if (serviceName.Length == 0) return "Service name is required.";
+        if (serviceName.Length > 30) return "Service name can be at most 30 characters.";
+        if ((description ?? "").Trim().Length > 400) return "Service description can be at most 400 characters.";
+        return null;
+    }
+
     private static string CleanCompName(string name) =>
         CompNameCleanRegex().Replace(name.Trim(), "");
 
     private static string ToSlug(string cleaned) =>
         cleaned.Replace(' ', '-').Replace(".", "").Replace("&", "").Replace("/", "-").Replace("[", "").Replace("]", "");
 
-    private static IReadOnlyList<string?> GetYoutubeList(Card c) =>
-    [
-        c.DYoutube1, c.DYoutube2, c.DYoutube3, c.DYoutube4, c.DYoutube5,
-        c.DYoutube6, c.DYoutube7, c.DYoutube8, c.DYoutube9, c.DYoutube10,
-        c.DYoutube11, c.DYoutube12, c.DYoutube13, c.DYoutube14, c.DYoutube15,
-        c.DYoutube16, c.DYoutube17, c.DYoutube18, c.DYoutube19, c.DYoutube20
-    ];
-
-    private static void SetYoutubeList(Card c, IReadOnlyList<string?> urls)
+    private async Task<IReadOnlyList<string?>> ReadVideoSlotsAsync(int cardId, CancellationToken ct)
     {
-        string? At(int i) => urls.Count > i ? urls[i]?.Trim() : null;
-        c.DYoutube1 = At(0); c.DYoutube2 = At(1); c.DYoutube3 = At(2); c.DYoutube4 = At(3); c.DYoutube5 = At(4);
-        c.DYoutube6 = At(5); c.DYoutube7 = At(6); c.DYoutube8 = At(7); c.DYoutube9 = At(8); c.DYoutube10 = At(9);
-        c.DYoutube11 = At(10); c.DYoutube12 = At(11); c.DYoutube13 = At(12); c.DYoutube14 = At(13); c.DYoutube15 = At(14);
-        c.DYoutube16 = At(15); c.DYoutube17 = At(16); c.DYoutube18 = At(17); c.DYoutube19 = At(18); c.DYoutube20 = At(19);
+        var rows = await _db.CardVideos.AsNoTracking()
+            .Where(v => v.CardId == cardId)
+            .OrderBy(v => v.DisplayOrder)
+            .ToListAsync(ct);
+        var slots = new string?[20];
+        foreach (var row in rows)
+        {
+            if (row.DisplayOrder is < 0 or > 19 || string.IsNullOrWhiteSpace(row.Url)) continue;
+            slots[row.DisplayOrder] = row.Url.Trim();
+        }
+        return slots;
+    }
+
+    private async Task ReplaceVideoSlotsAsync(int cardId, IReadOnlyList<string?> urls, CancellationToken ct)
+    {
+        var existing = await _db.CardVideos.Where(v => v.CardId == cardId).ToListAsync(ct);
+        _db.CardVideos.RemoveRange(existing);
+        var now = AppClock.Now;
+        var limit = Math.Min(20, urls.Count);
+        for (var i = 0; i < limit; i++)
+        {
+            var text = (urls[i] ?? "").Trim();
+            if (text.Length == 0) continue;
+            _db.CardVideos.Add(new CardVideo
+            {
+                CardId = cardId,
+                Url = text,
+                VideoType = VideoHostKind(text),
+                DisplayOrder = i,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private static string? VideoLinksError(IReadOnlyList<string?> urls)
+    {
+        var filled = urls.Count(url => !string.IsNullOrWhiteSpace(url));
+        if (filled > 20) return "You can add up to 20 video links.";
+        foreach (var url in urls)
+        {
+            var text = (url ?? "").Trim();
+            if (text.Length == 0) continue;
+            if (!IsValidVideoLink(text)) return "Please enter valid video link";
+        }
+        return null;
+    }
+
+    private static bool IsValidVideoLink(string text)
+    {
+        if (text.Length > 500) return false;
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri)) return false;
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+        return !string.IsNullOrWhiteSpace(uri.Host) && uri.Host.Contains('.');
+    }
+
+    private static string VideoHostKind(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return "link";
+        var host = uri.Host.ToLowerInvariant();
+        if (host.Contains("youtu")) return "youtube";
+        if (host.Contains("instagram") || host.Contains("instagr.am")) return "instagram";
+        if (host.Contains("facebook") || host.Contains("fb.watch") || host.Equals("fb.com")) return "facebook";
+        return "link";
     }
 
     [GeneratedRegex(@"[^A-Za-z0-9\s\-]")]
     private static partial Regex CompNameCleanRegex();
+
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._-]{1,255}@[A-Za-z][A-Za-z0-9]{1,63}$")]
+    private static partial Regex UpiPattern();
 }

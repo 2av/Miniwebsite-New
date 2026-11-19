@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MiniWebsite.Application.Admin.SalesChannelPartners;
@@ -49,7 +50,7 @@ public class AdminSalesChannelPartnersController : ControllerBase
     public async Task<ActionResult<ApiResult>> Invite(
         string slug, [FromBody] InviteSalesChannelPartnerRequest request, CancellationToken ct = default)
     {
-        var result = await _service.InviteAsync(slug, request.Email, ct);
+        var result = await _service.InviteAsync(slug, request.Email, CurrentUserId(), ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
@@ -94,5 +95,11 @@ public class AdminSalesChannelPartnersController : ControllerBase
     {
         var result = await _service.ResetPasswordAsync(slug, id, request, ct);
         return result.Success ? Ok(result) : BadRequest(result);
+    }
+
+    private int? CurrentUserId()
+    {
+        var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(claim, out var id) ? id : null;
     }
 }

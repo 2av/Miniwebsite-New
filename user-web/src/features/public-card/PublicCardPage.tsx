@@ -1,7 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { apiGet } from '@/shared/api/client'
 import { assetUrl, publicUrl } from '@/lib/utils'
+import { useProfileEdit } from '@/features/website/profileEditContext'
+import { EditSaveBar, HoursField, InlineText, MiniIcon } from '@/features/website/profileEditorUi'
+import {
+  ABOUT_PLACEHOLDER,
+  SAMPLE_WEBSITE,
+  aboutError,
+  emailError,
+  formatMobile,
+  gstError,
+  gstText,
+  mobileDigits,
+  mobileError,
+} from '@/features/website/profileFieldRules'
 
 type PublicCardViewer = {
   status?: string
@@ -100,6 +113,14 @@ type OfferItem = {
   Badge?: string
   discountPercentage?: number
   DiscountPercentage?: number
+  startDate?: string
+  StartDate?: string
+  startTime?: string
+  StartTime?: string
+  endDate?: string
+  EndDate?: string
+  endTime?: string
+  EndTime?: string
 }
 type ProductItem = {
   name?: string
@@ -112,8 +133,14 @@ type ProductItem = {
   Mrp?: number
   sellingPrice?: number
   SellingPrice?: number
+  priceType?: string
+  PriceType?: string
+  pricingUnit?: string
+  PricingUnit?: string
   ctaText?: string
   CtaText?: string
+  categoryLabel?: string
+  CategoryLabel?: string
 }
 type PaymentQr = {
   label?: string
@@ -129,12 +156,22 @@ function pick<T>(a: T | undefined, b: T | undefined): T | undefined {
 }
 
 function ensureLink(href: string, id: string) {
-  if (document.getElementById(id)) return
+  const existing = document.getElementById(id) as HTMLLinkElement | null
+  if (existing) {
+    if (existing.getAttribute('href') !== href) existing.setAttribute('href', href)
+    return
+  }
   const link = document.createElement('link')
   link.id = id
   link.rel = 'stylesheet'
   link.href = href
   document.head.appendChild(link)
+}
+
+function releaseEditorStyles() {
+  for (const id of ['mw-card-theme', 'mw-card-layout', 'mw-card-components']) {
+    document.getElementById(id)?.remove()
+  }
 }
 
 function ensureScript(src: string, id: string): Promise<void> {
@@ -177,22 +214,356 @@ function absHttp(url: string) {
   return /^https?:\/\//i.test(u) ? u : `https://${u}`
 }
 
+const BANNER_OFFSET = 76
+
+function withUploadVersion(url: string, version: number) {
+  if (!url || version <= 0) return url
+  return `${url}${url.includes('?') ? '&' : '?'}v=${version}`
+}
+
+function assetPath(url: string) {
+  return url.split('?')[0]
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+type BannerJump = {
+  id: string
+  label: string
+  present: boolean
+  onMissing?: () => void
+}
+
+function EditorBanner({ jumps }: { jumps: BannerJump[] }) {
+  const edit = useProfileEdit()
+  const [active, setActive] = useState('mw-hero')
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const jumpKey = jumps.map((item) => `${item.id}:${item.present ? 1 : 0}`).join('|')
+
+  useEffect(() => {
+    const ids = ['mw-hero', ...jumpKey.split('|').filter(Boolean).map((part) => part.split(':')[0])]
+    const onScroll = () => {
+      let current = 'mw-hero'
+      for (const id of ids) {
+        const node = document.getElementById(id)
+        if (!node) continue
+        if (node.getBoundingClientRect().top <= BANNER_OFFSET + 24) current = id
+      }
+      setActive(current)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [jumpKey])
+
+  useEffect(() => {
+    const menu = menuRef.current
+    if (!menu) return
+    const update = () => {
+      const max = menu.scrollWidth - menu.clientWidth
+      setCanScrollLeft(menu.scrollLeft > 4)
+      setCanScrollRight(max - menu.scrollLeft > 4)
+    }
+    update()
+    menu.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(menu)
+    return () => {
+      menu.removeEventListener('scroll', update)
+      observer.disconnect()
+    }
+  }, [jumpKey])
+
+  useEffect(() => {
+    const menu = menuRef.current
+    const chip = menu?.querySelector<HTMLElement>(`[data-jump="${active}"]`)
+    if (!menu || !chip) return
+    const left = chip.offsetLeft - menu.clientWidth / 2 + chip.offsetWidth / 2
+    menu.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+  }, [active])
+
+  const nudgeMenu = (direction: -1 | 1) => {
+    const menu = menuRef.current
+    if (!menu) return
+    menu.scrollBy({ left: direction * Math.max(160, menu.clientWidth * 0.65), behavior: 'smooth' })
+  }
+
+  const go = (item: BannerJump) => {
+    if (!item.present) item.onMissing?.()
+    window.setTimeout(() => scrollToSection(item.id), item.present ? 0 : 80)
+  }
+
+  return (
+    <header
+      className="mw-editor-banner"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 64,
+        display: 'block',
+        minHeight: 64,
+        overflow: 'visible',
+        background: 'linear-gradient(180deg, rgba(22, 12, 48, 0.96), rgba(42, 22, 86, 0.94))',
+        backdropFilter: 'blur(18px)',
+        borderBottom: '1px solid rgba(244, 214, 154, 0.28)',
+        boxShadow: '0 12px 32px rgba(16, 8, 36, 0.35)',
+        fontFamily: 'Poppins, Inter, sans-serif',
+      }}
+    >
+      <style>{'.mw-editor-jumps::-webkit-scrollbar{display:none}'}</style>
+      <div
+        ref={menuRef}
+        className="mw-editor-jumps"
+        aria-label="Profile sections"
+        style={{
+          display: 'flex',
+          flexWrap: 'nowrap',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+          maxWidth: '100vw',
+          minWidth: 0,
+          padding: `12px ${canScrollRight ? 44 : 16}px 12px ${canScrollLeft ? 44 : 16}px`,
+          boxSizing: 'border-box',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-x',
+          overscrollBehaviorX: 'contain',
+          scrollbarWidth: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 8, width: 'max-content', paddingRight: 8 }}>
+          <Link to="/dashboard" style={bannerActionStyle}>
+            Dashboard
+          </Link>
+          <button
+            type="button"
+            style={{ ...bannerActionStyle, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => edit?.openThemeDrawer()}
+          >
+            Change theme
+          </button>
+          <span style={{ width: 1, height: 22, flex: '0 0 auto', background: 'rgba(255,255,255,0.16)' }} />
+          <button type="button" data-jump="mw-hero" style={jumpStyle(active === 'mw-hero')} onClick={() => scrollToSection('mw-hero')}>
+            Home
+          </button>
+          {jumps.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              data-jump={item.id}
+              style={jumpStyle(active === item.id, !item.present)}
+              onClick={() => go(item)}
+            >
+              {item.present ? item.label : `Add ${item.label.toLowerCase()}`}
+            </button>
+          ))}
+        </div>
+      </div>
+      {canScrollLeft ? (
+        <button type="button" aria-label="Scroll menu left" style={menuArrowStyle('left')} onClick={() => nudgeMenu(-1)}>
+          <i className="fas fa-chevron-left" />
+        </button>
+      ) : null}
+      {canScrollRight ? (
+        <button type="button" aria-label="Scroll menu right" style={menuArrowStyle('right')} onClick={() => nudgeMenu(1)}>
+          <i className="fas fa-chevron-right" />
+        </button>
+      ) : null}
+    </header>
+  )
+}
+
+function menuArrowStyle(side: 'left' | 'right'): CSSProperties {
+  return {
+    position: 'absolute',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    [side]: 8,
+    width: 30,
+    height: 30,
+    borderRadius: '50%',
+    border: '1px solid rgba(244, 214, 154, 0.7)',
+    background: 'linear-gradient(180deg, #f8e7c0, #e2c27a)',
+    color: '#2c1a08',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: 'pointer',
+    zIndex: 2,
+    padding: 0,
+    fontSize: 12,
+    boxShadow: '0 4px 14px rgba(0,0,0,0.28)',
+  }
+}
+
+const bannerActionStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 36,
+  padding: '0 14px',
+  borderRadius: 999,
+  background: 'linear-gradient(180deg, #f8e7c0, #e2c27a)',
+  color: '#2c1a08',
+  textDecoration: 'none',
+  fontSize: 13,
+  fontWeight: 700,
+  letterSpacing: '0.01em',
+  whiteSpace: 'nowrap',
+  flex: '0 0 auto',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.65)',
+} as const
+
+function jumpStyle(active: boolean, missing = false): CSSProperties {
+  return {
+    height: 34,
+    padding: '0 12px',
+    borderRadius: 999,
+    border: missing ? '1px solid rgba(255, 138, 138, 0.8)' : active ? '1px solid #f4d69a' : '1px solid rgba(255,255,255,0.14)',
+    background: missing ? 'rgba(255, 82, 82, 0.14)' : active ? 'rgba(244, 214, 154, 0.2)' : 'rgba(255,255,255,0.06)',
+    color: missing ? '#ff8d8d' : '#fff',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontSize: 12.5,
+    fontWeight: 600,
+    letterSpacing: '0.01em',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+    flex: '0 0 auto',
+  }
+}
+
+const sectionActionStyle = {
+  alignSelf: 'flex-start',
+  marginTop: 8,
+  background: 'transparent',
+  color: 'inherit',
+  border: '1px solid currentColor',
+  borderRadius: 8,
+  padding: '4px 10px',
+  font: 'inherit',
+  cursor: 'pointer',
+} as const
+
+function serviceNameError(value: string) {
+  const text = value.trim()
+  if (!text) return 'Service name is required.'
+  if (text.length > 30) return 'Service name can be at most 30 characters.'
+  return null
+}
+
+function serviceDescriptionError(value: string) {
+  if (value.trim().length > 400) return 'Service description can be at most 400 characters.'
+  return null
+}
+
+function offerTitleError(value: string) {
+  if (!value.trim()) return 'Offer title is required.'
+  return null
+}
+
+function offerBadgeError(value: string) {
+  if (value.trim().length > 20) return 'Offer badge can be at most 20 characters.'
+  return null
+}
+
+function offerDescriptionError(value: string) {
+  if (value.trim().length > 500) return 'Offer description can be at most 500 characters.'
+  return null
+}
+
+function pricingTitleError(value: string) {
+  const text = value.trim()
+  if (!text) return 'Title is required.'
+  if (text.length > 30) return 'Title can be at most 30 characters.'
+  return null
+}
+
+function pricingDescriptionError(value: string) {
+  if (value.trim().length > 400) return 'Description can be at most 400 characters.'
+  return null
+}
+
+function productPriceKind(value: string) {
+  const text = value.toLowerCase().replace(/[\s_]+/g, '')
+  if (text.includes('request')) return 'request'
+  if (text.includes('start')) return 'starting'
+  return 'fixed'
+}
+
+function ProductPriceLine({ kind, selling, unit }: { kind: string; selling: number; unit: string }) {
+  if (kind === 'request') return <p className="text-heading font-bold mt-2">Price on Request{unit ? ` · ${unit}` : ''}</p>
+  const amount = `₹${selling}${unit ? ` ${unit}` : ''}`
+  return <p className="text-heading font-bold mt-2">{kind === 'starting' ? `Starting from ${amount}` : amount}</p>
+}
+
+function ProductCta({ text }: { text: string }) {
+  if (!text) return null
+  return (
+    <p className="mt-3">
+      <span className="inline-block px-3 py-1.5 rounded-theme text-sm font-semibold" style={{ background: 'var(--mw-offer-cta-bg, var(--color-primary))', color: '#111' }}>
+        {text}
+      </span>
+    </p>
+  )
+}
+
+function offerWhen(offer: OfferItem) {
+  const startDate = pick(offer.startDate, offer.StartDate)
+  const startTime = pick(offer.startTime, offer.StartTime)
+  const endDate = pick(offer.endDate, offer.EndDate)
+  const endTime = pick(offer.endTime, offer.EndTime)
+  const start = formatOfferMoment(startDate, startTime)
+  const end = formatOfferMoment(endDate, endTime)
+  if (start && end) return `${start} – ${end}`
+  return start || end
+}
+
+function formatOfferMoment(date?: string, time?: string) {
+  if (!date) return ''
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return date
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  let label = `${Number(match[3])} ${months[Number(match[2]) - 1]} ${match[1]}`
+  const clock = (time || '').match(/^(\d{2}):(\d{2})/)
+  if (clock) {
+    let hour = Number(clock[1])
+    const suffix = hour >= 12 ? 'PM' : 'AM'
+    hour = hour % 12 || 12
+    label += `, ${hour}:${clock[2]} ${suffix}`
+  }
+  return label
+}
+
 /** Public digi-card viewer — mirrors n.php sections + theme CSS. */
-export function PublicCardPage({ demo = false }: { demo?: boolean }) {
-  const { slug = '' } = useParams()
+export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; forcedSlug?: string }) {
+  const params = useParams()
+  const slug = forcedSlug ?? params.slug ?? ''
+  const edit = useProfileEdit()
+  const revision = edit?.revision ?? 0
   const [viewer, setViewer] = useState<PublicCardViewer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stylesReady, setStylesReady] = useState(false)
   const [videoModal, setVideoModal] = useState<string | null>(null)
   const [galleryIdx, setGalleryIdx] = useState<number | null>(null)
   const [waShare, setWaShare] = useState('')
+  const [openSection, setOpenSection] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!slug) return
     let cancelled = false
     ;(async () => {
       try {
         const data = await apiGet<PublicCardViewer>(`/api/v1/public/cards/${encodeURIComponent(slug)}`)
-        if (!cancelled) setViewer(data)
+        if (!cancelled) {
+          setViewer(data)
+          setError(null)
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load card')
       }
@@ -200,7 +571,16 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
     return () => {
       cancelled = true
     }
-  }, [slug])
+  }, [slug, revision])
+
+  useEffect(() => {
+    if (!forcedSlug) return
+    const previousTitle = document.title
+    return () => {
+      releaseEditorStyles()
+      document.title = previousTitle
+    }
+  }, [forcedSlug])
 
   const status = pick(viewer?.status, viewer?.Status) || ''
   const card = pick(viewer?.card, viewer?.Card) || null
@@ -393,16 +773,88 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
   const website = pick(card.website, card.Website) || ''
   const about = pick(card.about, card.About) || ''
   const category = pick(card.primaryCategoryTitle, card.PrimaryCategoryTitle) || ''
-  const cover = pick(card.heroCoverUrl, card.HeroCoverUrl) || defaultImg
-  const logo = pick(card.logoUrl, card.LogoUrl) || defaultImg
+  const rawCover = pick(card.heroCoverUrl, card.HeroCoverUrl) || ''
+  const rawLogo = pick(card.logoUrl, card.LogoUrl) || ''
+  const logoFollowsCover = Boolean(rawLogo && rawCover && assetPath(rawLogo) === assetPath(rawCover))
+  const cover = withUploadVersion(rawCover || defaultImg, edit?.revision ?? 0)
+  const logo = withUploadVersion(logoFollowsCover ? defaultImg : rawLogo || defaultImg, edit?.revision ?? 0)
   const gst = pick(card.gstNumber, card.GstNumber) || ''
   const fullAddress = pick(card.fullAddress, card.FullAddress) || location
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}`
 
   return (
     <>
+      {edit ? (
+        <>
+          <div style={{ height: 64 }} aria-hidden />
+          <EditorBanner
+            jumps={[
+              {
+                id: 'mw-about',
+                label: 'About',
+                present: Boolean(about.trim()),
+                onMissing: () => setOpenSection('about'),
+              },
+              {
+                id: 'mw-contact',
+                label: 'Contact',
+                present: Boolean(email || phone || location || direction),
+                onMissing: () => setOpenSection('contact'),
+              },
+              {
+                id: 'mw-social',
+                label: 'Social',
+                present: social.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'social' }),
+              },
+              {
+                id: 'mw-services',
+                label: 'Services',
+                present: services.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'service-add' }),
+              },
+              {
+                id: 'mw-offers',
+                label: 'Offers',
+                present: offers.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'offer-add' }),
+              },
+              {
+                id: 'mw-products',
+                label: 'Pricing',
+                present: products.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'product-add' }),
+              },
+              {
+                id: 'mw-videos',
+                label: 'Videos',
+                present: videos.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'videos' }),
+              },
+              {
+                id: 'mw-gallery',
+                label: 'Gallery',
+                present: gallery.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'gallery-add' }),
+              },
+              {
+                id: 'mw-pay',
+                label: 'Payment',
+                present: paymentQrs.length > 0,
+                onMissing: () => edit.openDialog({ kind: 'payment' }),
+              },
+              { id: 'mw-hours', label: 'Hours', present: true },
+            ]}
+          />
+        </>
+      ) : null}
       <div className="app-container">
-        <section id="mw-hero" className="mw-hero relative">
+        <section id="mw-hero" className="mw-hero relative" style={edit ? { scrollMarginTop: BANNER_OFFSET } : undefined}>
+          {edit ? (
+            <span style={{ position: 'absolute', top: 12, right: 12, zIndex: 30, display: 'flex', gap: 6 }}>
+              <MiniIcon label="Edit profile images" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'images' })} />
+            </span>
+          ) : null}
           <div className="h-64 md:h-80 w-full overflow-hidden relative">
             <img
               src={cover}
@@ -412,10 +864,10 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
                 ;(e.target as HTMLImageElement).src = defaultImg
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-bgbase to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-bgbase to-transparent" style={{ pointerEvents: 'none' }} />
           </div>
           <div className="mw-section-padding relative -mt-24 text-center z-10 flex flex-col items-center">
-            <div className="w-32 h-32 rounded-full border-4 border-bgbase shadow-card overflow-hidden mb-4">
+            <div className="w-32 h-32 rounded-full border-4 border-bgbase shadow-card overflow-hidden mb-4 relative">
               <img
                 src={logo}
                 alt="Logo"
@@ -451,7 +903,12 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
         </section>
 
         {social.length > 0 && (
-          <section className="mw-social-links pb-6 flex justify-center gap-5">
+          <section id="mw-social" className="mw-social-links pb-6 flex justify-center gap-5" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 0, right: 12, zIndex: 5 }}>
+                <MiniIcon label="Edit social links" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'social' })} />
+              </span>
+            ) : null}
             {social.map((s, i) => (
               <a
                 key={i}
@@ -466,41 +923,132 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
           </section>
         )}
 
-        {about ? (
-          <section className="mw-business-intro mw-section-padding text-center">
-            <p className="text-sm md:text-base leading-relaxed max-w-3xl mx-auto whitespace-pre-line">{about}</p>
+        {(about || openSection === 'about') ? (
+          <section id="mw-about" className="mw-business-intro mw-section-padding text-center" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <EditSaveBar
+              enabled={Boolean(edit)}
+              editing={openSection === 'about'}
+              editLabel="Edit about"
+              onEdit={() => setOpenSection((current) => (current === 'about' ? null : 'about'))}
+            >
+              {edit && openSection === 'about' ? (
+                <div className="max-w-3xl mx-auto text-sm md:text-base leading-relaxed">
+                  <InlineText
+                    draftId="about"
+                    block
+                    multiline
+                    className="text-sm md:text-base leading-relaxed"
+                    value={edit.company.aboutUs}
+                    placeholder={ABOUT_PLACEHOLDER}
+                    maxLength={500}
+                    validate={aboutError}
+                    onSave={(value) => edit.patchCompany({ aboutUs: value })}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm md:text-base leading-relaxed max-w-3xl mx-auto whitespace-pre-line">{about}</p>
+              )}
+            </EditSaveBar>
           </section>
         ) : null}
 
-        {(email || phone || location || direction) && (
-          <section className="mw-action-grid mw-section-padding">
+        {(openSection === 'contact' || email || phone || location || direction) && (
+          <section id="mw-contact" className="mw-action-grid mw-section-padding" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <EditSaveBar
+              enabled={Boolean(edit)}
+              editing={openSection === 'contact'}
+              editLabel="Edit contact"
+              onEdit={() => setOpenSection((current) => (current === 'contact' ? null : 'contact'))}
+            >
             <h2 className="mw-section-title">Contact</h2>
             <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
-              {email ? (
+              {(edit && openSection === 'contact') || email ? (
                 <div className="mw-card p-4 flex flex-col gap-2">
                   <span className="mw-contact-icon inline-flex w-10 h-10 items-center justify-center rounded-theme text-primary">
                     <i className="fas fa-envelope text-xl" />
                   </span>
                   <h3 className="text-xs uppercase tracking-wider text-textmain mt-2">Email Address</h3>
-                  <p className="text-heading font-medium text-sm truncate">{email}</p>
+                  {edit && openSection === 'contact' ? (
+                    <InlineText
+                      draftId="contact-email"
+                      value={edit.company.email}
+                      placeholder="Enter your email (optional)"
+                      className="text-heading font-medium text-sm"
+                      validate={emailError}
+                      onSave={(value) => edit.patchCompany({ email: value.trim() })}
+                    />
+                  ) : (
+                    <p className="text-heading font-medium text-sm truncate">{email}</p>
+                  )}
                 </div>
               ) : null}
-              {phone ? (
+              {(edit && openSection === 'contact') || phone ? (
                 <div className="mw-card p-4 flex flex-col gap-2">
                   <span className="mw-contact-icon inline-flex w-10 h-10 items-center justify-center rounded-theme text-primary">
                     <i className="fas fa-phone-alt text-xl" />
                   </span>
                   <h3 className="text-xs uppercase tracking-wider text-textmain mt-2">Phone Number</h3>
-                  <p className="text-heading font-medium text-sm">{phone}</p>
+                  {edit && openSection === 'contact' ? (
+                    <InlineText
+                      draftId="contact-phone"
+                      value={formatMobile(edit.company.contact)}
+                      placeholder="10-digit mobile number"
+                      className="text-heading font-medium text-sm"
+                      normalize={formatMobile}
+                      validate={mobileError}
+                      onSave={(value) => edit.patchCompany({ contact: mobileDigits(value) })}
+                    />
+                  ) : (
+                    <p className="text-heading font-medium text-sm">{phone}</p>
+                  )}
                 </div>
               ) : null}
-              {location ? (
+              {edit && openSection === 'contact' ? (
+                <div className="mw-card p-4 flex flex-col gap-2">
+                  <span className="mw-contact-icon inline-flex w-10 h-10 items-center justify-center rounded-theme text-primary">
+                    <i className="fab fa-whatsapp text-xl" />
+                  </span>
+                  <h3 className="text-xs uppercase tracking-wider text-textmain mt-2">WhatsApp</h3>
+                  <InlineText
+                    draftId="contact-whatsapp"
+                    value={formatMobile(edit.company.whatsapp)}
+                    placeholder="10-digit mobile number"
+                    className="text-heading font-medium text-sm"
+                    normalize={formatMobile}
+                    validate={mobileError}
+                    onSave={(value) => edit.patchCompany({ whatsapp: mobileDigits(value) })}
+                  />
+                </div>
+              ) : null}
+              {edit && openSection === 'contact' ? (
+                <div className="mw-card p-4 flex flex-col gap-2">
+                  <span className="mw-contact-icon inline-flex w-10 h-10 items-center justify-center rounded-theme text-primary">
+                    <i className="fas fa-phone text-xl" />
+                  </span>
+                  <h3 className="text-xs uppercase tracking-wider text-textmain mt-2">Alternate Number</h3>
+                  <InlineText
+                    draftId="contact-alternate"
+                    value={formatMobile(edit.company.contact2)}
+                    placeholder="10-digit mobile number"
+                    className="text-heading font-medium text-sm"
+                    normalize={formatMobile}
+                    validate={mobileError}
+                    onSave={(value) => edit.patchCompany({ contact2: mobileDigits(value) })}
+                  />
+                </div>
+              ) : null}
+              {(edit && openSection === 'contact') || location ? (
                 <div className="mw-card p-4 flex flex-col gap-2">
                   <span className="mw-contact-icon inline-flex w-10 h-10 items-center justify-center rounded-theme text-primary">
                     <i className="fas fa-map-marker-alt text-xl" />
                   </span>
                   <h3 className="text-xs uppercase tracking-wider text-textmain mt-2">Location</h3>
-                  <p className="text-heading font-medium text-sm">{location}</p>
+                  <p className="text-heading font-medium text-sm">{location || 'Add address'}</p>
+                  {edit && openSection === 'contact' ? (
+                    <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'address' })}>
+                      Edit address
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
               {direction ? (
@@ -520,6 +1068,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
                 </div>
               ) : null}
             </div>
+            </EditSaveBar>
           </section>
         )}
 
@@ -562,93 +1111,287 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
         </section>
 
         {services.length > 0 && (
-          <section id="mw-services" className="mw-services mw-section-padding bg-cardbg/30">
+          <section id="mw-services" className="mw-services mw-section-padding bg-cardbg/30" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <EditSaveBar
+              enabled={Boolean(edit)}
+              editing={openSection === 'services'}
+              editLabel="Edit services"
+              onEdit={() => setOpenSection((current) => (current === 'services' ? null : 'services'))}
+            >
             <h2 className="mw-section-title">Our Services</h2>
-            <div className="mw-grid-services">
-              {services.map((svc, i) => (
-                <div key={i} className="mw-card mw-offer-card mw-service-card bg-cardbg rounded-theme overflow-hidden relative">
-                  <div className="mw-service-image-wrap">
-                    <img
-                      src={pick(svc.imageUrl, svc.ImageUrl) || defaultImg}
-                      alt={pick(svc.name, svc.Name) || ''}
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).src = defaultImg
-                      }}
-                    />
+            {edit && openSection === 'services' ? (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                {services.length >= 10 ? (
+                  <p className="text-sm text-textmain text-center" style={{ margin: 0 }}>You can add up to 10 services.</p>
+                ) : (
+                  <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'service-add' })}>
+                    Add service
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {services.length === 0 ? (
+              <p className="text-sm text-textmain text-center">No services yet.</p>
+            ) : (
+              <div className="mw-grid-services">
+                {services.map((svc, i) => (
+                  <div key={i} className="mw-card mw-offer-card mw-service-card bg-cardbg rounded-theme overflow-hidden relative">
+                    <div className="mw-service-image-wrap" style={{ position: 'relative' }}>
+                      <img
+                        src={pick(svc.imageUrl, svc.ImageUrl) || defaultImg}
+                        alt={pick(svc.name, svc.Name) || ''}
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = defaultImg
+                        }}
+                      />
+                      {edit && openSection === 'services' ? (
+                        <span style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                          <MiniIcon label="Change service image" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'service-image', index: i })} />
+                          <MiniIcon label="Delete service" icon="fa-trash" tone="danger" onClick={() => void edit.removeService(i)} />
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="p-5">
+                      {edit && openSection === 'services' ? (
+                        <>
+                          <h3 className="text-heading font-semibold text-lg mb-1">
+                            <InlineText
+                              draftId={`service-${i}-name`}
+                              block
+                              maxLength={30}
+                              value={pick(svc.name, svc.Name) || ''}
+                              placeholder="Enter service name (e.g. Haircut, AC Repair)"
+                              validate={serviceNameError}
+                              onSave={(value) => edit.patchService(i, { productName: value.trim().slice(0, 30) })}
+                            />
+                          </h3>
+                          <InlineText
+                            draftId={`service-${i}-description`}
+                            block
+                            multiline
+                            maxLength={400}
+                            className="mw-service-desc-preview text-sm text-textmain"
+                            value={pick(svc.description, svc.Description) || ''}
+                            placeholder="Describe your service in short (features, benefits, pricing idea)"
+                            validate={serviceDescriptionError}
+                            onSave={(value) => edit.patchService(i, { productDescription: value.trim().slice(0, 400) })}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-heading font-semibold text-lg mb-1">{pick(svc.name, svc.Name)}</h3>
+                          <p className="mw-service-desc-preview text-sm text-textmain line-clamp-3">
+                            {pick(svc.description, svc.Description) || 'Contact us for details.'}
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="p-5">
-                    <h3 className="text-heading font-semibold text-lg mb-1">{pick(svc.name, svc.Name)}</h3>
-                    <p className="mw-service-desc-preview text-sm text-textmain line-clamp-3">
-                      {pick(svc.description, svc.Description) || 'Contact us for details.'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+            </EditSaveBar>
           </section>
         )}
 
         {offers.length > 0 && (
-          <section id="mw-offers" className="mw-offers mw-section-padding">
+          <section id="mw-offers" className="mw-offers mw-section-padding" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <EditSaveBar
+              enabled={Boolean(edit)}
+              editing={openSection === 'offers'}
+              editLabel="Edit offers"
+              onEdit={() => setOpenSection((current) => (current === 'offers' ? null : 'offers'))}
+            >
             <h2 className="mw-section-title">Special Offers</h2>
-            <div className="mw-grid-offers">
-              {offers.map((o, i) => (
-                <div key={i} className="mw-card mw-offer-card bg-cardbg rounded-theme overflow-hidden">
-                  <img
-                    src={pick(o.imageUrl, o.ImageUrl) || defaultImg}
-                    alt={pick(o.title, o.Title) || ''}
-                    className="w-full aspect-video object-cover"
-                    onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = defaultImg
-                    }}
-                  />
-                  <div className="p-5">
-                    {pick(o.badge, o.Badge) ? (
-                      <span className="text-xs uppercase tracking-wider text-primary">{pick(o.badge, o.Badge)}</span>
-                    ) : null}
-                    <h3 className="text-heading font-semibold text-lg">{pick(o.title, o.Title)}</h3>
-                    <p className="text-sm text-textmain mt-1">{pick(o.description, o.Description)}</p>
-                    {(pick(o.discountPercentage, o.DiscountPercentage) || 0) > 0 ? (
-                      <p className="text-primary font-semibold mt-2">{pick(o.discountPercentage, o.DiscountPercentage)}% OFF</p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {edit && openSection === 'offers' ? (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                {(edit.offerCount ?? offers.length) >= 5 ? (
+                  <p className="text-sm text-textmain text-center" style={{ margin: 0 }}>You can add up to 5 special offers.</p>
+                ) : (
+                  <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'offer-add' })}>
+                    Add offer
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {offers.length === 0 ? (
+              <p className="text-sm text-textmain text-center">No offers yet.</p>
+            ) : (
+              <div className="mw-grid-offers">
+                {offers.map((o, i) => {
+                  const discount = pick(o.discountPercentage, o.DiscountPercentage) || 0
+                  return (
+                    <div key={i} className="mw-card mw-offer-card bg-cardbg rounded-theme overflow-hidden" style={{ position: 'relative' }}>
+                      <img
+                        src={pick(o.imageUrl, o.ImageUrl) || defaultImg}
+                        alt={pick(o.title, o.Title) || ''}
+                        className="w-full aspect-video object-cover"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = defaultImg
+                        }}
+                      />
+                      {edit && openSection === 'offers' ? (
+                        <span style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 2 }}>
+                          <MiniIcon label="Change offer image" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'offer-image', index: i })} />
+                          <MiniIcon label="Delete offer" icon="fa-trash" tone="danger" onClick={() => void edit.removeOffer(i)} />
+                        </span>
+                      ) : null}
+                      <div className="p-5">
+                        {!(edit && openSection === 'offers') && pick(o.badge, o.Badge) ? (
+                          <span className="text-xs uppercase tracking-wider text-primary">{pick(o.badge, o.Badge)}</span>
+                        ) : null}
+                        {edit && openSection === 'offers' ? (
+                          <>
+                            <InlineText
+                              draftId={`offer-${i}-badge`}
+                              value={pick(o.badge, o.Badge) || ''}
+                              placeholder="e.g. Flat 20% Off"
+                              maxLength={20}
+                              validate={offerBadgeError}
+                              className="text-xs uppercase tracking-wider text-primary"
+                              onSave={(value) => edit.patchOffer(i, { badge: value.trim().slice(0, 20) })}
+                            />
+                            <h3 className="text-heading font-semibold text-lg">
+                              <InlineText
+                                draftId={`offer-${i}-title`}
+                                block
+                                value={pick(o.title, o.Title) || ''}
+                                placeholder="Offer title"
+                                validate={offerTitleError}
+                                onSave={(value) => edit.patchOffer(i, { offerTitle: value.trim() })}
+                              />
+                            </h3>
+                            <InlineText
+                              draftId={`offer-${i}-description`}
+                              block
+                              multiline
+                              maxLength={500}
+                              className="text-sm text-textmain mt-1"
+                              value={pick(o.description, o.Description) || ''}
+                              placeholder="Explain the offer clearly (validity, benefits, conditions)"
+                              validate={offerDescriptionError}
+                              onSave={(value) => edit.patchOffer(i, { offerDescription: value.trim().slice(0, 500) })}
+                            />
+                            {offerWhen(o) ? <p className="text-sm text-textmain mt-2">{offerWhen(o)}</p> : null}
+                          </>
+                        ) : (
+                          <>
+                            <h3 className="text-heading font-semibold text-lg">{pick(o.title, o.Title)}</h3>
+                            <p className="text-sm text-textmain mt-1">{pick(o.description, o.Description)}</p>
+                            {discount > 0 ? <p className="text-primary font-semibold mt-2">{discount}% OFF</p> : null}
+                            {offerWhen(o) ? <p className="text-sm text-textmain mt-2">{offerWhen(o)}</p> : null}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            </EditSaveBar>
           </section>
         )}
 
         {products.length > 0 && (
-          <section id="mw-products" className="mw-products mw-section-padding bg-cardbg/20">
-            <h2 className="mw-section-title">Products &amp; Pricing</h2>
-            <div className="mw-grid-products">
-              {products.map((p, i) => (
-                <div key={i} className="mw-card p-4">
-                  <img
-                    src={pick(p.imageUrl, p.ImageUrl) || defaultImg}
-                    alt={pick(p.name, p.Name) || ''}
-                    className="w-full aspect-square object-cover rounded-theme mb-3"
-                    onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = defaultImg
-                    }}
-                  />
-                  <h3 className="text-heading font-semibold">{pick(p.name, p.Name)}</h3>
-                  <p className="text-sm text-textmain line-clamp-2">{pick(p.description, p.Description)}</p>
-                  <p className="text-heading font-bold mt-2">
-                    ₹{pick(p.sellingPrice, p.SellingPrice) ?? 0}
-                    {(pick(p.mrp, p.Mrp) || 0) > (pick(p.sellingPrice, p.SellingPrice) || 0) ? (
-                      <span className="text-textmain text-sm line-through ml-2 font-normal">₹{pick(p.mrp, p.Mrp)}</span>
-                    ) : null}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <section id="mw-products" className="mw-products mw-section-padding bg-cardbg/20" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <EditSaveBar
+              enabled={Boolean(edit)}
+              editing={openSection === 'products'}
+              editLabel="Edit products"
+              onEdit={() => setOpenSection((current) => (current === 'products' ? null : 'products'))}
+            >
+            <h2 className="mw-section-title">Details &amp; Pricing</h2>
+            {edit && openSection === 'products' ? (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                {(edit.productCount ?? products.length) >= 60 ? (
+                  <p className="text-sm text-textmain text-center" style={{ margin: 0 }}>You can add up to 60 products or services.</p>
+                ) : (
+                  <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'product-add' })}>
+                    Add product or service
+                  </button>
+                )}
+              </div>
+            ) : null}
+            {products.length === 0 ? (
+              <p className="text-sm text-textmain text-center">No products yet.</p>
+            ) : (
+              <div className="mw-grid-products">
+                {products.map((p, i) => {
+                  const selling = pick(p.sellingPrice, p.SellingPrice) ?? 0
+                  const kind = productPriceKind(String(pick(p.priceType, p.PriceType) || ''))
+                  const unit = pick(p.pricingUnit, p.PricingUnit) || ''
+                  const cta = pick(p.ctaText, p.CtaText) || ''
+                  const category = pick(p.categoryLabel, p.CategoryLabel) || ''
+                  return (
+                    <div key={i} className="mw-card p-4" style={{ position: 'relative' }}>
+                      <img
+                        src={pick(p.imageUrl, p.ImageUrl) || defaultImg}
+                        alt={pick(p.name, p.Name) || ''}
+                        className="w-full aspect-square object-cover rounded-theme mb-3"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = defaultImg
+                        }}
+                      />
+                      {edit && openSection === 'products' ? (
+                        <span style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6 }}>
+                          <MiniIcon label="Change product image" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'product-image', index: i })} />
+                          <MiniIcon label="Delete product" icon="fa-trash" tone="danger" onClick={() => void edit.removeProduct(i)} />
+                        </span>
+                      ) : null}
+                      {edit && openSection === 'products' ? (
+                        <>
+                          {category ? <p className="text-xs uppercase tracking-wider text-primary mb-1">{category}</p> : null}
+                          <h3 className="text-heading font-semibold">
+                            <InlineText
+                              draftId={`product-${i}-name`}
+                              block
+                              maxLength={30}
+                              value={pick(p.name, p.Name) || ''}
+                              placeholder="Enter item/service name"
+                              validate={pricingTitleError}
+                              onSave={(value) => edit.patchProduct(i, { productName: value.trim().slice(0, 30) })}
+                            />
+                          </h3>
+                          <InlineText
+                            draftId={`product-${i}-description`}
+                            block
+                            multiline
+                            maxLength={400}
+                            className="text-sm text-textmain"
+                            value={pick(p.description, p.Description) || ''}
+                            placeholder="Add short details (features, usage, service info)"
+                            validate={pricingDescriptionError}
+                            onSave={(value) => edit.patchProduct(i, { productDescription: value.trim().slice(0, 400) })}
+                          />
+                          <ProductPriceLine kind={kind} selling={selling} unit={unit} />
+                          <ProductCta text={cta} />
+                        </>
+                      ) : (
+                        <>
+                          {category ? <p className="text-xs uppercase tracking-wider text-primary mb-1">{category}</p> : null}
+                          <h3 className="text-heading font-semibold">{pick(p.name, p.Name)}</h3>
+                          <p className="text-sm text-textmain line-clamp-2">{pick(p.description, p.Description)}</p>
+                          <ProductPriceLine kind={kind} selling={selling} unit={unit} />
+                          <ProductCta text={cta} />
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            </EditSaveBar>
           </section>
         )}
 
         {videos.length > 0 && (
-          <section className="mw-video-gallery mw-section-padding bg-cardbg/20">
+          <section id="mw-videos" className="mw-video-gallery mw-section-padding bg-cardbg/20" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
             <h2 className="mw-section-title">Videos</h2>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 12, right: 12 }}>
+                <MiniIcon label="Edit videos" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'videos' })} />
+              </span>
+            ) : null}
             <div className="mw-grid-videos">
               {videos.map((v, idx) =>
                 v.playMode === 'iframe' ? (
@@ -687,33 +1430,80 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
         )}
 
         {gallery.length > 0 && (
-          <section id="mw-gallery" className="mw-image-gallery mw-section-padding">
+          <section id="mw-gallery" className="mw-image-gallery mw-section-padding" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
             <h2 className="mw-section-title">Image Gallery</h2>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 12, right: 12 }}>
+                <MiniIcon
+                  label="Edit gallery"
+                  icon="fa-pen"
+                  onClick={() => setOpenSection((current) => (current === 'gallery' ? null : 'gallery'))}
+                />
+              </span>
+            ) : null}
+            {edit && openSection === 'gallery' ? (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                {(edit.galleryCount ?? gallery.length) >= 10 ? (
+                  <p className="text-sm text-textmain text-center" style={{ margin: 0 }}>You can add up to 10 gallery images.</p>
+                ) : (
+                  <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'gallery-add' })}>
+                    Add image
+                  </button>
+                )}
+              </div>
+            ) : null}
             <div className="mw-grid-gallery">
-              {gallery.map((src, i) => (
-                <button
-                  type="button"
-                  key={i}
-                  className="aspect-square rounded-lg overflow-hidden border border-white/5 mw-gallery-item cursor-pointer group"
-                  onClick={() => setGalleryIdx(i)}
-                >
-                  <img
-                    src={src}
-                    className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                    alt="Gallery"
-                    onError={(e) => {
-                      ;(e.target as HTMLImageElement).src = defaultImg
-                    }}
-                  />
-                </button>
-              ))}
+              {gallery.map((src, i) =>
+                edit && openSection === 'gallery' ? (
+                  <div key={i} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      className="aspect-square rounded-lg overflow-hidden border border-white/5 mw-gallery-item cursor-pointer group w-full"
+                      onClick={() => setGalleryIdx(i)}
+                    >
+                      <img
+                        src={src}
+                        className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                        alt="Gallery"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = defaultImg
+                        }}
+                      />
+                    </button>
+                    <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
+                      <MiniIcon label="Delete image" icon="fa-trash" tone="danger" onClick={() => void edit.removeGallery(i)} />
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    key={i}
+                    className="aspect-square rounded-lg overflow-hidden border border-white/5 mw-gallery-item cursor-pointer group"
+                    onClick={() => setGalleryIdx(i)}
+                  >
+                    <img
+                      src={src}
+                      className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                      alt="Gallery"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).src = defaultImg
+                      }}
+                    />
+                  </button>
+                ),
+              )}
             </div>
           </section>
         )}
 
         {paymentQrs.length > 0 && (
-          <section id="mw-pay" className="mw-payment-qr mw-section-padding">
-            <h2 className="mw-section-title">QR Code</h2>
+          <section id="mw-pay" className="mw-payment-qr mw-section-padding" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            <h2 className="mw-section-title">Payment Details</h2>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 12, right: 12 }}>
+                <MiniIcon label="Edit payment details" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'payment' })} />
+              </span>
+            ) : null}
             <div className="max-w-2xl mx-auto">
               <div className={`grid grid-cols-1 sm:grid-cols-2 ${paymentQrs.length >= 3 ? 'md:grid-cols-3' : ''} gap-6`}>
                 {paymentQrs.map((qr, i) => (
@@ -726,7 +1516,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
                         <img
                           src={pick(qr.imageDataUrl, qr.ImageDataUrl)}
                           alt={`${pick(qr.label, qr.Label)} QR`}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     ) : null}
@@ -740,28 +1530,84 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
           </section>
         )}
 
-        <section className="mw-business-info mw-section-padding bg-cardbg/20">
+        <section id="mw-hours" className="mw-business-info mw-section-padding bg-cardbg/20" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+          <EditSaveBar
+            enabled={Boolean(edit)}
+            editing={openSection === 'business'}
+            editLabel="Edit business details"
+            onEdit={() => setOpenSection((current) => (current === 'business' ? null : 'business'))}
+          >
           <h2 className="mw-section-title">Business Hours</h2>
-          <div className="max-w-lg mx-auto">
-            <div className="space-y-3 text-sm md:text-base border-t border-b border-white/10 py-6">
-              {hours.map((bh, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <span className="text-textmain">{pick(bh.days, bh.Days)}</span>
-                  <span className="text-heading font-medium">{pick(bh.hours, bh.Hours)}</span>
-                </div>
-              ))}
+          {edit ? (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <button type="button" style={sectionActionStyle} onClick={() => edit.openDialog({ kind: 'company' })}>
+                Business profile
+              </button>
             </div>
+          ) : null}
+          <div className="max-w-lg mx-auto">
+            {edit && openSection === 'business' ? (
+              <HoursField
+                draftId="business-hours"
+                active
+                raw={edit.company.businessHours}
+                rows={hours.map((bh) => ({ days: pick(bh.days, bh.Days) || '', hours: pick(bh.hours, bh.Hours) || '' }))}
+                onSave={(value) => edit.patchCompany({ businessHours: value })}
+              />
+            ) : (
+              <div className="space-y-3 text-sm md:text-base border-t border-b border-white/10 py-6">
+                {hours.map((bh, i) => (
+                  <div key={i} className="flex justify-between items-center">
+                    <span className="text-textmain">{pick(bh.days, bh.Days)}</span>
+                    <span className="text-heading font-medium">{pick(bh.hours, bh.Hours)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-8 text-center space-y-2 text-sm text-textmain">
               <p>
                 <span className="text-heading">{heroName}</span>
               </p>
-              {fullAddress ? <p>Address: {fullAddress}</p> : null}
-              {gst ? (
+              {fullAddress || (edit && openSection === 'business') ? (
                 <p>
-                  GST No: <span className="text-heading">{gst}</span>
+                  Address: {fullAddress || 'Add address'}
+                  {edit && openSection === 'business' ? (
+                    <button type="button" style={{ ...sectionActionStyle, marginLeft: 8 }} onClick={() => edit.openDialog({ kind: 'address' })}>
+                      Edit address
+                    </button>
+                  ) : null}
                 </p>
               ) : null}
-              {website ? (
+              {(edit && openSection === 'business') || gst ? (
+                <p>
+                  GST No:{' '}
+                  {edit && openSection === 'business' ? (
+                    <InlineText
+                      draftId="business-gst"
+                      value={edit.company.gstNumber}
+                      placeholder="Enter GST number (optional)"
+                      className="text-heading"
+                      maxLength={15}
+                      normalize={gstText}
+                      validate={gstError}
+                      onSave={(value) => edit.patchCompany({ gstNumber: gstText(value) })}
+                    />
+                  ) : (
+                    <span className="text-heading">{gst}</span>
+                  )}
+                </p>
+              ) : null}
+              {edit && openSection === 'business' ? (
+                <div className="text-primary flex items-center justify-center gap-2 mt-2">
+                  <i className="fas fa-globe" />
+                  <InlineText
+                    draftId="business-website"
+                    value={edit.company.website}
+                    placeholder={SAMPLE_WEBSITE}
+                    onSave={(value) => edit.patchCompany({ website: value })}
+                  />
+                </div>
+              ) : website ? (
                 <a
                   href={absHttp(website)}
                   target="_blank"
@@ -773,6 +1619,7 @@ export function PublicCardPage({ demo = false }: { demo?: boolean }) {
               ) : null}
             </div>
           </div>
+          </EditSaveBar>
         </section>
 
         <footer className="mw-footer mw-section-padding text-center border-t border-white/5 mt-8">

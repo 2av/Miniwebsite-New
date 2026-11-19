@@ -23,14 +23,16 @@ public interface IAccountInviteService
     Task<ApiResult> RegisterPrintShopAsync(RegisterPrintShopRequest request, CancellationToken ct = default);
 }
 
-public record PartnerInvitePreview(string Email, string RolePrefix, string RoleName);
+public record PartnerInvitePreview(string Email, string RolePrefix, string RoleName, string? ReferralCode);
 
 public record CompletePartnerInviteRequest(
     string Token,
     string FirstName,
     string? LastName,
     string Phone,
-    string Password);
+    string Password,
+    string? State = null,
+    string? ReferralCode = null);
 
 public record RegisterPrintShopRequest(
     string OwnerEmail,
@@ -71,11 +73,19 @@ public class AccountInviteService : IAccountInviteService
         var prefix = (rolePrefix ?? "").Trim().ToUpperInvariant();
         if (email.Length == 0 || !email.Contains('@'))
             return ApiResult.Fail("A valid email address is required.");
-        if (prefix is not (RolePrefixes.DigitalMarketingPartner or RolePrefixes.FieldSalesPartner or RolePrefixes.PrintShopPartner))
+        if (prefix is not (
+            RolePrefixes.FranchisePartner
+            or RolePrefixes.PrintShopPartner
+            or RolePrefixes.DigitalMarketingPartner
+            or RolePrefixes.SocialMediaPartner
+            or RolePrefixes.FieldSalesPartner
+            or RolePrefixes.FieldSalesTeam))
             return ApiResult.Fail("This role does not use an account-creation link.");
 
         if (await _db.Users.AnyAsync(u => u.Email.ToLower() == email, ct))
             return ApiResult.Fail("This email address is already registered.");
+
+        await EnsureReferrerCodeAsync(invitedByUserId, ct);
 
         var role = await _db.Roles.AsNoTracking()
             .Where(r => r.Prefix == prefix)
@@ -97,18 +107,18 @@ public class AccountInviteService : IAccountInviteService
             RolePrefix = prefix,
             TokenHash = Hash(token),
             InvitedByUserId = invitedByUserId,
-            ExpiresAt = AppClock.Now.AddDays(7),
+            ExpiresAt = AppClock.Now.AddHours(48),
             IsConsumed = false,
             CreatedAt = AppClock.Now,
         });
         await _db.SaveChangesAsync(ct);
 
-        var link = _app.SiteBaseUrl.TrimEnd('/') + "/registration/partner?token=" + Uri.EscapeDataString(token);
+        var link = _app.SiteBaseUrl.TrimEnd('/') + "/registration/customer?token=" + Uri.EscapeDataString(token);
         var html = $"""
             <p>Hello,</p>
             <p>Finish your {WebUtility.HtmlEncode(role.RoleName)} account with the registration form:</p>
             <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(link)}</a></p>
-            <p>After you submit the form, login credentials and the next steps will be emailed to you.</p>
+            <p>This link is valid for 48 hours. After you submit the form, login credentials and the next steps will be emailed to you.</p>
             """;
         try
         {
@@ -119,7 +129,7 @@ public class AccountInviteService : IAccountInviteService
             return ApiResult.Fail("The registration link could not be emailed.");
         }
 
-        return ApiResult.Ok("Registration link sent to " + email + ".");
+        return ApiResult.Ok("Registration link sent to " + email + ". It is valid for 48 hours.");
     }
 
     public async Task<ApiResult> SendFranchiseRegistrationLinkAsync(string email, string name, CancellationToken ct = default)
@@ -157,7 +167,8 @@ public class AccountInviteService : IAccountInviteService
             .Where(r => r.Prefix == invite.RolePrefix)
             .Select(r => r.RoleName)
             .FirstOrDefaultAsync(ct) ?? invite.RolePrefix;
-        return ApiResult<PartnerInvitePreview>.Ok(new PartnerInvitePreview(invite.Email, invite.RolePrefix, roleName));
+        var referralCode = await EnsureReferrerCodeAsync(invite.InvitedByUserId, ct);
+        return ApiResult<PartnerInvitePreview>.Ok(new PartnerInvitePreview(invite.Email, invite.RolePrefix, roleName, referralCode));
     }
 
     public async Task<ApiResult> CompleteAsync(CompletePartnerInviteRequest request, CancellationToken ct = default)
@@ -168,9 +179,12 @@ public class AccountInviteService : IAccountInviteService
         var first = (request.FirstName ?? "").Trim();
         var last = (request.LastName ?? "").Trim();
         var phone = (request.Phone ?? "").Trim();
+        var state = (request.State ?? "").Trim();
         var password = request.Password ?? "";
         if (first.Length == 0) return ApiResult.Fail("First name is required.");
-        if (phone.Length == 0) return ApiResult.Fail("Phone is required.");
+        if (phone.Length != 10 || phone.Any(c => !char.IsDigit(c)))
+            return ApiResult.Fail("Valid 10-digit mobile number is required.");
+        if (state.Length == 0) return ApiResult.Fail("Please select a valid State.");
         if (password.Length < 6) return ApiResult.Fail("Password must be at least 6 characters long.");
         if (await _db.Users.AnyAsync(u => u.Email.ToLower() == invite.Email, ct))
             return ApiResult.Fail("This email address is already registered.");
@@ -183,9 +197,12 @@ public class AccountInviteService : IAccountInviteService
             Phone = phone,
             FirstName = first,
             LastName = last,
+            Address = new UserAddress { State = state },
             Password = _passwords.Hash(password),
             Status = "ACTIVE",
-            OnboardingStage = OnboardingStage.PaymentDue,
+            OnboardingStage = OnboardingAccess.PaysMembership(invite.RolePrefix)
+                ? OnboardingStage.PaymentDue
+                : OnboardingStage.ReadyToSell,
             OnboardingStageAt = now,
             Referral = new UserReferralSettings
             {
@@ -202,6 +219,17 @@ public class AccountInviteService : IAccountInviteService
         {
             var referrer = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == referrerId, ct);
             user.Referral.ReferredBy = referrer?.Email ?? "";
+        }
+        else if (!string.IsNullOrWhiteSpace(request.ReferralCode))
+        {
+            var code = request.ReferralCode.Trim().ToUpperInvariant();
+            var referrer = await _db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Referral.ReferralCode != null && u.Referral.ReferralCode.ToUpper() == code, ct);
+            if (referrer != null)
+            {
+                user.Referral.ReferrerUserId = referrer.Id;
+                user.Referral.ReferredBy = referrer.Email;
+            }
         }
 
         _db.Users.Add(user);
@@ -314,6 +342,20 @@ public class AccountInviteService : IAccountInviteService
         {
             // Account exists even when mail fails.
         }
+    }
+
+    private async Task<string?> EnsureReferrerCodeAsync(int? userId, CancellationToken ct)
+    {
+        if (userId is not int id) return null;
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
+        if (user == null) return null;
+        if (string.IsNullOrWhiteSpace(user.Referral.ReferralCode))
+        {
+            user.Referral.ReferralCode = ReferralCode(user.Email);
+            user.UpdatedAt = AppClock.Now;
+            await _db.SaveChangesAsync(ct);
+        }
+        return user.Referral.ReferralCode;
     }
 
     private async Task<AccountInvite?> FindAsync(string? token, CancellationToken ct)

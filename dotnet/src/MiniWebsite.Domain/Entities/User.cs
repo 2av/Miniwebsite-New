@@ -72,6 +72,9 @@ public class UserPaymentDetails
     public string? PhonePay { get; set; }
     public string? RzPay { get; set; }
     public string? RzPay2 { get; set; }
+    public string? GooglePayQr { get; set; }
+    public string? PaytmQr { get; set; }
+    public string? PhonePayQr { get; set; }
 }
 
 public class UserReferralSettings

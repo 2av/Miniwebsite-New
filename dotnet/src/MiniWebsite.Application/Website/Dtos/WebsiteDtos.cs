@@ -29,15 +29,18 @@ public record UpdateCompanyDetailsRequest(
     string? LogoLocation, string? HeroImageLocation,
     string? BusinessProfileType, string? BusinessType, string? BusinessOperationArea, string? BusinessOperationLocations);
 
-public record SocialLinksDto(string? Fb, string? Twitter, string? Instagram, string? Linkedin, string? Youtube, string? Pinterest);
-public record UpdateSocialLinksRequest(string? Fb, string? Twitter, string? Instagram, string? Linkedin, string? Youtube, string? Pinterest);
+public record SocialLinksDto(string? Fb, string? Twitter, string? Instagram, string? Linkedin, string? Youtube, string? Pinterest, string? Google = null);
+public record UpdateSocialLinksRequest(string? Fb, string? Twitter, string? Instagram, string? Linkedin, string? Youtube, string? Pinterest, string? Google = null);
 
 public record PaymentDetailsDto(
     string? Paytm, string? GooglePay, string? PhonePay,
-    string? AccountNo, string? Ifsc, string? AcName, string? BankName, string? AcType);
+    string? AccountNo, string? Ifsc, string? AcName, string? BankName, string? AcType,
+    string? PaytmQr = null, string? GooglePayQr = null, string? PhonePayQr = null,
+    string? PaytmQrUrl = null, string? GooglePayQrUrl = null, string? PhonePayQrUrl = null);
 public record UpdatePaymentDetailsRequest(
     string? Paytm, string? GooglePay, string? PhonePay,
-    string? AccountNo, string? Ifsc, string? AcName, string? BankName, string? AcType);
+    string? AccountNo, string? Ifsc, string? AcName, string? BankName, string? AcType,
+    string? PaytmQr = null, string? GooglePayQr = null, string? PhonePayQr = null);
 
 public record VideosDto(IReadOnlyList<string?> Urls);
 public record UpdateVideosRequest(IReadOnlyList<string?> Urls);

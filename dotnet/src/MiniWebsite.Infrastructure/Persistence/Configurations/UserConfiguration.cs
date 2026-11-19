@@ -67,6 +67,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             p.Property(x => x.PhonePay).HasMaxLength(200);
             p.Property(x => x.RzPay).HasMaxLength(300);
             p.Property(x => x.RzPay2).HasMaxLength(300);
+            p.Property(x => x.GooglePayQr).HasMaxLength(500);
+            p.Property(x => x.PaytmQr).HasMaxLength(500);
+            p.Property(x => x.PhonePayQr).HasMaxLength(500);
         });
         builder.Navigation(x => x.Payment).IsRequired();
 

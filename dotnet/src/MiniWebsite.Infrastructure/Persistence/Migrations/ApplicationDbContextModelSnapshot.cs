@@ -2369,14 +2369,14 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<DateTime?>("ReferralEligibleAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("RefundStatus")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("RefundStatusDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("ReferralEligibleAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<int>("RoleId")
@@ -3033,13 +3033,25 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                                 .HasMaxLength(200)
                                 .HasColumnType("varchar(200)");
 
+                            b1.Property<string>("GooglePayQr")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
                             b1.Property<string>("Paytm")
                                 .HasMaxLength(200)
                                 .HasColumnType("varchar(200)");
 
+                            b1.Property<string>("PaytmQr")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
+
                             b1.Property<string>("PhonePay")
                                 .HasMaxLength(200)
                                 .HasColumnType("varchar(200)");
+
+                            b1.Property<string>("PhonePayQr")
+                                .HasMaxLength(500)
+                                .HasColumnType("varchar(500)");
 
                             b1.Property<string>("RzPay")
                                 .HasMaxLength(300)

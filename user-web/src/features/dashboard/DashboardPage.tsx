@@ -181,7 +181,6 @@ export function DashboardPage() {
   const [stage, setStage] = useState('')
   const [referralEligibleAt, setReferralEligibleAt] = useState<string | null>(null)
   const [feeLabel, setFeeLabel] = useState('DM Membership fees')
-  const [readyToSell, setReadyToSell] = useState(false)
   const [payouts, setPayouts] = useState<{ earningId: number; invoiceNumber: string; amount: number; referredEmail?: string | null }[]>([])
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null)
   const [shopForm, setShopForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
@@ -210,7 +209,6 @@ export function DashboardPage() {
             setStage(String(me.onboardingStage ?? me.OnboardingStage ?? ''))
             setReferralEligibleAt((me.referralEligibleAt ?? me.ReferralEligibleAt ?? null) as string | null)
             setFeeLabel(String(me.membershipFeeLabel ?? me.MembershipFeeLabel ?? 'DM Membership fees'))
-            setReadyToSell(Boolean(me.readyToInitiateSales ?? me.ReadyToInitiateSales))
           }
         } catch {
           // title falls back to the login role
@@ -298,10 +296,6 @@ export function DashboardPage() {
 
         {loading && <p>Loading dashboard...</p>}
         {error && <div className="alert alert-danger">{error}</div>}
-
-        {!loading && !error && readyToSell && (
-          <div className="alert alert-success">Ready to Initiate Sales</div>
-        )}
 
         {!loading && !error && paymentDue && (
           <div className="card mb-4 sb-dash-panel">

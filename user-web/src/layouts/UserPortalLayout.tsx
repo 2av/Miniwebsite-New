@@ -71,9 +71,9 @@ function PortalPageGate({
 }
 
 export function UserPortalLayout() {
-  usePortalStyles()
-  const session = useAuthSession()
   const location = useLocation()
+  usePortalStyles(location.pathname !== '/website/edit')
+  const session = useAuthSession()
   const [searchParams] = useSearchParams()
   const profileRef = useRef<HTMLLIElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -248,6 +248,14 @@ export function UserPortalLayout() {
       return null
     }
     return <Navigate to={LOGIN_PATH} replace />
+  }
+
+  if (location.pathname === '/website/edit') {
+    if (!accessReady) return null
+    if (!canAccessPortalPath(rolePrefix || session.rolePrefix, location.pathname, gate)) {
+      return <Navigate to="/dashboard" replace />
+    }
+    return <Outlet />
   }
 
   const displayName = session.name || session.email.split('@')[0] || 'User'

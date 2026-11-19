@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { fetchDashboardDetails, fetchReferralDetails } from '@/features/manage-users/api'
 import {
-  createSalesChannelPartner,
   inviteSalesChannelPartner,
   fetchSalesChannelPartners,
   resetSalesChannelPartnerPassword,
@@ -325,12 +324,8 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
   }
 
   const submitForm = async () => {
-    const inviteOnly = ['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner'].includes(slug)
-    const autoPassword = slug === 'field-sales-team'
-    if (!inviteOnly && !form.firstName.trim()) return toast.push('First Name is required', 'error')
     if (!form.email.trim() || !form.email.includes('@')) return toast.push('A valid email is required', 'error')
-    if (!editing && !inviteOnly && !autoPassword && form.password.trim().length < 6)
-      return toast.push('Password must be at least 6 characters', 'error')
+    if (editing && !form.firstName.trim()) return toast.push('First Name is required', 'error')
 
     const payload = {
       firstName: form.firstName.trim(),
@@ -345,10 +340,8 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
     try {
       const res = editing
         ? await updateSalesChannelPartner(slug, editing.id, payload)
-        : inviteOnly
-          ? await inviteSalesChannelPartner(slug, payload.email)
-          : await createSalesChannelPartner(slug, { ...payload, password: autoPassword ? 'generated' : form.password })
-      toast.push(res.message || (editing ? `${roleName} updated` : `${roleName} added`), 'success')
+        : await inviteSalesChannelPartner(slug, payload.email)
+      toast.push(res.message || (editing ? `${roleName} updated` : 'Registration link sent'), 'success')
       setFormOpen(false)
       await invalidate()
     } catch (e) {
@@ -619,77 +612,68 @@ function SalesChannelPartnerPage({ partner }: { partner: SalesChannelPartnerType
           <DrawerHeader>
             <DrawerTitle>{editing ? `Edit ${roleName}` : `Add ${roleName}`}</DrawerTitle>
             <DrawerDescription>
-              Role is set automatically to <strong>{roleName}</strong>
-              {role?.prefix ? ` (${role.prefix})` : ''}
+              {editing
+                ? <>Role stays <strong>{roleName}</strong>{role?.prefix ? ` (${role.prefix})` : ''}.</>
+                : <>A registration link is emailed to this address. The link is valid for 48 hours.</>}
             </DrawerDescription>
           </DrawerHeader>
           <div className="space-y-3 px-4 pb-2">
             <Field label="Role">
               <Input value={role ? `${role.roleName} (${role.prefix})` : roleName} disabled />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="First Name *">
+            {editing ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="First Name *">
+                    <Input
+                      value={form.firstName}
+                      onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="Last Name">
+                    <Input
+                      value={form.lastName}
+                      onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+                <Field label="Email *">
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  />
+                </Field>
+                <Field label="Mobile">
+                  <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="District">
+                    <Input
+                      value={form.district}
+                      onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
+                    />
+                  </Field>
+                  <Field label="State">
+                    <Input value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
+                  </Field>
+                </div>
+              </>
+            ) : (
+              <Field label="Email *">
                 <Input
-                  value={form.firstName}
-                  onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                />
-              </Field>
-              <Field label="Last Name">
-                <Input
-                  value={form.lastName}
-                  onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                />
-              </Field>
-            </div>
-            <Field label="Email *">
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </Field>
-            <Field label="Mobile">
-              <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="District">
-                <Input
-                  value={form.district}
-                  onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
-                />
-              </Field>
-              <Field label="State">
-                <Input value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} />
-              </Field>
-            </div>
-            {!editing && !['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner', 'field-sales-team'].includes(slug) && (
-              <Field label="Password *">
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                  placeholder="Minimum 6 characters"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="name@example.com"
                 />
               </Field>
             )}
           </div>
           <DrawerFooter>
             <Button onClick={() => void submitForm()} disabled={formBusy}>
-              {formBusy ? 'Saving…' : editing ? 'Update' : ['digital-marketing-partner', 'field-sales-partner', 'franchisee-partner'].includes(slug) ? 'Send registration link' : 'Create'}
+              {formBusy ? 'Saving…' : editing ? 'Update' : 'Send registration link'}
             </Button>
-            {!editing && slug === 'print-shop-partner' ? (
-              <Button
-                variant="outline"
-                disabled={formBusy || !form.email.includes('@')}
-                onClick={() => {
-                  void inviteSalesChannelPartner(slug, form.email.trim())
-                    .then((res) => toast.push(res.message || 'Account link sent', 'success'))
-                    .catch((e) => toast.push(e instanceof ApiError ? e.message : 'Could not send the link', 'error'))
-                }}
-              >
-                Email account link
-              </Button>
-            ) : null}
             <DrawerClose asChild>
               <Button variant="outline" disabled={formBusy}>
                 Cancel

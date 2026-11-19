@@ -173,28 +173,14 @@ const WEBSITE_CORE: Omit<WebsiteNavItem, 'url' | 'locked'>[] = [
   { id: 'ws_dashboard', label: 'Dashboard', icon: 'tachometer' },
   { id: 'ws_business_name', label: 'Business Name', icon: 'edit', separatorBefore: true },
   { id: 'ws_select_theme', label: 'Select Theme', icon: 'paint-brush' },
-  { id: 'ws_company_details', label: 'Company Details', icon: 'building' },
-  { id: 'ws_services', label: 'Services', icon: 'cogs' },
-  { id: 'ws_special_offers', label: 'Special Offers', icon: 'tag' },
-  { id: 'ws_products', label: 'Details & Pricing', icon: 'shopping-cart' },
-  { id: 'ws_videos', label: 'Videos', icon: 'video-camera' },
-  { id: 'ws_image_gallery', label: 'Image Gallery', icon: 'image' },
-  { id: 'ws_payment_details', label: 'Payment Details', icon: 'credit-card' },
-  { id: 'ws_social_links', label: 'Social Links', icon: 'share-alt' },
+  { id: 'ws_edit_profile', label: 'Edit Profile', icon: 'edit' },
 ]
 
 const STEP_PATH: Record<string, string> = {
   ws_dashboard: '/dashboard',
   ws_business_name: '/website/business-name',
   ws_select_theme: '/website/select-theme',
-  ws_company_details: '/website/company-details',
-  ws_services: '/website/services',
-  ws_special_offers: '/website/special-offers',
-  ws_products: '/website/products',
-  ws_videos: '/website/videos',
-  ws_image_gallery: '/website/image-gallery',
-  ws_payment_details: '/website/payment-details',
-  ws_social_links: '/website/social-links',
+  ws_edit_profile: '/website/edit',
 }
 
 /**

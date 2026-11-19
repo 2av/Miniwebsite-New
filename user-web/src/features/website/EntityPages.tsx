@@ -570,6 +570,10 @@ export function ImageGalleryPage() {
       setErr('Choose an image first.')
       return
     }
+    if (items.length >= 10) {
+      setErr('You can add up to 10 gallery images.')
+      return
+    }
     try {
       setErr(null)
       await websiteApi.createGallery(cardId, email, { galleryImage: imageKey })

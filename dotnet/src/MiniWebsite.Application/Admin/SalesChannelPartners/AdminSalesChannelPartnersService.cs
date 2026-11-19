@@ -182,18 +182,16 @@ public class AdminSalesChannelPartnersService : IAdminSalesChannelPartnersServic
         return ApiResult<SalesChannelPartnerRowDto>.Ok(MapRow(user, null), message);
     }
 
-    public Task<ApiResult> InviteAsync(string slug, string email, CancellationToken ct = default)
+    public Task<ApiResult> InviteAsync(string slug, string email, int? invitedByUserId, CancellationToken ct = default)
     {
-        return InviteCoreAsync(slug, email, ct);
+        return InviteCoreAsync(slug, email, invitedByUserId, ct);
     }
 
-    private async Task<ApiResult> InviteCoreAsync(string slug, string email, CancellationToken ct)
+    private async Task<ApiResult> InviteCoreAsync(string slug, string email, int? invitedByUserId, CancellationToken ct)
     {
         var (partner, _, error) = await ResolveAsync(slug, ct);
         if (error != null) return ApiResult.Fail(error);
-        if (string.Equals(partner.Prefix, RolePrefixes.FranchisePartner, StringComparison.OrdinalIgnoreCase))
-            return await _invites.SendFranchiseRegistrationLinkAsync(email, "", ct);
-        return await _invites.SendPartnerInviteAsync(email, partner.Prefix, null, ct);
+        return await _invites.SendPartnerInviteAsync(email, partner.Prefix, invitedByUserId, ct);
     }
 
     public async Task<ApiResult<SalesChannelPartnerRowDto>> UpdateAsync(

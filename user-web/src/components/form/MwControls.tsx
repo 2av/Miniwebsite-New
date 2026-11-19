@@ -58,6 +58,7 @@ export function MwStepActions({
   disabled,
   submit = true,
   onSave,
+  onNext,
 }: {
   back?: string
   next?: string
@@ -68,6 +69,7 @@ export function MwStepActions({
   disabled?: boolean
   submit?: boolean
   onSave?: () => void
+  onNext?: () => void
 }) {
   return (
     <div className="Product-ServicesBtn mw-btn-row d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
@@ -94,12 +96,21 @@ export function MwStepActions({
         <span aria-hidden />
       )}
       {next ? (
-        <Link to={next} className="mw-btn mw-btn-next">
-          <span>{nextLabel}</span>
-          <span className="mw-btn-angle">
-            <i className="fa fa-angle-right" aria-hidden />
-          </span>
-        </Link>
+        onNext ? (
+          <button type="button" className="mw-btn mw-btn-next" disabled={busy || disabled} onClick={onNext}>
+            <span>{nextLabel}</span>
+            <span className="mw-btn-angle">
+              <i className="fa fa-angle-right" aria-hidden />
+            </span>
+          </button>
+        ) : (
+          <Link to={next} className="mw-btn mw-btn-next">
+            <span>{nextLabel}</span>
+            <span className="mw-btn-angle">
+              <i className="fa fa-angle-right" aria-hidden />
+            </span>
+          </Link>
+        )
       ) : (
         <span aria-hidden />
       )}

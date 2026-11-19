@@ -72,7 +72,11 @@ public record PublicOfferDto(
     string ImageUrl,
     string? Badge,
     int DiscountPercentage,
-    string? Status);
+    string? Status,
+    DateOnly? StartDate = null,
+    TimeOnly? StartTime = null,
+    DateOnly? EndDate = null,
+    TimeOnly? EndTime = null);
 public record PublicProductDto(
     string Name,
     string? Description,

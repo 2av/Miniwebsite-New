@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiError } from '@/shared/api/client'
+import { ApiError, apiGet, apiSend } from '@/shared/api/client'
 import { loginApi } from '@/features/auth/api'
 import { setAuthSession } from '@/shared/auth/session'
 import type { UserRole } from '@/shared/types/api'
@@ -20,6 +20,8 @@ export function RegisterPage({ kind }: Props) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const refFromUrl = params.get('ref') || ''
+  const token = params.get('token') || ''
+  const emailLocked = token.length > 0
 
   const meta = useMemo(
     () =>
@@ -56,6 +58,26 @@ export function RegisterPage({ kind }: Props) {
   const [errors, setErrors] = useState<string[]>([])
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [inviteReady, setInviteReady] = useState(!emailLocked)
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const raw = await apiGet<Record<string, unknown>>('/api/v1/registration/partner', { token })
+        if (cancelled) return
+        setEmail(String(raw.email ?? raw.Email ?? ''))
+        setReferralCode(String(raw.referralCode ?? raw.ReferralCode ?? ''))
+        setInviteReady(true)
+      } catch (e) {
+        if (!cancelled) setErrors([e instanceof Error ? e.message : 'This registration link is not valid.'])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
 
   async function onRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -77,6 +99,24 @@ export function RegisterPage({ kind }: Props) {
 
     setBusy(true)
     try {
+      if (token) {
+        if (!inviteReady) return
+        const res = await apiSend('post', '/api/v1/registration/partner', {
+          token,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim(),
+          password,
+          state,
+          referralCode: referralCode.trim() || null,
+        })
+        sessionStorage.setItem(
+          'mw_registration_success',
+          JSON.stringify({ kind, email: email.trim(), name: `${firstName} ${lastName}`.trim(), message: res.message }),
+        )
+        navigate(meta.successPath, { replace: true })
+        return
+      }
       const body: Record<string, unknown> = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -203,6 +243,8 @@ export function RegisterPage({ kind }: Props) {
                 placeholder="Email*"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                readOnly={emailLocked}
+                disabled={emailLocked}
                 required
               />
             </div>
@@ -254,15 +296,18 @@ export function RegisterPage({ kind }: Props) {
                 className="form-control"
                 placeholder="Referral Code (Optional)"
                 value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value)}
-                readOnly={Boolean(refFromUrl)}
+                onChange={(e) => {
+                  if (!emailLocked) setReferralCode(e.target.value)
+                }}
+                readOnly={emailLocked || Boolean(refFromUrl)}
+                disabled={emailLocked}
               />
             </div>
             <input
               type="submit"
               className="btn btn-login"
               value={busy ? 'PLEASE WAIT...' : 'CREATE ACCOUNT'}
-              disabled={busy}
+              disabled={busy || (emailLocked && !inviteReady)}
             />
           </form>
         )}

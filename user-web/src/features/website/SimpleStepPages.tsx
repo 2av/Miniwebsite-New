@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { stepPath } from '@/features/website/cardContext'
+import { normalizeSocialLink, SOCIAL_LINK_ERROR, SOCIAL_LINK_PLACEHOLDER, socialLinkError, UPI_ERROR, UPI_PLACEHOLDER, upiError, VIDEO_LINK_ERROR, VIDEO_LINK_LIMIT, VIDEO_LINK_PLACEHOLDER, videoLinkError } from '@/features/website/profileFieldRules'
 import { pickVal, websiteApi } from '@/features/website/websiteApi'
 import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayout'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
@@ -9,7 +10,8 @@ import { MwAlert, MwField, MwInput, MwStepActions } from '@/components/form/MwCo
 
 export function VideosPage() {
   const { cardId, email } = useOutletContext<WebsiteOutletContext>()
-  const [urls, setUrls] = useState<string[]>(Array(10).fill(''))
+  const [urls, setUrls] = useState<string[]>(() => Array(VIDEO_LINK_LIMIT).fill(''))
+  const [slotErrors, setSlotErrors] = useState<(string | null)[]>(() => Array(VIDEO_LINK_LIMIT).fill(null))
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
@@ -19,8 +21,8 @@ export function VideosPage() {
       try {
         const raw = await websiteApi.getVideos(cardId, email)
         const list = ((raw.urls ?? raw.Urls) as string[]) || []
-        const next = Array(10).fill('')
-        list.slice(0, 10).forEach((u, i) => {
+        const next = Array(VIDEO_LINK_LIMIT).fill('')
+        list.slice(0, VIDEO_LINK_LIMIT).forEach((u, i) => {
           next[i] = u || ''
         })
         setUrls(next)
@@ -33,7 +35,15 @@ export function VideosPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!cardId) return
+    const nextErrors = urls.map((url) => videoLinkError(url))
+    setSlotErrors(nextErrors)
+    if (nextErrors.some(Boolean)) {
+      setErr(VIDEO_LINK_ERROR)
+      setMsg(null)
+      return
+    }
     try {
+      setErr(null)
       const res = await websiteApi.putVideos(cardId, email, urls.map((u) => u.trim() || null))
       setMsg(res.message || 'Saved')
     } catch (ex) {
@@ -43,7 +53,7 @@ export function VideosPage() {
 
   return (
     <>
-      <PortalPageHeader title="YouTube Videos" />
+      <PortalPageHeader title="Videos" />
       <div className="card mb-4 mw-card">
       <div className="card-body mw-card-body">
         {err ? <MwAlert tone="danger">{err}</MwAlert> : null}
@@ -54,10 +64,17 @@ export function VideosPage() {
               <MwField label={`Video ${i + 1}`} key={i} htmlFor={`video-${i}`}>
                 <MwInput
                   id={`video-${i}`}
-                  placeholder="YouTube URL"
+                  placeholder={VIDEO_LINK_PLACEHOLDER}
                   value={u}
-                  onChange={(e) => setUrls((arr) => arr.map((x, idx) => (idx === i ? e.target.value : x)))}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setUrls((arr) => arr.map((x, idx) => (idx === i ? value : x)))
+                    setSlotErrors((current) =>
+                      current.map((item, index) => (index === i ? (item && value.trim() ? videoLinkError(value) : null) : item)),
+                    )
+                  }}
                 />
+                {slotErrors[i] ? <span style={{ display: 'block', color: '#b42318', fontWeight: 500, marginTop: 4 }}>{slotErrors[i]}</span> : null}
               </MwField>
             ))}
           </div>
@@ -112,7 +129,14 @@ export function PaymentDetailsPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!cardId) return
+    const format = upiError(form.googlePay) || upiError(form.phonePay) || upiError(form.paytm)
+    if (format) {
+      setErr(format)
+      setMsg(null)
+      return
+    }
     try {
+      setErr(null)
       const res = await websiteApi.putPayment(cardId, email, form)
       setMsg(res.message || 'Saved')
     } catch (ex) {
@@ -142,7 +166,15 @@ export function PaymentDetailsPage() {
               ] as const
             ).map(([k, label]) => (
               <MwField label={label} key={k} htmlFor={`pay-${k}`}>
-                <MwInput id={`pay-${k}`} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+                <MwInput
+                  id={`pay-${k}`}
+                  placeholder={k === 'googlePay' || k === 'phonePay' || k === 'paytm' ? UPI_PLACEHOLDER : undefined}
+                  value={form[k]}
+                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                />
+                {k === 'googlePay' || k === 'phonePay' || k === 'paytm' ? (
+                  upiError(form[k]) && form[k].trim() ? <span style={{ display: 'block', color: '#b42318', fontWeight: 500, marginTop: 4 }}>{UPI_ERROR}</span> : null
+                ) : null}
               </MwField>
             ))}
           </div>
@@ -167,6 +199,7 @@ export function SocialLinksPage() {
     linkedin: '',
     youtube: '',
     pinterest: '',
+    google: '',
   })
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -183,6 +216,7 @@ export function SocialLinksPage() {
           linkedin: String(pickVal(raw, 'linkedin', 'Linkedin') ?? ''),
           youtube: String(pickVal(raw, 'youtube', 'Youtube') ?? ''),
           pinterest: String(pickVal(raw, 'pinterest', 'Pinterest') ?? ''),
+          google: String(pickVal(raw, 'google', 'Google') ?? ''),
         })
       } catch (e) {
         setErr(e instanceof Error ? e.message : 'Failed to load')
@@ -193,8 +227,17 @@ export function SocialLinksPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault()
     if (!cardId) return
+    const keys = ['fb', 'twitter', 'instagram', 'linkedin', 'youtube', 'pinterest', 'google'] as const
+    if (keys.some((key) => socialLinkError(form[key]))) {
+      setErr(SOCIAL_LINK_ERROR)
+      setMsg(null)
+      return
+    }
     try {
-      const res = await websiteApi.putSocial(cardId, email, form)
+      setErr(null)
+      const next = { ...form }
+      for (const key of keys) next[key] = normalizeSocialLink(form[key])
+      const res = await websiteApi.putSocial(cardId, email, next)
       setMsg(res.message || 'Saved')
     } catch (ex) {
       setErr(ex instanceof ApiError ? ex.message : 'Save failed')
@@ -218,10 +261,19 @@ export function SocialLinksPage() {
                 ['linkedin', 'LinkedIn'],
                 ['youtube', 'YouTube'],
                 ['pinterest', 'Pinterest'],
+                ['google', 'Google'],
               ] as const
             ).map(([k, label]) => (
               <MwField label={label} key={k} htmlFor={`social-${k}`}>
-                <MwInput id={`social-${k}`} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+                <MwInput
+                  id={`social-${k}`}
+                  placeholder={SOCIAL_LINK_PLACEHOLDER}
+                  value={form[k]}
+                  onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                />
+                {socialLinkError(form[k]) && form[k].trim() ? (
+                  <span style={{ display: 'block', color: '#b42318', fontWeight: 500, marginTop: 4 }}>{SOCIAL_LINK_ERROR}</span>
+                ) : null}
               </MwField>
             ))}
           </div>

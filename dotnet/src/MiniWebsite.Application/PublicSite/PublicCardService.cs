@@ -107,7 +107,7 @@ public class PublicCardService : IPublicCardService
         var heroCover = WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, card.DHeroImageLocation);
         if (string.IsNullOrEmpty(heroCover)) heroCover = defaultUrl;
         var logo = WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, card.DLogoLocation);
-        if (string.IsNullOrEmpty(logo)) logo = heroCover;
+        if (string.IsNullOrEmpty(logo)) logo = defaultUrl;
 
         var heroName = FirstNonEmpty(
             card.DCompName,
@@ -136,6 +136,7 @@ public class PublicCardService : IPublicCardService
         AddSocial(social, "x-twitter", card.DTwitter);
         AddSocial(social, "youtube", card.DYoutube);
         AddSocial(social, "pinterest", card.DPinterest);
+        AddSocial(social, "google", card.DWebsite2);
 
         var services = await _db.CardServices.AsNoTracking()
             .Where(s => s.CardId == card.Id)
@@ -165,7 +166,11 @@ public class PublicCardService : IPublicCardService
                     defaultUrl)!,
                 o.Badge,
                 o.DiscountPercentage,
-                o.Status))
+                o.Status,
+                o.StartDate,
+                o.StartTime,
+                o.EndDate,
+                o.EndTime))
             .ToList();
 
         var products = await _db.CardProducts.AsNoTracking()
@@ -185,7 +190,9 @@ public class PublicCardService : IPublicCardService
                 p.PriceType,
                 p.PricingUnit,
                 p.CtaText,
-                null))
+                string.IsNullOrWhiteSpace(p.CategorySource) || p.CategorySource.Equals("system", StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : p.CategorySource.Trim()))
             .ToList();
 
         var gallery = await _db.CardGallery.AsNoTracking()
@@ -198,7 +205,16 @@ public class PublicCardService : IPublicCardService
             .Cast<string>()
             .ToList();
 
-        var videoUrls = CollectVideos(card);
+        var videoRows = await _db.CardVideos.AsNoTracking()
+            .Where(v => v.CardId == card.Id)
+            .OrderBy(v => v.DisplayOrder).ThenBy(v => v.Id)
+            .Select(v => v.Url)
+            .ToListAsync(ct);
+        var videoUrls = videoRows
+            .Select(url => (url ?? "").Trim())
+            .Where(url => url.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var paymentQrs = await LoadPaymentQrsAsync(card, ct);
 
@@ -238,26 +254,28 @@ public class PublicCardService : IPublicCardService
         // Greenfield cards table has no QR image blobs (legacy digi_card columns).
         var pay = card.User?.Payment;
         var list = new List<PublicPaymentQrDto>();
-        AddQr(list, "Paytm", null, pay?.Paytm);
-        AddQr(list, "Google Pay", null, pay?.GooglePay);
-        AddQr(list, "PhonePe", null, pay?.PhonePay);
+        AddQr(list, "Paytm", QrUrl(pay?.PaytmQr), pay?.Paytm);
+        AddQr(list, "Google Pay", QrUrl(pay?.GooglePayQr), pay?.GooglePay);
+        AddQr(list, "PhonePe", QrUrl(pay?.PhonePayQr), pay?.PhonePay);
         return Task.FromResult<IReadOnlyList<PublicPaymentQrDto>>(list);
     }
 
-    private static void AddQr(List<PublicPaymentQrDto> list, string label, byte[]? blob, string? upi)
+    private string QrUrl(string? key) =>
+        WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.PaymentDetailsFolder, key);
+
+    private static void AddQr(List<PublicPaymentQrDto> list, string label, string? imageUrl, string? upi)
     {
         var upiTrim = (upi ?? "").Trim();
-        string? dataUrl = null;
-        if (blob is { Length: > 0 })
-            dataUrl = "data:image/*;base64," + Convert.ToBase64String(blob);
-        if (dataUrl == null && upiTrim.Length == 0) return;
-        list.Add(new PublicPaymentQrDto(label, dataUrl, string.IsNullOrEmpty(upiTrim) ? null : upiTrim));
+        var image = string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim();
+        if (image == null && upiTrim.Length == 0) return;
+        list.Add(new PublicPaymentQrDto(label, image, string.IsNullOrEmpty(upiTrim) ? null : upiTrim));
     }
 
     private async Task<string?> ResolveCategoryNameAsync(string? primaryId, CancellationToken ct)
     {
-        if (!int.TryParse((primaryId ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) || id <= 0)
-            return null;
+        var text = (primaryId ?? "").Trim();
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) || id <= 0)
+            return string.IsNullOrEmpty(text) ? null : text;
         try
         {
             var name = await _db.ProductCategories.AsNoTracking()
@@ -271,22 +289,6 @@ public class PublicCardService : IPublicCardService
         {
             return null;
         }
-    }
-
-    private static IReadOnlyList<string> CollectVideos(Card card)
-    {
-        string?[] slots =
-        [
-            card.DYoutube1, card.DYoutube2, card.DYoutube3, card.DYoutube4, card.DYoutube5,
-            card.DYoutube6, card.DYoutube7, card.DYoutube8, card.DYoutube9, card.DYoutube10,
-            card.DYoutube11, card.DYoutube12, card.DYoutube13, card.DYoutube14, card.DYoutube15,
-            card.DYoutube16, card.DYoutube17, card.DYoutube18, card.DYoutube19, card.DYoutube20
-        ];
-        return slots
-            .Select(s => (s ?? "").Trim())
-            .Where(s => s.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 
     private static IReadOnlyList<PublicBusinessHourDto> ParseBusinessHours(string? raw)

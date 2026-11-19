@@ -71,7 +71,7 @@ public partial class WebsiteService
         if (bytes.Length == 0 || bytes.Length > 2_500_000)
             return ApiResult<CompanyDetailsDto>.Fail("Image is too large (max 2.5MB).");
 
-        var storedName = (slot == "hero" ? "hero" : "logo") + ext;
+        var storedName = slot + "-" + Guid.NewGuid().ToString("N")[..12] + ext;
         string key;
         try
         {
@@ -118,8 +118,10 @@ public partial class WebsiteService
             return ApiResult<CompanyDetailsDto>.Fail("Unable to save image: " + ex.Message);
         }
 
+        var otherKey = (slot == "hero" ? card.DLogoLocation : card.DHeroImageLocation)?.Trim().Replace('\\', '/');
         if (!string.IsNullOrWhiteSpace(previous)
             && !string.Equals(previous, key, StringComparison.Ordinal)
+            && !string.Equals(previous, otherKey, StringComparison.OrdinalIgnoreCase)
             && _storage.IsUnder(previous, _storage.WebsitePrefix))
         {
             try { await _storage.DeleteAsync(previous, ct); } catch { /* the card now points at the new image */ }
@@ -182,6 +184,7 @@ public partial class WebsiteService
             "product" => "product",
             "offer" => "offer",
             "gallery" => "gallery",
+            "payment" => "payment",
             _ => "",
         };
         var documentLabel = slot switch
@@ -190,6 +193,7 @@ public partial class WebsiteService
             "product" => "Product",
             "offer" => "Offer",
             "gallery" => "Gallery",
+            "payment" => "Payment",
             _ => "",
         };
         if (filePrefix.Length == 0)
@@ -217,6 +221,8 @@ public partial class WebsiteService
         var bytes = buffer.ToArray();
         if (bytes.Length == 0 || bytes.Length > 2_500_000)
             return ApiResult<WebsiteImageDto>.Fail("Image is too large (max 2.5MB).");
+        if (slot == "payment" && !IsSquareImage(bytes))
+            return ApiResult<WebsiteImageDto>.Fail("QR image must be square (1:1).");
 
         var stamp = AppClock.Now.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture);
         var storedName = filePrefix + "_" + stamp + prepared.Extension;
@@ -310,7 +316,8 @@ public partial class WebsiteService
         return name.StartsWith("service_", StringComparison.OrdinalIgnoreCase)
             || name.StartsWith("product_", StringComparison.OrdinalIgnoreCase)
             || name.StartsWith("offer_", StringComparison.OrdinalIgnoreCase)
-            || name.StartsWith("gallery_", StringComparison.OrdinalIgnoreCase);
+            || name.StartsWith("gallery_", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("payment_", StringComparison.OrdinalIgnoreCase);
     }
 
     private readonly record struct PreparedWebsiteImage(string Extension, string ContentType, string? Error);
@@ -343,5 +350,79 @@ public partial class WebsiteService
             };
         }
         return new PreparedWebsiteImage(ext, type, null);
+    }
+
+    private static bool IsSquareImage(byte[] data)
+    {
+        if (!TryImageSize(data, out var width, out var height)) return false;
+        return width > 0 && width == height;
+    }
+
+    private static bool TryImageSize(byte[] data, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        if (data.Length >= 24 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        {
+            width = (data[16] << 24) | (data[17] << 16) | (data[18] << 8) | data[19];
+            height = (data[20] << 24) | (data[21] << 16) | (data[22] << 8) | data[23];
+            return width > 0 && height > 0;
+        }
+        if (data.Length >= 10 && data[0] == (byte)'G' && data[1] == (byte)'I' && data[2] == (byte)'F')
+        {
+            width = data[6] | (data[7] << 8);
+            height = data[8] | (data[9] << 8);
+            return width > 0 && height > 0;
+        }
+        if (data.Length >= 30 && data[0] == (byte)'R' && data[1] == (byte)'I' && data[2] == (byte)'F' && data[3] == (byte)'F'
+            && data[8] == (byte)'W' && data[9] == (byte)'E' && data[10] == (byte)'B' && data[11] == (byte)'P')
+        {
+            var chunk = System.Text.Encoding.ASCII.GetString(data, 12, 4);
+            if (chunk == "VP8X")
+            {
+                width = 1 + (data[24] | (data[25] << 8) | (data[26] << 16));
+                height = 1 + (data[27] | (data[28] << 8) | (data[29] << 16));
+                return width > 0 && height > 0;
+            }
+            if (chunk == "VP8 " && data.Length >= 30 && (data[20] & 1) == 0 && data[23] == 0x9D && data[24] == 0x01 && data[25] == 0x2A)
+            {
+                width = (data[26] | (data[27] << 8)) & 0x3FFF;
+                height = (data[28] | (data[29] << 8)) & 0x3FFF;
+                return width > 0 && height > 0;
+            }
+            if (chunk == "VP8L" && data.Length >= 25 && data[20] == 0x2F)
+            {
+                var bits = data[21] | (data[22] << 8) | (data[23] << 16) | (data[24] << 24);
+                width = (bits & 0x3FFF) + 1;
+                height = ((bits >> 14) & 0x3FFF) + 1;
+                return width > 0 && height > 0;
+            }
+            return false;
+        }
+        if (data.Length < 4 || data[0] != 0xFF || data[1] != 0xD8) return false;
+        var index = 2;
+        while (index + 8 < data.Length)
+        {
+            if (data[index] != 0xFF)
+            {
+                index++;
+                continue;
+            }
+            while (index < data.Length && data[index] == 0xFF) index++;
+            if (index >= data.Length) return false;
+            var marker = data[index++];
+            if (marker is 0xD8 or 0xD9 or 0x01 || marker is >= 0xD0 and <= 0xD7) continue;
+            if (index + 1 >= data.Length) return false;
+            var length = (data[index] << 8) | data[index + 1];
+            if (length < 2 || index + length > data.Length) return false;
+            if (marker is 0xC0 or 0xC1 or 0xC2 or 0xC3 or 0xC5 or 0xC6 or 0xC7 or 0xC9 or 0xCA or 0xCB or 0xCD or 0xCE or 0xCF)
+            {
+                height = (data[index + 3] << 8) | data[index + 4];
+                width = (data[index + 5] << 8) | data[index + 6];
+                return width > 0 && height > 0;
+            }
+            index += length;
+        }
+        return false;
     }
 }

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { UserPortalLayout } from '@/layouts/UserPortalLayout'
 import { SharebizzMaintenancePage } from '@/features/marketing/SharebizzMaintenancePage'
@@ -29,6 +29,7 @@ import {
 import { WebsiteBuilderLayout } from '@/features/website/WebsiteBuilderLayout'
 import { BusinessNamePage } from '@/features/website/BusinessNamePage'
 import { SelectThemePage } from '@/features/website/SelectThemePage'
+import { ProfileEditorPage } from '@/features/website/ProfileEditorPage'
 import { CompanyDetailsPage } from '@/features/website/CompanyDetailsPage'
 import {
   ServicesPage,
@@ -40,10 +41,14 @@ import { VideosPage, PaymentDetailsPage, SocialLinksPage } from '@/features/webs
 import { PaymentBridgePage } from '@/features/payment/PaymentBridgePage'
 import { DbProfilePaymentPage } from '@/features/payment/DbProfilePaymentPage'
 import { MembershipPaymentPage } from '@/features/payment/MembershipPaymentPage'
-import { PartnerInvitePage } from '@/features/registration/PartnerInvitePage'
 import { PaymentSuccessPage } from '@/features/payment/PaymentSuccessPage'
 import { PublicCardPage } from '@/features/public-card/PublicCardPage'
 import { clearAuthSession, LOGIN_PATH } from '@/shared/auth/session'
+
+function PartnerInviteRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/registration/customer${search}`} replace />
+}
 
 function LogoutPage() {
   clearAuthSession()
@@ -94,7 +99,7 @@ export function AppRouter() {
       <Route path="registration/customer" element={<RegisterPage kind="customer" />} />
       <Route path="registration/customer/success" element={<RegistrationSuccessPage />} />
       <Route path="registration/franchisee" element={<RegisterPage kind="franchisee" />} />
-      <Route path="registration/partner" element={<PartnerInvitePage />} />
+      <Route path="registration/partner" element={<PartnerInviteRedirect />} />
       <Route path="registration/franchisee/success" element={<RegistrationSuccessPage />} />
 
       <Route path="privacy-policy" element={<CmsContentPage contentType="privacy_policy" />} />
@@ -146,6 +151,7 @@ export function AppRouter() {
         <Route path="website" element={<WebsiteBuilderLayout />}>
           <Route path="business-name" element={<BusinessNamePage />} />
           <Route path="select-theme" element={<SelectThemePage />} />
+          <Route path="edit" element={<ProfileEditorPage />} />
           <Route path="company-details" element={<CompanyDetailsPage />} />
           <Route path="services" element={<ServicesPage />} />
           <Route path="special-offers" element={<SpecialOffersPage />} />

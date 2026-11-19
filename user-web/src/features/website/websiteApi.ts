@@ -82,7 +82,7 @@ export const websiteApi = {
   uploadCardImage: (
     cardId: number,
     email: string,
-    kind: 'product' | 'offer' | 'gallery',
+    kind: 'product' | 'offer' | 'gallery' | 'payment',
     file: File,
     onProgress?: (percent: number) => void,
   ) => {

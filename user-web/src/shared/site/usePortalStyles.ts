@@ -29,12 +29,42 @@ function ensureScript(src: string, id: string): Promise<void> {
   })
 }
 
+const PORTAL_STYLE_IDS = [
+  'mw-portal-bootstrap',
+  'mw-portal-datatables',
+  'mw-portal-fa4',
+  'mw-portal-styles',
+  'mw-portal-responsive',
+  'mw-portal-dashboard-pro',
+  'mw-portal-common',
+  'mw-portal-fa7',
+  'mw-portal-fa7-v4-face',
+  'mw-portal-fa7-v4-shims',
+  'mw-portal-inline',
+  'mw-portal-shell',
+]
+
+function setPortalSheetsDisabled(disabled: boolean) {
+  for (const id of PORTAL_STYLE_IDS) {
+    const link = document.getElementById(id) as HTMLLinkElement | null
+    if (link) link.disabled = disabled
+  }
+}
+
 /**
  * Same CSS stack as user/includes/header.php (portal pages).
  * Order matches PHP so overrides behave the same.
+ * The profile editor passes enabled=false so the public theme is not restyled.
  */
-export function usePortalStyles() {
+export function usePortalStyles(enabled = true) {
   useEffect(() => {
+    if (!enabled) {
+      document.body.classList.remove('sb-nav-fixed', 'mw-portal-app', 'sb-sidenav-toggled')
+      setPortalSheetsDisabled(true)
+      return () => setPortalSheetsDisabled(false)
+    }
+    let applyPortalTailwind = true
+    setPortalSheetsDisabled(false)
     ensureLink(
       'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap',
       'mw-portal-font',
@@ -75,6 +105,7 @@ export function usePortalStyles() {
 
     // PHP header also loads Tailwind CDN (preflight off) for utility classes on nav/profile
     void ensureScript('https://cdn.tailwindcss.com', 'mw-portal-tailwind').then(() => {
+      if (!applyPortalTailwind) return
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tw = (window as any).tailwind
       if (!tw) return
@@ -117,7 +148,8 @@ export function usePortalStyles() {
 
     document.body.classList.add('sb-nav-fixed', 'mw-portal-app')
     return () => {
+      applyPortalTailwind = false
       document.body.classList.remove('sb-nav-fixed', 'mw-portal-app', 'sb-sidenav-toggled')
     }
-  }, [])
+  }, [enabled])
 }
