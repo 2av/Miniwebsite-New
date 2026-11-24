@@ -75,6 +75,13 @@ public class WebsiteController : ControllerBase
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPut("{cardId:int}/appointment-booking")]
+    public async Task<ActionResult<ApiResult<CompanyDetailsDto>>> PutAppointmentBooking(int cardId, [FromQuery] string ownerEmail, [FromBody] UpdateAppointmentBookingRequest request, CancellationToken ct)
+    {
+        var result = await _website.UpdateAppointmentBookingAsync(cardId, ownerEmail, request, ct);
+        return result.Success ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("{cardId:int}/company-image")]
     [RequestSizeLimit(3_000_000)]
     [RequestFormLimits(MultipartBodyLengthLimit = 3_000_000)]

@@ -87,6 +87,9 @@ namespace MiniWebsite.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<bool>("AppointmentBookingEnabled")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("BusinessHours")
                         .HasColumnType("longtext");
 

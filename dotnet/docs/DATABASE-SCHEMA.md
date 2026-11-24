@@ -173,6 +173,7 @@ Entity `Card`. Primary key `Id`. Indexes: UNIQUE(DbCode) | INDEX(FranchiseeEmail
 |---|---|---|
 | Id | int identity | No |
 | AboutUs | varchar(2000) | Yes |
+| AppointmentBookingEnabled | tinyint(1) | No |
 | BusinessHours | longtext | Yes |
 | BusinessOperationArea | longtext | No |
 | BusinessOperationLocations | longtext | Yes |

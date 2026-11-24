@@ -16,7 +16,7 @@ import {
 } from '@/features/website/profileEditContext'
 import { CompanyProfileDialog } from '@/features/website/CompanyProfileDialog'
 import { EditorActions, EditorDialog, EditorField, MiniIcon } from '@/features/website/profileEditorUi'
-import { normalizeSocialLink, pinDigits, pincodeError, SOCIAL_LINK_ERROR, SOCIAL_LINK_PLACEHOLDER, socialLinkError, UPI_ERROR, UPI_PLACEHOLDER, upiError, VIDEO_LINK_ERROR, VIDEO_LINK_LIMIT, VIDEO_LINK_PLACEHOLDER, videoLinkError } from '@/features/website/profileFieldRules'
+import { ABOUT_PLACEHOLDER, aboutError, normalizeSocialLink, pinDigits, pincodeError, SOCIAL_LINK_ERROR, SOCIAL_LINK_PLACEHOLDER, socialLinkError, UPI_ERROR, UPI_PLACEHOLDER, upiError, VIDEO_LINK_ERROR, VIDEO_LINK_LIMIT, VIDEO_LINK_PLACEHOLDER, videoLinkError } from '@/features/website/profileFieldRules'
 
 const COMPANY_KEYS = [
   'firstName',
@@ -85,6 +85,7 @@ type OwnerData = {
   payment: PaymentForm
   logoUrl: string
   heroUrl: string
+  appointmentBookingEnabled: boolean
 }
 
 function textOf(value: unknown) {
@@ -94,6 +95,12 @@ function textOf(value: unknown) {
 function field(raw: Record<string, unknown>, key: string) {
   const pascal = key.charAt(0).toUpperCase() + key.slice(1)
   return textOf(pickVal(raw, key, pascal))
+}
+
+function boolField(raw: Record<string, unknown>, key: string) {
+  const pascal = key.charAt(0).toUpperCase() + key.slice(1)
+  const value = pickVal(raw, key, pascal)
+  return value === true || value === 1 || value === 'true' || value === '1'
 }
 
 function dateField(raw: Record<string, unknown>, key: string) {
@@ -277,21 +284,17 @@ function ThemeDrawer({
     <>
       <button type="button" aria-label="Close themes" onClick={onClose} style={themeBackdropStyle} />
       <aside role="dialog" aria-modal="true" aria-label="Change theme" style={themeDrawerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 18px 12px' }}>
-          <div>
-            <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#e2c27a', fontWeight: 700 }}>
-              Appearance
-            </div>
-            <h2 style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 700 }}>Change theme</h2>
-          </div>
+        <div style={{ height: 4, background: 'linear-gradient(90deg, #6C2EFF, #FF38BD, #FF8A00)' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 18px', borderBottom: '1px solid #e5e7eb' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 650, color: '#1f2937' }}>Change theme</h2>
           <button type="button" aria-label="Close" onClick={onClose} style={themeCloseStyle}>
             <i className="fas fa-times" />
           </button>
         </div>
-        <p style={{ margin: '0 18px 12px', color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 1.45 }}>
+        <p style={{ margin: '16px 18px 12px', color: '#64748b', fontSize: 14, lineHeight: 1.5 }}>
           Pick a theme. The profile updates on this page.
         </p>
-        {error ? <p style={{ margin: '0 18px 12px', color: '#fecaca', fontSize: 13 }}>{error}</p> : null}
+        {error ? <p style={{ margin: '0 18px 12px', color: '#b42318', fontSize: 13 }}>{error}</p> : null}
         <div style={{ overflowY: 'auto', padding: '0 18px 24px', display: 'grid', gap: 12 }}>
           {themes.map((theme) => {
             const active = selected === theme.cssValue
@@ -307,9 +310,9 @@ function ThemeDrawer({
                   textAlign: 'left',
                   padding: 8,
                   borderRadius: 16,
-                  border: active ? '2px solid #e2c27a' : '1px solid rgba(255,255,255,0.12)',
-                  background: active ? 'rgba(226, 194, 122, 0.12)' : 'rgba(255,255,255,0.04)',
-                  color: '#fff',
+                  border: active ? '2px solid #6C2EFF' : '1px solid #e5e7eb',
+                  background: active ? '#f3f0ff' : '#fff',
+                  color: '#1f2937',
                   cursor: busy ? 'wait' : 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -327,7 +330,8 @@ function ThemeDrawer({
                       borderRadius: 12,
                       display: 'grid',
                       placeItems: 'center',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: '#f8fafc',
+                      color: '#6C2EFF',
                       fontSize: 28,
                       fontWeight: 700,
                     }}
@@ -337,7 +341,7 @@ function ThemeDrawer({
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 6px 4px' }}>
                   <span style={{ fontWeight: 700 }}>{theme.name}</span>
-                  <span style={{ fontSize: 12, color: active ? '#e2c27a' : 'rgba(255,255,255,0.55)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 650, color: active ? '#6C2EFF' : '#64748b' }}>
                     {busy === theme.cssValue ? 'Applying…' : active ? 'Selected' : 'Select'}
                   </span>
                 </div>
@@ -356,7 +360,7 @@ const themeBackdropStyle = {
   zIndex: 88,
   border: 'none',
   padding: 0,
-  background: 'rgba(8, 6, 20, 0.48)',
+  background: 'rgba(0, 0, 128, 0.45)',
   cursor: 'pointer',
 } as const
 
@@ -369,19 +373,19 @@ const themeDrawerStyle = {
   zIndex: 89,
   display: 'flex',
   flexDirection: 'column',
-  background: 'linear-gradient(180deg, #1a1233, #120d22)',
-  color: '#fff',
-  boxShadow: '16px 0 40px rgba(0, 0, 0, 0.35)',
+  background: '#fff',
+  color: '#1f2937',
+  boxShadow: '16px 0 40px rgba(0, 0, 20, 0.18)',
   fontFamily: 'Poppins, Inter, sans-serif',
 } as const
 
 const themeCloseStyle = {
   width: 36,
   height: 36,
-  borderRadius: 999,
-  border: '1px solid rgba(255,255,255,0.16)',
-  background: 'rgba(255,255,255,0.06)',
-  color: '#fff',
+  borderRadius: 10,
+  border: '1px solid #e5e7eb',
+  background: '#fff',
+  color: '#1f2937',
   cursor: 'pointer',
 } as const
 
@@ -477,6 +481,7 @@ export function ProfileEditorPage() {
       },
       logoUrl: field(companyRaw, 'logoUrl'),
       heroUrl: field(companyRaw, 'heroImageUrl'),
+      appointmentBookingEnabled: boolField(companyRaw, 'appointmentBookingEnabled'),
     }
     dataRef.current = next
     setData(next)
@@ -1036,6 +1041,30 @@ function EditorDialogs({
         error={formError}
         onClose={onClose}
         onSubmit={(urls) => void run(() => websiteApi.putVideos(cardId, email, urls).then(() => undefined))}
+      />
+    )
+  }
+
+  if (request.kind === 'about') {
+    return (
+      <AboutDialog
+        about={data.company.aboutUs}
+        busy={busy}
+        error={formError}
+        onClose={onClose}
+        onSubmit={(aboutUs) => void run(() => websiteApi.putCompany(cardId, email, { ...data.company, aboutUs }).then(() => undefined))}
+      />
+    )
+  }
+
+  if (request.kind === 'appointment') {
+    return (
+      <AppointmentDialog
+        enabled={data.appointmentBookingEnabled}
+        busy={busy}
+        error={formError}
+        onClose={onClose}
+        onSubmit={(enabled) => void run(() => websiteApi.putAppointmentBooking(cardId, email, enabled).then(() => undefined))}
       />
     )
   }
@@ -2147,6 +2176,142 @@ function PaymentDialog({
         <EditorActions>
           <button className="mw-editor-primary" type="submit" disabled={busy}>
             {busy ? 'Saving...' : 'Save'}
+          </button>
+        </EditorActions>
+      </form>
+    </EditorDialog>
+  )
+}
+
+function AboutDialog({
+  about,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  about: string
+  busy: boolean
+  error: string | null
+  onClose: () => void
+  onSubmit: (aboutUs: string) => void
+}) {
+  const [value, setValue] = useState(about)
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  return (
+    <EditorDialog title="About" onClose={onClose} busy={busy}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          const problem = aboutError(value)
+          setLocalError(problem)
+          if (problem) return
+          onSubmit(value.trim())
+        }}
+      >
+        {error || localError ? <p style={{ color: '#b42318' }}>{error || localError}</p> : null}
+        <EditorField label="About us">
+          <textarea
+            rows={6}
+            maxLength={500}
+            value={value}
+            placeholder={ABOUT_PLACEHOLDER}
+            onChange={(event) => {
+              setValue(event.target.value)
+              setLocalError(aboutError(event.target.value))
+            }}
+          />
+        </EditorField>
+        <p style={{ margin: '-4px 0 12px', color: '#64748b', fontSize: 12, fontWeight: 500 }}>{value.trim().length}/500</p>
+        <EditorActions>
+          <button className="mw-editor-primary" type="submit" disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </EditorActions>
+      </form>
+    </EditorDialog>
+  )
+}
+
+function AppointmentDialog({
+  enabled,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  enabled: boolean
+  busy: boolean
+  error: string | null
+  onClose: () => void
+  onSubmit: (enabled: boolean) => void
+}) {
+  const [on, setOn] = useState(enabled)
+
+  return (
+    <EditorDialog title="Appointment Booking" onClose={onClose} busy={busy}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSubmit(on)
+        }}
+      >
+        {error ? <p style={{ color: '#b42318', margin: '0 0 12px' }}>{error}</p> : null}
+        <p style={{ margin: '0 0 16px', color: '#64748b', fontSize: 14, fontWeight: 400, lineHeight: 1.55 }}>
+          Show a Book Appointment button on your profile. Visitors can request a time by WhatsApp, phone, or email.
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            padding: '14px 16px',
+            border: `1px solid ${on ? '#d9ccff' : '#e5e7eb'}`,
+            borderRadius: 12,
+            background: on ? '#f6f3ff' : '#f8fafc',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 650, fontSize: 15, color: '#1f2937' }}>Enable appointment booking</div>
+            <div style={{ marginTop: 4, fontSize: 13, fontWeight: 500, color: '#6b7280' }}>
+              {on ? 'Shown on your profile' : 'Hidden from visitors'}
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-label="Enable appointment booking"
+            onClick={() => setOn((current) => !current)}
+            style={{
+              width: 46,
+              height: 26,
+              borderRadius: 999,
+              border: 0,
+              padding: 3,
+              background: on ? '#6C2EFF' : '#d1d5db',
+              cursor: 'pointer',
+              flex: '0 0 auto',
+            }}
+          >
+            <span
+              style={{
+                display: 'block',
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                background: '#fff',
+                transform: on ? 'translateX(20px)' : 'none',
+                transition: 'transform 0.15s ease',
+              }}
+            />
+          </button>
+        </div>
+        <EditorActions>
+          <button className="mw-editor-primary" type="submit" disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
           </button>
         </EditorActions>
       </form>

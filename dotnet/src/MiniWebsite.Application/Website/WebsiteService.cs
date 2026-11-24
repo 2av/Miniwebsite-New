@@ -288,6 +288,17 @@ public partial class WebsiteService : IWebsiteService
         return ApiResult<CompanyDetailsDto>.Ok(MapCompany(card, owner?.Address), "Company details updated.");
     }
 
+    public async Task<ApiResult<CompanyDetailsDto>> UpdateAppointmentBookingAsync(int cardId, string ownerEmail, UpdateAppointmentBookingRequest request, CancellationToken ct = default)
+    {
+        var card = await LoadOwnedCardTrackedAsync(cardId, ownerEmail, ct);
+        if (card == null) return ApiResult<CompanyDetailsDto>.Fail("Card not found or access denied.");
+        card.AppointmentBookingEnabled = request.Enabled;
+        await _db.SaveChangesAsync(ct);
+        return ApiResult<CompanyDetailsDto>.Ok(
+            MapCompany(card),
+            request.Enabled ? "Appointment booking enabled." : "Appointment booking disabled.");
+    }
+
     public async Task<ApiResult<SocialLinksDto>> GetSocialAsync(int cardId, string ownerEmail, CancellationToken ct = default)
     {
         var card = await LoadOwnedCardAsync(cardId, ownerEmail, ct);
@@ -800,7 +811,7 @@ public partial class WebsiteService : IWebsiteService
             WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, c.DLogoLocation),
             WebsiteAssetUrls.Resolve(_storage, _app, WebsiteAssetUrls.CompanyDetailsFolder, c.DHeroImageLocation),
             c.BusinessProfileType ?? "", c.BusinessType ?? "", c.BusinessOperationArea ?? "",
-            c.BusinessOperationLocations);
+            c.BusinessOperationLocations, c.AppointmentBookingEnabled);
     }
 
     private ProductDto MapProduct(CardProduct p, (int CardId, string CardSlug, int UserId) ctx) =>

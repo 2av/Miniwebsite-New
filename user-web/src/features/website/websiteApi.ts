@@ -35,6 +35,9 @@ export const websiteApi = {
   putCompany: (cardId: number, email: string, body: Record<string, unknown>) =>
     apiSend('put', `/api/v1/digi-cards/${cardId}/company-details?ownerEmail=${encodeURIComponent(email)}`, body),
 
+  putAppointmentBooking: (cardId: number, email: string, enabled: boolean) =>
+    apiSend('put', `/api/v1/digi-cards/${cardId}/appointment-booking?ownerEmail=${encodeURIComponent(email)}`, { enabled }),
+
   uploadCompanyImage: (cardId: number, email: string, kind: 'logo' | 'hero', file: File, onProgress?: (percent: number) => void) => {
     const form = new FormData()
     form.append('ownerEmail', email)

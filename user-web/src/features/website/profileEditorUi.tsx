@@ -440,24 +440,116 @@ const HOURS_EDITOR_CSS = `
 
 const EDITOR_CSS = `
 .mw-profile-editor-ui, .mw-profile-editor-ui * { box-sizing: border-box; font-family: Poppins, Inter, sans-serif; }
-.mw-profile-editor-ui input, .mw-profile-editor-ui textarea, .mw-profile-editor-ui select {
+.mw-editor-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(600px, 100%);
+  max-height: min(88vh, 820px);
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 20, 0.22);
+}
+.mw-editor-accent { height: 4px; background: linear-gradient(90deg, #6C2EFF, #FF38BD, #FF8A00); }
+.mw-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+.mw-editor-title { font-size: 18px; font-weight: 650; line-height: 1.3; color: #1f2937; }
+.mw-editor-close {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #1f2937;
+  cursor: pointer;
+  padding: 0;
+}
+.mw-editor-close:hover { background: #f3f0ff; border-color: #d9ccff; color: #6C2EFF; }
+.mw-editor-close:disabled { opacity: 0.5; cursor: default; }
+.mw-editor-body { flex: 1; overflow: auto; padding: 18px 18px 16px; }
+.mw-editor-field { display: block; margin-bottom: 14px; }
+.mw-editor-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #1f2937; }
+.mw-profile-editor-ui input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.mw-profile-editor-ui textarea,
+.mw-profile-editor-ui select {
   width: 100%;
+  height: 44px;
   color: #1f2937 !important;
   background: #fff !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 8px;
-  padding: 8px 10px;
+  border: 1px solid #d1d5db !important;
+  border-radius: 12px;
+  padding: 0 12px;
   font-size: 14px !important;
   font-family: inherit !important;
+  box-shadow: none;
+}
+.mw-profile-editor-ui textarea {
+  height: auto;
+  min-height: 112px;
+  padding: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.mw-profile-editor-ui input[type="file"] {
+  width: 100%;
+  height: auto;
+  padding: 10px 12px;
+  border: 1px dashed #d1d5db !important;
+  border-radius: 12px;
+  background: #f8fafc !important;
+  color: #1f2937 !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+}
+.mw-profile-editor-ui input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.mw-profile-editor-ui textarea:focus,
+.mw-profile-editor-ui select:focus {
+  outline: none;
+  border-color: #6C2EFF !important;
+  box-shadow: 0 0 0 3px rgba(108, 46, 255, 0.16);
+}
+.mw-profile-editor-ui input[type="checkbox"], .mw-profile-editor-ui input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: #6C2EFF;
+  flex: 0 0 auto;
+}
+.mw-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  margin: 16px -18px -16px;
+  padding: 14px 18px;
+  border-top: 1px solid #e5e7eb;
+  background: #f8fafc;
+  z-index: 1;
 }
 .mw-profile-editor-ui button.mw-editor-primary {
-  background: #6C2EFF;
+  background: linear-gradient(90deg, #6C2EFF, #FF38BD 55%, #FF8A00);
   color: #fff;
   border: 0;
-  border-radius: 8px;
-  min-height: 40px;
-  padding: 0 16px;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 20px;
   font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
 }
 .mw-profile-editor-ui button.mw-editor-primary:disabled { opacity: 0.6; cursor: default; }
@@ -465,12 +557,15 @@ const EDITOR_CSS = `
   background: #fff;
   color: #6C2EFF;
   border: 1px solid #6C2EFF;
-  border-radius: 8px;
-  min-height: 40px;
+  border-radius: 12px;
+  min-height: 44px;
   padding: 0 16px;
   font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
 }
+.mw-profile-editor-ui button.mw-editor-ghost:disabled { opacity: 0.6; cursor: default; }
+.mw-profile-editor-ui button[role="switch"] { border: 0; padding: 3px; }
 `
 
 export function EditorDialog({
@@ -485,6 +580,19 @@ export function EditorDialog({
   children: ReactNode
 }) {
   const skipBackdropClose = useRef(false)
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) onClose()
+    }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [busy, onClose])
+
   useEffect(() => {
     const markFilePick = (event: Event) => {
       const target = event.target
@@ -512,7 +620,7 @@ export function EditorDialog({
         position: 'fixed',
         inset: 0,
         zIndex: 80,
-        background: 'rgba(15,23,42,0.55)',
+        background: 'rgba(0, 0, 128, 0.45)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -523,29 +631,17 @@ export function EditorDialog({
         onClose()
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        style={{
-          background: '#fff',
-          color: '#1f2937',
-          width: 'min(520px, 100%)',
-          maxHeight: 'min(90vh, 760px)',
-          overflow: 'auto',
-          borderRadius: 12,
-          padding: 20,
-          boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-          <div style={{ fontWeight: 650, fontSize: 18 }}>{title}</div>
-          <button type="button" className="mw-editor-ghost" aria-label="Close" onClick={onClose} disabled={busy} style={{ minHeight: 32, padding: '0 10px' }}>
-            Close
+      <div className="mw-editor-sheet" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mw-editor-accent" />
+        <div className="mw-editor-head">
+          <div className="mw-editor-title">{title}</div>
+          <button type="button" className="mw-editor-close" aria-label="Close" onClick={onClose} disabled={busy}>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
-        {children}
+        <div className="mw-editor-body">{children}</div>
         <style>{EDITOR_CSS}</style>
       </div>
     </div>,
@@ -555,13 +651,13 @@ export function EditorDialog({
 
 export function EditorField({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: 'block', marginBottom: 12, fontSize: 13, fontWeight: 600 }}>
-      <span style={{ display: 'block', marginBottom: 6 }}>{label}</span>
+    <label className="mw-editor-field">
+      <span className="mw-editor-label">{label}</span>
       {children}
     </label>
   )
 }
 
 export function EditorActions({ children }: { children: ReactNode }) {
-  return <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>{children}</div>
+  return <div className="mw-editor-actions">{children}</div>
 }

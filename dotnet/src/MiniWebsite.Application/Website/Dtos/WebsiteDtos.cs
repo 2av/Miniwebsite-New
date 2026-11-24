@@ -15,7 +15,10 @@ public record CompanyDetailsDto(
     string? Email, string? Website, string? Location, string? CompEstDate, string? AboutUs, string? BusinessHours,
     string? LogoLocation, string? HeroImageLocation,
     string? LogoUrl, string? HeroImageUrl,
-    string BusinessProfileType, string BusinessType, string BusinessOperationArea, string? BusinessOperationLocations);
+    string BusinessProfileType, string BusinessType, string BusinessOperationArea, string? BusinessOperationLocations,
+    bool AppointmentBookingEnabled = false);
+
+public record UpdateAppointmentBookingRequest(bool Enabled);
 
 /// <summary>
 /// Image fields are filenames returned by the (future) PHP upload endpoint — not binary.

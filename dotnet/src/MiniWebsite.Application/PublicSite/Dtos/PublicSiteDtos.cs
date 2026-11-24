@@ -61,7 +61,8 @@ public record PublicCardPayloadDto(
     IReadOnlyList<PublicProductDto> Products,
     IReadOnlyList<string> GalleryUrls,
     IReadOnlyList<string> VideoUrls,
-    IReadOnlyList<PublicPaymentQrDto> PaymentQrs);
+    IReadOnlyList<PublicPaymentQrDto> PaymentQrs,
+    bool AppointmentBookingEnabled = false);
 
 public record PublicBusinessHourDto(string Days, string Hours);
 public record PublicSocialLinkDto(string Icon, string Url);

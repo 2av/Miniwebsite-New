@@ -69,7 +69,7 @@ export type OwnedGallery = {
 }
 
 export type DialogRequest =
-  | { kind: 'logo' | 'hero' | 'images' | 'address' | 'company' | 'service-add' | 'product-add' | 'offer-add' | 'gallery-add' | 'videos' | 'social' | 'payment' }
+  | { kind: 'logo' | 'hero' | 'images' | 'address' | 'company' | 'about' | 'service-add' | 'product-add' | 'offer-add' | 'gallery-add' | 'videos' | 'social' | 'payment' | 'appointment' }
   | { kind: 'service-image' | 'product-image' | 'offer-image'; index: number }
 
 export type ProfileEditApi = {

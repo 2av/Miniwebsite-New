@@ -5,9 +5,7 @@ import { assetUrl, publicUrl } from '@/lib/utils'
 import { useProfileEdit } from '@/features/website/profileEditContext'
 import { EditSaveBar, HoursField, InlineText, MiniIcon } from '@/features/website/profileEditorUi'
 import {
-  ABOUT_PLACEHOLDER,
   SAMPLE_WEBSITE,
-  aboutError,
   emailError,
   formatMobile,
   gstError,
@@ -90,6 +88,8 @@ type PublicCard = {
   VideoUrls?: string[]
   paymentQrs?: PaymentQr[]
   PaymentQrs?: PaymentQr[]
+  appointmentBookingEnabled?: boolean
+  AppointmentBookingEnabled?: boolean
 }
 
 type BusinessHour = { days?: string; Days?: string; hours?: string; Hours?: string }
@@ -206,6 +206,22 @@ function parseVideo(url: string, fallback: string) {
     embedUrl: '',
     watchUrl: watch,
   }
+}
+
+function appointmentLink(phone: string, whatsapp: string, email: string) {
+  const message = 'Hi, I would like to book an appointment.'
+  const wa = whatsapp.replace(/\D/g, '')
+  if (wa) return { href: `https://wa.me/${wa}?text=${encodeURIComponent(message)}`, external: true }
+  const tel = phone.replace(/[^\d+]/g, '')
+  if (tel) return { href: `tel:${tel}`, external: false }
+  const mail = email.trim()
+  if (mail) {
+    return {
+      href: `mailto:${mail}?subject=${encodeURIComponent('Appointment request')}&body=${encodeURIComponent(message)}`,
+      external: false,
+    }
+  }
+  return null
 }
 
 function absHttp(url: string) {
@@ -656,6 +672,7 @@ export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; f
   const paymentQrs = pick(card?.paymentQrs, card?.PaymentQrs) || []
   const social = pick(card?.socialLinks, card?.SocialLinks) || []
   const hours = pick(card?.businessHours, card?.BusinessHours) || []
+  const appointmentEnabled = Boolean(pick(card?.appointmentBookingEnabled, card?.AppointmentBookingEnabled))
 
   const onShareWa = useCallback(() => {
     const digits = waShare.replace(/\D/g, '')
@@ -768,6 +785,7 @@ export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; f
   const phone = pick(card.phone, card.Phone) || ''
   const whatsapp = pick(card.whatsapp, card.Whatsapp) || ''
   const email = pick(card.email, card.Email) || ''
+  const booking = appointmentLink(phone, whatsapp, email)
   const location = pick(card.location, card.Location) || ''
   const direction = pick(card.googleDirection, card.GoogleDirection) || ''
   const website = pick(card.website, card.Website) || ''
@@ -793,13 +811,19 @@ export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; f
                 id: 'mw-about',
                 label: 'About',
                 present: Boolean(about.trim()),
-                onMissing: () => setOpenSection('about'),
+                onMissing: () => edit.openDialog({ kind: 'about' }),
               },
               {
                 id: 'mw-contact',
                 label: 'Contact',
                 present: Boolean(email || phone || location || direction),
                 onMissing: () => setOpenSection('contact'),
+              },
+              {
+                id: 'mw-appointment',
+                label: 'Appointment',
+                present: Boolean(pick(card?.appointmentBookingEnabled, card?.AppointmentBookingEnabled)),
+                onMissing: () => edit.openDialog({ kind: 'appointment' }),
               },
               {
                 id: 'mw-social',
@@ -923,32 +947,14 @@ export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; f
           </section>
         )}
 
-        {(about || openSection === 'about') ? (
+        {about ? (
           <section id="mw-about" className="mw-business-intro mw-section-padding text-center" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
-            <EditSaveBar
-              enabled={Boolean(edit)}
-              editing={openSection === 'about'}
-              editLabel="Edit about"
-              onEdit={() => setOpenSection((current) => (current === 'about' ? null : 'about'))}
-            >
-              {edit && openSection === 'about' ? (
-                <div className="max-w-3xl mx-auto text-sm md:text-base leading-relaxed">
-                  <InlineText
-                    draftId="about"
-                    block
-                    multiline
-                    className="text-sm md:text-base leading-relaxed"
-                    value={edit.company.aboutUs}
-                    placeholder={ABOUT_PLACEHOLDER}
-                    maxLength={500}
-                    validate={aboutError}
-                    onSave={(value) => edit.patchCompany({ aboutUs: value })}
-                  />
-                </div>
-              ) : (
-                <p className="text-sm md:text-base leading-relaxed max-w-3xl mx-auto whitespace-pre-line">{about}</p>
-              )}
-            </EditSaveBar>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 12, right: 12, zIndex: 5 }}>
+                <MiniIcon label="Edit about" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'about' })} />
+              </span>
+            ) : null}
+            <p className="text-sm md:text-base leading-relaxed max-w-3xl mx-auto whitespace-pre-line">{about}</p>
           </section>
         ) : null}
 
@@ -1071,6 +1077,35 @@ export function PublicCardPage({ demo = false, forcedSlug }: { demo?: boolean; f
             </EditSaveBar>
           </section>
         )}
+
+        {appointmentEnabled ? (
+          <section id="mw-appointment" className="mw-appointment mw-section-padding" style={edit ? { position: 'relative', scrollMarginTop: BANNER_OFFSET } : undefined}>
+            {edit ? (
+              <span style={{ position: 'absolute', top: 12, right: 12, zIndex: 5 }}>
+                <MiniIcon label="Edit appointment booking" icon="fa-pen" onClick={() => edit.openDialog({ kind: 'appointment' })} />
+              </span>
+            ) : null}
+            <h2 className="mw-section-title">Appointment Booking</h2>
+            <div className="max-w-md mx-auto text-center">
+              <p className="text-sm md:text-base mb-4">Choose a time that works for you. We will confirm your appointment.</p>
+              {booking ? (
+                <a
+                  href={booking.href}
+                  {...(booking.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  className="inline-flex items-center justify-center gap-2 bg-cardbg border border-primary text-primary py-3 px-6 rounded-theme hover:bg-primary hover:text-bgbase transition-colors font-medium"
+                >
+                  <i className="fas fa-calendar-check" /> Book Appointment
+                </a>
+              ) : (
+                <p className="text-sm">
+                  {edit
+                    ? 'Add a phone, WhatsApp number, or email so visitors can request an appointment.'
+                    : 'Contact us to book an appointment.'}
+                </p>
+              )}
+            </div>
+          </section>
+        ) : null}
 
         <section className="mw-qr-share mw-section-padding bg-cardbg/50">
           <h2 className="mw-section-title">Share Profile</h2>

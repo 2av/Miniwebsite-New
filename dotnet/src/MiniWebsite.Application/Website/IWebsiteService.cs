@@ -16,6 +16,7 @@ public interface IWebsiteService
 
     Task<ApiResult<CompanyDetailsDto>> GetCompanyDetailsAsync(int cardId, string ownerEmail, CancellationToken ct = default);
     Task<ApiResult<CompanyDetailsDto>> UpdateCompanyDetailsAsync(int cardId, string ownerEmail, UpdateCompanyDetailsRequest request, CancellationToken ct = default);
+    Task<ApiResult<CompanyDetailsDto>> UpdateAppointmentBookingAsync(int cardId, string ownerEmail, UpdateAppointmentBookingRequest request, CancellationToken ct = default);
     Task<ApiResult<CompanyDetailsDto>> UploadCompanyImageAsync(
         int cardId, string ownerEmail, string kind, Stream file, string fileName, string contentType, long length, CancellationToken ct = default);
     Task<ApiResult<CompanyDetailsDto>> DeleteCompanyImageAsync(int cardId, string ownerEmail, string kind, CancellationToken ct = default);

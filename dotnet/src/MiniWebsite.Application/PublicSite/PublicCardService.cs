@@ -246,7 +246,8 @@ public class PublicCardService : IPublicCardService
             productDtos,
             galleryUrls,
             videoUrls,
-            paymentQrs);
+            paymentQrs,
+            card.AppointmentBookingEnabled);
     }
 
     private Task<IReadOnlyList<PublicPaymentQrDto>> LoadPaymentQrsAsync(Card card, CancellationToken ct)

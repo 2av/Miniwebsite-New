@@ -58,6 +58,8 @@ public class Card
     public string BusinessOperationArea { get; set; } = "";
     public string? BusinessOperationLocations { get; set; }
     public string BusinessProfileType { get; set; } = "";
+    /// <summary>When true, the public profile shows appointment booking.</summary>
+    public bool AppointmentBookingEnabled { get; set; }
 
     public ICollection<CardVideo> Videos { get; set; } = new List<CardVideo>();
     public ICollection<CardProduct> Products { get; set; } = new List<CardProduct>();
