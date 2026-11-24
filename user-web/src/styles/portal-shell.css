@@ -553,6 +553,15 @@ select.form-control.mw-input {
   width: 100%;
   margin-top: 1rem;
 }
+.mw-url-status {
+  margin: 0.4rem 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.mw-url-status.is-checking { color: #64748b; }
+.mw-url-status.is-available { color: #067647; }
+.mw-url-status.is-taken { color: #b42318; }
 .req {
   color: #dc2626;
   margin-left: 0.15rem;

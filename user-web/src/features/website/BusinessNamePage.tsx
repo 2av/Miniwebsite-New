@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/shared/api/client'
 import { clearCardInProcess, savePendingProfile, stepPath } from '@/features/website/cardContext'
@@ -7,6 +7,12 @@ import type { WebsiteOutletContext } from '@/features/website/WebsiteBuilderLayo
 import { siteUrl } from '@/lib/utils'
 import { PortalPageHeader } from '@/components/layout/PortalPageHeader'
 import { MwAlert, MwField, MwInput, MwStepActions } from '@/components/form/MwControls'
+
+function urlFromName(name: string) {
+  return name.trim().replace(/[^A-Za-z0-9\s-]/g, '').replace(/ /g, '-')
+}
+
+type UrlCheck = { state: 'idle' | 'checking' | 'available' | 'taken'; message: string; slug: string }
 
 function publicUrlForSlug(slug: string) {
   const clean = slug.replace(/^\//, '')
@@ -30,10 +36,11 @@ export function BusinessNamePage() {
   const [displayName, setDisplayName] = useState('')
   const [slug, setSlug] = useState('')
   const [previousSlug, setPreviousSlug] = useState('')
-  const [nameChangeCount, setNameChangeCount] = useState(0)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [urlCheck, setUrlCheck] = useState<UrlCheck>({ state: 'idle', message: '', slug: '' })
+  const urlEdited = useRef(false)
   const activeId = isNew ? null : cardId
 
   useEffect(() => {
@@ -50,19 +57,66 @@ export function BusinessNamePage() {
         setDisplayName(dn || cn)
         setSlug(String(pickVal(raw, 'slug', 'Slug') ?? ''))
         setPreviousSlug(String(pickVal(raw, 'previousSlug', 'PreviousSlug') ?? ''))
-        setNameChangeCount(Number(pickVal(raw, 'nameChangeCount', 'NameChangeCount') ?? 0))
+        urlEdited.current = true
       } catch (e) {
         setErr(e instanceof Error ? e.message : 'Failed to load')
       }
     })()
   }, [activeId, email, isNew])
 
-  const remaining = Math.max(0, 2 - nameChangeCount)
-  const businessUrl = useMemo(() => {
-    const s = slug || compName.trim().toLowerCase().replace(/[^a-z0-9\-]+/g, '-')
-    return s ? publicUrlForSlug(s) : ''
-  }, [slug, compName])
+  const previewSlug = urlCheck.slug || urlFromName(compName) || slug
+  const businessUrl = useMemo(() => (previewSlug ? publicUrlForSlug(previewSlug) : ''), [previewSlug])
   const previousUrl = previousSlug ? publicUrlForSlug(previousSlug) : ''
+
+  useEffect(() => {
+    const name = compName.trim()
+    if (!name) {
+      setUrlCheck({ state: 'idle', message: '', slug: '' })
+      return
+    }
+    let cancelled = false
+    setUrlCheck({ state: 'checking', message: 'Checking availability…', slug: '' })
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const check = await websiteApi.checkName(name, activeId, email)
+          if (cancelled) return
+          const raw = check as unknown as Record<string, unknown>
+          const available = Boolean(pickVal(raw, 'available', 'Available'))
+          const message = String(pickVal(raw, 'message', 'Message') ?? '')
+          const nextSlug = String(pickVal(raw, 'slug', 'Slug') ?? '')
+          setUrlCheck({
+            state: available ? 'available' : 'taken',
+            message: available ? 'This business URL is available.' : message || 'This business URL is not available.',
+            slug: nextSlug,
+          })
+        } catch (e) {
+          if (!cancelled) {
+            setUrlCheck({
+              state: 'taken',
+              message: e instanceof Error ? e.message : 'Could not check this URL.',
+              slug: '',
+            })
+          }
+        }
+      })()
+    }, 400)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [compName, activeId, email])
+
+  function onBusinessName(value: string) {
+    setDisplayName(value)
+    if (!urlEdited.current) setCompName(urlFromName(value))
+  }
+
+  function onBusinessUrl(value: string) {
+    const next = value.replace(/[^A-Za-z0-9\s-]/g, '')
+    setCompName(next)
+    urlEdited.current = next !== urlFromName(displayName)
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
@@ -70,6 +124,10 @@ export function BusinessNamePage() {
     setErr(null)
     setMsg(null)
     try {
+      if (compName.trim() && urlCheck.state === 'taken') {
+        setErr(urlCheck.message || 'This business URL is not available.')
+        return
+      }
       if (activeId) {
         const res = await websiteApi.putBusiness(activeId, {
           compName,
@@ -85,10 +143,16 @@ export function BusinessNamePage() {
           setErr('Enter the business name and business URL.')
           return
         }
+        if (urlCheck.state === 'taken') {
+          setErr(urlCheck.message || 'This business URL is not available.')
+          return
+        }
         const check = await websiteApi.checkName(urlName, null, email)
         const available = Boolean(pickVal(check as unknown as Record<string, unknown>, 'available', 'Available'))
         if (!available) {
-          setErr(String(pickVal(check as unknown as Record<string, unknown>, 'message', 'Message') || 'This business URL is not available.'))
+          const message = String(pickVal(check as unknown as Record<string, unknown>, 'message', 'Message') || 'This business URL is not available.')
+          setUrlCheck({ state: 'taken', message, slug: String(pickVal(check as unknown as Record<string, unknown>, 'slug', 'Slug') ?? '') })
+          setErr(message)
           return
         }
         savePendingProfile({ compName: urlName, displayName: name })
@@ -126,7 +190,7 @@ export function BusinessNamePage() {
                   className="d_display_name mw-input-lg"
                   maxLength={199}
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => onBusinessName(e.target.value)}
                   placeholder="Enter Business Name"
                   required
                 />
@@ -139,16 +203,17 @@ export function BusinessNamePage() {
                   className="d_comp_name mw-input-lg"
                   maxLength={199}
                   value={compName}
-                  onChange={(e) => setCompName(e.target.value)}
-                  placeholder="Enter Your Business URL"
+                  onChange={(e) => onBusinessUrl(e.target.value)}
+                  placeholder="Business URL"
                   pattern="[A-Za-z0-9\s\-]+"
                   title="Only letters, numbers, spaces and hyphen (-) are allowed."
                   required
                 />
+                {urlCheck.state !== 'idle' ? <p className={`mw-url-status is-${urlCheck.state}`}>{urlCheck.message}</p> : null}
               </MwField>
             </div>
 
-            {activeId ? (
+            {businessUrl || activeId ? (
               <div className="mw-business-name-url-extra">
                 <div className="mw-meta">
                   {businessUrl ? (
@@ -174,17 +239,6 @@ export function BusinessNamePage() {
                       </a>
                     </p>
                   ) : null}
-                  <p className={`mw-meta-line ${remaining > 0 ? 'is-warning' : 'is-danger'}`}>
-                    <i className={`fa ${remaining > 0 ? 'fa-info-circle' : 'fa-lock'}`} aria-hidden />
-                    {remaining > 0 ? (
-                      <span>
-                        You can change your business URL <strong>{remaining}</strong> more time
-                        {remaining > 1 ? 's' : ''}.
-                      </span>
-                    ) : (
-                      <span>You have reached the maximum of 2 business name changes.</span>
-                    )}
-                  </p>
                 </div>
               </div>
             ) : null}
@@ -195,6 +249,7 @@ export function BusinessNamePage() {
               saveLabel={activeId ? 'Save' : 'Payment'}
               busyLabel={activeId ? 'Saving...' : 'Please wait...'}
               busy={busy}
+              disabled={urlCheck.state === 'taken' || urlCheck.state === 'checking'}
             />
           </form>
         </div>
